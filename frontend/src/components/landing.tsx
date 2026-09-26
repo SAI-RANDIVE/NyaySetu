@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Gavel, Menu, X } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
+import { LogoMark } from "./Logo";
 
 const HERO_VIDEO =
   import.meta.env.VITE_HERO_VIDEO ??
@@ -50,12 +51,12 @@ export function HeroBackdrop() {
       {/* Left-to-right wash, so the headline sits on near-solid colour. */}
       <div
         className="absolute inset-0"
-        style={{ background: "linear-gradient(90deg, #070b0a 0%, rgba(7,11,10,0.72) 42%, transparent 100%)" }}
+        style={{ background: "linear-gradient(90deg, #05120c 0%, rgba(5,18,12,0.72) 42%, transparent 100%)" }}
       />
       {/* Bottom-up wash, so the stats row stays readable over any frame. */}
       <div
         className="absolute inset-0"
-        style={{ background: "linear-gradient(0deg, #070b0a 0%, rgba(7,11,10,0.55) 26%, transparent 62%)" }}
+        style={{ background: "linear-gradient(0deg, #05120c 0%, rgba(5,18,12,0.55) 26%, transparent 62%)" }}
       />
 
       {/* Three hairlines at the quarter marks. Desktop only: at phone width they
@@ -80,13 +81,20 @@ export function HeroBackdrop() {
           <filter id="heroGlow" x="-30%" y="-60%" width="160%" height="240%">
             <feGaussianBlur stdDeviation="25" />
           </filter>
-          <radialGradient id="heroGlowFill" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#5ed29c" stopOpacity="0.5" />
-            <stop offset="55%" stopColor="#2f8f74" stopOpacity="0.26" />
-            <stop offset="100%" stopColor="#0c2b23" stopOpacity="0" />
+          <radialGradient id="heroGlowFill" cx="42%" cy="50%" r="55%">
+            <stop offset="0%" stopColor="#00b357" stopOpacity="0.46" />
+            <stop offset="48%" stopColor="#009245" stopOpacity="0.26" />
+            <stop offset="100%" stopColor="#04180e" stopOpacity="0" />
+          </radialGradient>
+          {/* A second, warmer pool to the right, so the two brand colours are
+              both present in the light behind the card rather than only green. */}
+          <radialGradient id="heroGlowWarm" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ff751f" stopOpacity="0.30" />
+            <stop offset="100%" stopColor="#ff751f" stopOpacity="0" />
           </radialGradient>
         </defs>
-        <ellipse cx="600" cy="250" rx="470" ry="126" fill="url(#heroGlowFill)" filter="url(#heroGlow)" />
+        <ellipse cx="560" cy="250" rx="470" ry="126" fill="url(#heroGlowFill)" filter="url(#heroGlow)" />
+        <ellipse cx="830" cy="262" rx="260" ry="104" fill="url(#heroGlowWarm)" filter="url(#heroGlow)" />
       </svg>
     </div>
   );
@@ -131,9 +139,9 @@ export function LandingHeader() {
         <Link
           to="/"
           aria-label="NyaySetu home"
-          className="grid h-[clamp(40px,4.4vw,46px)] w-[clamp(40px,4.4vw,46px)] shrink-0 place-items-center rounded-full bg-white shadow-nav transition-transform duration-200 hover:scale-[1.04]"
+          className="shrink-0 transition-transform duration-300 ease-smooth hover:scale-[1.06] hover:rotate-[-4deg]"
         >
-          <Gavel size={19} className="text-[#070b0a]" />
+          <LogoMark size={46} shape="circle" className="h-[clamp(40px,4.4vw,46px)] w-[clamp(40px,4.4vw,46px)] shadow-nav" />
         </Link>
 
         {/* White nav pill, desktop only */}
@@ -177,7 +185,7 @@ export function LandingHeader() {
             className="grid h-12 w-12 place-items-center rounded-full text-white shadow-nav md:hidden"
             style={{ background: open ? "#ffffff" : "var(--pill-dark)" }}
           >
-            {open ? <X size={18} className="text-[#070b0a]" /> : <Menu size={18} />}
+            {open ? <X size={18} className="text-[#12241a]" /> : <Menu size={18} />}
           </button>
         </div>
       </div>
@@ -219,7 +227,7 @@ export function LandingHeader() {
               to="/login"
               onClick={() => setOpen(false)}
               className="mt-3 block rounded-full px-5 py-3.5 text-center font-ui text-sm font-semibold"
-              style={{ background: "#070b0a", color: "#ffffff" }}
+              style={{ background: "var(--grad-brand)", color: "#ffffff" }}
             >
               Sign in
             </Link>
@@ -267,9 +275,9 @@ export function LiquidGlassCard() {
  */
 export function TrustRow() {
   const items = [
-    { initials: "SS", title: "SaakshyaSetu — Evidence" },
-    { initials: "SM", title: "SammansSetu — Summons" },
-    { initials: "JS", title: "JaminSetu — Bail" },
+    { initials: "SS", title: "SaakshyaSetu — Evidence", colour: "#009245" },
+    { initials: "SM", title: "SammansSetu — Summons", colour: "#ff751f" },
+    { initials: "JS", title: "JaminSetu — Bail", colour: "#009245" },
   ];
 
   return (
@@ -281,7 +289,7 @@ export function TrustRow() {
         <span
           key={item.initials}
           title={item.title}
-          className="grid shrink-0 place-items-center rounded-full transition-transform duration-[350ms]"
+          className="grid shrink-0 place-items-center rounded-full transition-transform duration-[350ms] hover:-translate-y-1"
           style={{
             width: "var(--trust-size)",
             height: "var(--trust-size)",
@@ -294,8 +302,8 @@ export function TrustRow() {
         >
           <span className="grid h-full w-full place-items-center rounded-full bg-white">
             <span
-              className="font-ui font-bold text-[#111]"
-              style={{ fontSize: "calc(var(--trust-size) * 0.3)" }}
+              className="font-ui font-bold"
+              style={{ fontSize: "calc(var(--trust-size) * 0.3)", color: item.colour }}
             >
               {item.initials}
             </span>
@@ -396,13 +404,16 @@ function MetricCell({ metric, index }: { metric: Metric; index: number }) {
 
   return (
     <div
-      className="anim flex flex-col items-center text-center"
+      className="anim group/metric flex flex-col items-center text-center"
       style={{ ["--d" as any]: `${0.5 + index * 0.08}s` }}
     >
       <span
         aria-hidden="true"
-        className="font-dot leading-none text-white"
-        style={{ fontSize: "clamp(20px,3vw,31px)" }}
+        className="font-dot leading-none transition-transform duration-300 group-hover/metric:scale-110"
+        style={{
+          fontSize: "clamp(20px,3vw,31px)",
+          color: index % 2 === 0 ? "#10b45f" : "#ff751f",
+        }}
       >
         {metric.glyph}
       </span>
@@ -416,7 +427,7 @@ function MetricCell({ metric, index }: { metric: Metric; index: number }) {
       </span>
       <span
         className="mt-1 font-ui"
-        style={{ color: "#8e8e8e", fontSize: "clamp(11px,1.2vw,12.5px)" }}
+        style={{ color: "#93a69b", fontSize: "clamp(11px,1.2vw,12.5px)" }}
       >
         {metric.label}
       </span>
@@ -441,14 +452,14 @@ export function HeroCta() {
     <div className="anim-pulse flex flex-wrap items-center gap-3" style={{ ["--d" as any]: "0.4s" }}>
       <Link
         to="/login"
-        className="inline-flex items-center gap-2 rounded-full px-[clamp(22px,3vw,28px)] py-[clamp(11px,1.6vh,13px)]
-          font-ui text-[clamp(13px,1.5vw,14.5px)] font-bold uppercase tracking-wide transition-transform duration-200
-          hover:-translate-y-0.5 hover:scale-[1.02]"
+        className="btn-sheen inline-flex items-center gap-2 rounded-full px-[clamp(22px,3vw,28px)] py-[clamp(11px,1.6vh,13px)]
+          font-ui text-[clamp(13px,1.5vw,14.5px)] font-bold uppercase tracking-wide transition-all duration-300 ease-smooth
+          hover:-translate-y-0.5 hover:scale-[1.03]"
         style={{
-          background: "#5ed29c",
-          color: "#070b0a",
+          background: "linear-gradient(135deg, #009245 0%, #0aa851 55%, #ff751f 160%)",
+          color: "#ffffff",
           boxShadow:
-            "0 0 0 1px rgba(255,255,255,0.15), 0 0 22px rgba(94,210,156,0.4), 0 0 44px rgba(94,210,156,0.16)",
+            "0 0 0 1px rgba(255,255,255,0.18), 0 0 24px rgba(0,146,69,0.45), 0 0 52px rgba(255,117,31,0.18)",
         }}
       >
         Enter a portal

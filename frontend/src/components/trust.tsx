@@ -38,6 +38,11 @@ import { CopyButton } from "./ui";
 
 type ChipTone = "success" | "danger" | "warning" | "info" | "neutral";
 
+/**
+ * Green means verified, orange means attention. Both come straight from the
+ * logo, which is why the trust visualisation and the brand say the same thing
+ * without anyone having to be told the mapping.
+ */
 const CHIP_TONE: Record<ChipTone, string> = {
   success: "border-success-soft bg-success-soft text-success",
   danger: "border-danger-soft bg-danger-soft text-danger",
@@ -371,7 +376,10 @@ export function ComplianceGauge({
             strokeWidth={stroke}
             strokeLinecap="round"
             strokeDasharray={`${filled} ${circumference * 2}`}
-            style={{ transition: "stroke-dasharray 0.7s cubic-bezier(0.22, 1, 0.36, 1)" }}
+            style={{
+              transition:
+                "stroke-dasharray 0.9s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.4s ease",
+            }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">

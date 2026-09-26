@@ -7,13 +7,22 @@ import { Loader2, X } from "lucide-react";
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "lg";
 
+/**
+ * `primary` fills with --primary-fill, not --primary.
+ *
+ * The brand green is #009245, and white on it is 4.04:1, just under AA. The
+ * fill token is a deepened green that clears it at 5.06:1, while --primary
+ * stays the lifted green that is readable as text on a dark surface. Same
+ * brand, two jobs, both measured.
+ */
 const VARIANT: Record<Variant, string> = {
   primary:
-    "bg-primary text-on-primary hover:bg-primary-strong shadow-glow hover:shadow-glow-strong",
-  secondary: "bg-surface-2 text-text border border-border hover:border-border-strong hover:bg-surface",
-  outline: "border border-primary text-primary hover:bg-primary-soft",
+    "btn-sheen bg-primary-fill text-on-primary hover:-translate-y-0.5 shadow-glow hover:shadow-glow-strong",
+  secondary:
+    "bg-surface-2 text-text border border-border hover:border-primary-ring hover:bg-surface hover:-translate-y-0.5",
+  outline: "border border-primary text-primary hover:bg-primary-soft hover:-translate-y-0.5",
   ghost: "text-muted hover:bg-surface-2 hover:text-text",
-  danger: "bg-danger text-white hover:brightness-110",
+  danger: "bg-danger text-white hover:brightness-110 hover:-translate-y-0.5",
 };
 
 const SIZE: Record<Size, string> = {

@@ -1,29 +1,36 @@
 import { StyleSheet } from "react-native";
 
 /**
- * The same two anchors as the web build: a near-black with a green cast, and one
- * mint accent. The app is dark only, because it is used outdoors at a scene and
- * a light theme on a phone screen in daylight is no easier to read.
+ * The palette from the logo, which uses exactly two colours: #009245 green and
+ * #ff751f orange. Dark only, because the app is used outdoors at a scene and a
+ * light theme on a phone screen in daylight is no easier to read.
+ *
+ * Two greens, as on the web: `primary` is a lifted green that reads as text on
+ * the dark canvas, `primaryFill` is deepened so white text on a button clears
+ * AA. The raw brand value is kept for chrome that must not drift.
  */
 export const colours = {
-  bg: "#070b0a",
-  surface: "#0d1412",
-  surface2: "#131c19",
+  bg: "#05120c",
+  surface: "#0a1d13",
+  surface2: "#0e2418",
   border: "rgba(255,255,255,0.10)",
   borderStrong: "rgba(255,255,255,0.20)",
-  text: "#f2f6f4",
-  muted: "#8e9a96",
-  faint: "#5f6b67",
-  primary: "#5ed29c",
-  primaryStrong: "#34b880",
-  primarySoft: "rgba(94,210,156,0.14)",
-  onPrimary: "#070b0a",
-  success: "#5ed29c",
-  successSoft: "rgba(94,210,156,0.14)",
-  warning: "#f5c26b",
-  warningSoft: "rgba(245,194,107,0.14)",
-  danger: "#ff6b6b",
-  dangerSoft: "rgba(255,107,107,0.14)",
+  text: "#eef5f0",
+  muted: "#93a69b",
+  faint: "#647469",
+  brandGreen: "#009245",
+  brandOrange: "#ff751f",
+  primary: "#10b45f",
+  primaryFill: "#00803c",
+  primaryStrong: "#00c063",
+  primarySoft: "rgba(16,180,95,0.13)",
+  onPrimary: "#ffffff",
+  success: "#10b45f",
+  successSoft: "rgba(16,180,95,0.14)",
+  warning: "#ff751f",
+  warningSoft: "rgba(255,117,31,0.14)",
+  danger: "#f4545f",
+  dangerSoft: "rgba(244,84,95,0.14)",
 };
 
 export const styles = StyleSheet.create({
@@ -72,7 +79,7 @@ export const styles = StyleSheet.create({
   },
 
   button: {
-    backgroundColor: colours.primary,
+    backgroundColor: colours.primaryFill,
     borderRadius: 999,
     paddingVertical: 14,
     alignItems: "center",

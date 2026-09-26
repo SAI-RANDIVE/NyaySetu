@@ -2,133 +2,178 @@
    NyaySetu design tokens
    ==========================================================================
 
-   The palette is derived, not pasted. Two anchors come from the reference
-   designs:
+   The palette comes from the logo, which uses exactly two colours:
 
-     #070b0a   a near-black with a green cast, the dark canvas
-     #5ed29c   mint green, the single accent
+     #009245   green    the upper mass of the N
+     #ff751f   orange   the right column and the peak
 
-   Everything else is built from those: surfaces step up from the canvas,
-   borders are the accent or white at low alpha, and semantic colours are
-   chosen to sit beside the mint without fighting it. Changing the two anchors
-   changes the whole system, which is the point of keeping them here.
+   Those two are the brand, and they are used verbatim wherever brand fidelity
+   matters: the gradient, the logo chrome, large fills. But a brand colour and a
+   readable colour are not always the same value, so the system carries both.
 
-   The light theme is not the dark theme inverted. #5ed29c on white is about
-   1.8:1, which fails WCAG AA for text, so the light theme uses a darker green
-   (#0d7f57, ~4.8:1 on white) for anything that has to be read, and keeps the
-   mint only for large fills where contrast is carried by the surface.
+   WHY THERE ARE TWO GREENS
+   ------------------------
+   #009245 on the dark canvas is 4.73:1, which clears the 3:1 a UI component
+   needs but sits under the 4.5:1 body text needs. And white text on #009245 is
+   4.04:1, also short. So:
+
+     --primary        #10b45f   lifted green, 7.03:1 on dark. Text, icons, links.
+     --primary-fill   #00803c   deepened green, 5.06:1 under white. Filled buttons.
+     --brand-green    #009245   the logo value. Gradients, chrome, large fills.
+
+   Every pair in this file was measured. Nothing here is eyeballed.
+
+   WHY ORANGE IS ALSO THE WARNING COLOUR
+   -------------------------------------
+   Green means verified, orange means attention. That is what the logo already
+   says, and it maps exactly onto the two states this product cares about most:
+   a hash that matched, and a deadline that has not been met. Using a third
+   unrelated colour for "pending" would weaken both. Danger stays a distinct red
+   so a breach never reads as merely pending, and colour never carries meaning
+   alone: every state has an icon and a word as well.
    ========================================================================== */
 
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* canvas and surfaces */
-  --bg: #070b0a;
-  --bg-elevated: #0a100e;
-  --surface: #0d1412;
-  --surface-2: #131c19;
-  --surface-3: #18231f;
+  /* ---------------------------------------------------------------- brand */
+  --brand-green: #009245;
+  --brand-orange: #ff751f;
+
+  /* canvas and surfaces: near-black with the brand's green cast */
+  --bg: #05120c;
+  --bg-elevated: #081810;
+  --surface: #0a1d13;
+  --surface-2: #0e2418;
+  --surface-3: #132c1e;
 
   /* lines */
   --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.18);
+  --border-strong: rgba(255, 255, 255, 0.2);
 
   /* type */
-  --text: #f2f6f4;
-  --text-muted: #8e9a96;
-  --text-faint: #5f6b67;
+  --text: #eef5f0;
+  --text-muted: #93a69b;
+  --text-faint: #647469;
 
-  /* accent */
-  --primary: #5ed29c;
-  --primary-strong: #34b880;
-  --primary-soft: rgba(94, 210, 156, 0.12);
-  --primary-ring: rgba(94, 210, 156, 0.32);
-  --primary-glow: rgba(94, 210, 156, 0.22);
-  --on-primary: #070b0a;
-  --accent: #4fd1c5;
+  /* green: measured 7.03:1 for text, 5.06:1 under white when filled */
+  --primary: #10b45f;
+  --primary-strong: #00c063;
+  --primary-fill: #00803c;
+  --primary-soft: rgba(16, 180, 95, 0.13);
+  --primary-ring: rgba(16, 180, 95, 0.34);
+  --primary-glow: rgba(0, 146, 69, 0.3);
+  --on-primary: #ffffff;
+
+  /* orange: the logo value, 7.12:1 on this canvas */
+  --accent: #ff751f;
+  --accent-strong: #ff8a44;
+  --accent-fill: #ff751f;
+  --on-accent: #0a1d13;
+  --accent-soft: rgba(255, 117, 31, 0.14);
+  --accent-ring: rgba(255, 117, 31, 0.36);
 
   /* semantic */
-  --success: #5ed29c;
-  --success-soft: rgba(94, 210, 156, 0.14);
-  --warning: #f5c26b;
-  --warning-soft: rgba(245, 194, 107, 0.14);
-  --danger: #ff6b6b;
-  --danger-soft: rgba(255, 107, 107, 0.14);
-  --info: #7aa8ff;
-  --info-soft: rgba(122, 168, 255, 0.14);
+  --success: #10b45f;
+  --success-soft: rgba(16, 180, 95, 0.14);
+  --warning: #ff751f;
+  --warning-soft: rgba(255, 117, 31, 0.14);
+  --danger: #f4545f;
+  --danger-soft: rgba(244, 84, 95, 0.14);
+  --info: #5b95ff;
+  --info-soft: rgba(91, 149, 255, 0.14);
 
   /* depth */
   --shadow-soft: rgba(0, 0, 0, 0.5);
   --shadow-deep: rgba(0, 0, 0, 0.45);
 
-  /* landing page chrome, lifted from the reference designs */
+  /* the brand gradient, green into orange, exactly as the logo reads */
+  --grad-brand: linear-gradient(135deg, #009245 0%, #14a352 42%, #ff751f 100%);
+
+  /* landing page chrome */
   --nav-pill: #ffffff;
-  --nav-text: #2e2e2e;
-  --pill-dark: #28282a;
-  --sign-in-text: #c8c8c8;
-  --nav-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
-  --trust-bg: #28282a;
+  --nav-text: #12241a;
+  --pill-dark: #12241a;
+  --sign-in-text: #d6e2da;
+  --nav-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  --trust-bg: #12241a;
   --trust-border: rgba(255, 255, 255, 0.4);
-  --trust-text: #c4c2c3;
+  --trust-text: #c7d4cc;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --bg: #f4f7f5;
+  --brand-green: #009245;
+  --brand-orange: #ff751f;
+
+  --bg: #f4f8f5;
   --bg-elevated: #ffffff;
   --surface: #ffffff;
-  --surface-2: #eef2ef;
-  --surface-3: #e4eae6;
+  --surface-2: #edf3ee;
+  --surface-3: #e2ebe5;
 
-  --border: rgba(7, 20, 16, 0.1);
-  --border-strong: rgba(7, 20, 16, 0.2);
+  --border: rgba(7, 23, 16, 0.1);
+  --border-strong: rgba(7, 23, 16, 0.2);
 
-  --text: #0b1412;
-  --text-muted: #55655f;
-  --text-faint: #7d8b86;
+  --text: #0a1710;
+  --text-muted: #53655b;
+  --text-faint: #78887f;
 
-  /* Darkened so body text and links clear WCAG AA on white. */
-  --primary: #0d7f57;
-  --primary-strong: #0a6344;
-  --primary-soft: rgba(13, 127, 87, 0.1);
-  --primary-ring: rgba(13, 127, 87, 0.28);
-  --primary-glow: rgba(13, 127, 87, 0.16);
+  /* Darkened so text clears AA on white. #009245 on white is only 4.04:1. */
+  --primary: #00713a;
+  --primary-strong: #005b2e;
+  --primary-fill: #00713a;
+  --primary-soft: rgba(0, 113, 58, 0.1);
+  --primary-ring: rgba(0, 113, 58, 0.28);
+  --primary-glow: rgba(0, 113, 58, 0.16);
   --on-primary: #ffffff;
-  --accent: #0f8e85;
 
-  --success: #0d7f57;
-  --success-soft: rgba(13, 127, 87, 0.1);
-  --warning: #9a6508;
-  --warning-soft: rgba(154, 101, 8, 0.1);
-  --danger: #c0392b;
-  --danger-soft: rgba(192, 57, 43, 0.1);
+  /* #ff751f on white is 2.69:1, far too low for text. */
+  --accent: #9a4008;
+  --accent-strong: #7d3406;
+  --accent-fill: #9a4008;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(154, 64, 8, 0.1);
+  --accent-ring: rgba(154, 64, 8, 0.28);
+
+  --success: #00713a;
+  --success-soft: rgba(0, 113, 58, 0.1);
+  --warning: #9a4008;
+  --warning-soft: rgba(154, 64, 8, 0.1);
+  --danger: #bf1e35;
+  --danger-soft: rgba(191, 30, 53, 0.1);
   --info: #2b5fd9;
   --info-soft: rgba(43, 95, 217, 0.1);
 
-  --shadow-soft: rgba(7, 20, 16, 0.06);
-  --shadow-deep: rgba(7, 20, 16, 0.1);
+  --shadow-soft: rgba(7, 23, 16, 0.06);
+  --shadow-deep: rgba(7, 23, 16, 0.1);
+
+  /* The gradient keeps the true brand values: it is a fill, not text. */
+  --grad-brand: linear-gradient(135deg, #009245 0%, #14a352 42%, #ff751f 100%);
 
   --nav-pill: #ffffff;
-  --nav-text: #2e2e2e;
-  --pill-dark: #1d2b26;
-  --sign-in-text: #f0f3f1;
-  --nav-shadow: 0 4px 14px rgba(7, 20, 16, 0.12);
-  --trust-bg: #1d2b26;
+  --nav-text: #12241a;
+  --pill-dark: #12241a;
+  --sign-in-text: #f0f5f2;
+  --nav-shadow: 0 4px 14px rgba(7, 23, 16, 0.14);
+  --trust-bg: #12241a;
   --trust-border: rgba(255, 255, 255, 0.3);
-  --trust-text: #e6ebe8;
+  --trust-text: #e6ede9;
 }
 
-/* The landing page is always dark: it sits over a video, so a light variant
-   would be unreadable. It opts out of the theme rather than fighting it. */
+/* The landing hero sits over a video, so it is always dark. A light palette
+   would be unreadable there whatever the user's preference. */
 [data-surface="cinematic"] {
   color-scheme: dark;
-  --bg: #070b0a;
+  --bg: #05120c;
   --surface: rgba(255, 255, 255, 0.02);
   --border: rgba(255, 255, 255, 0.1);
   --text: #ffffff;
-  --text-muted: #8e8e8e;
-  --primary: #5ed29c;
-  --on-primary: #070b0a;
+  --text-muted: #93a69b;
+  --primary: #10b45f;
+  --primary-fill: #00803c;
+  --accent: #ff751f;
+  --on-primary: #ffffff;
 }

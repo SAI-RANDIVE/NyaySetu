@@ -14,7 +14,7 @@ Work top to bottom. Each row says what you lose by skipping it.
 
 | # | Credential | Required? | Without it |
 |---|---|---|---|
-| 1 | Supabase URL + service role key | **Yes** | Nothing works. No accounts, no cases, no sessions. |
+| 1 | Supabase URL + secret key | **Yes** | Nothing works. No accounts, no cases, no sessions. |
 | 2 | Gmail App Password | For email OTP | Sign-in is password-only. No summons notices. |
 | 3 | Sepolia RPC URL + wallet key | For a public chain | Falls back to a local chain, which works fully but only on your machine. |
 | 4 | Pinata JWT | For real IPFS | Encrypted files go to `backend/storage/` instead. |
@@ -33,28 +33,31 @@ Work top to bottom. Each row says what you lose by skipping it.
 1. Go to **[supabase.com](https://supabase.com)** → sign in with GitHub → **New project**.
 2. Name it `nyaysetu`. Choose the region closest to you (**Mumbai** if offered). Set a database password and save it somewhere, though this project does not use it directly.
 3. Wait about two minutes for provisioning.
-4. Open the **SQL Editor** and run these five files in order, one at a time. Paste each file's contents, press Run, wait for success, then move to the next.
+4. Open the **SQL Editor** and run these six files in order, one at a time. Paste each file's contents, press Run, wait for success, then move to the next.
 
    ```
-   database/migrations/001_schema.sql
-   database/migrations/002_rls.sql
-   database/migrations/003_audit.sql
-   database/migrations/004_otp_channels.sql
-   database/seed/reference.sql
+   database/migrations/001_schema.sql        tables, enums, indexes
+   database/migrations/002_rls.sql           row level security, default deny
+   database/migrations/003_audit.sql         audit triggers
+   database/migrations/004_otp_channels.sql  email OTP channel, email log
+   database/migrations/005_pii_access.sql    PII access functions
+   database/seed/reference.sql               role reference rows
    ```
 
    `002` prints `RLS verified: every table...` at the end. If it prints a warning instead, stop and tell me.
 
-5. **This step is easy to miss and everything fails without it.** Go to **Settings → API → Exposed schemas** and add `restricted` next to `public`. Save.
+   There is **no dashboard step**. An earlier version needed `restricted` added under
+   Settings → API → Exposed schemas; migration `005` removes that requirement by
+   reaching the PII table through four `SECURITY DEFINER` functions instead. The
+   schema now stays unreachable over the API entirely, which is both less setup
+   and a smaller surface.
 
-   Aadhaar tokens live in that schema. PostgREST refuses to touch a schema that is not exposed, and the seed script will stop with a message pointing here if you skip it.
-
-6. Still on **Settings → API**, copy two values:
+5. Still on **Settings → API**, copy two values:
 
    | Label on the page | Goes into |
    |---|---|
    | **Project URL** | `SUPABASE_URL` |
-   | **`service_role`** secret | `SUPABASE_SERVICE_ROLE_KEY` |
+   | **`service_role`** secret, or a **secret key** (`sb_secret_…`) on newer projects | `SUPABASE_SERVICE_ROLE_KEY` |
 
 ### What to send me
 
@@ -63,7 +66,7 @@ SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
 ```
 
-> **Take the `service_role` key, not `anon`.** The anon key is deliberately powerless here; every request would be refused by row level security. The service role key bypasses RLS, which is why it stays on the server and never reaches the browser or the phone.
+> **Take the secret key, not the publishable/anon one.** The anon key is deliberately powerless here; every request would be refused by row level security. The secret key bypasses RLS, which is why it stays on the server and never reaches the browser or the phone.
 
 ---
 
@@ -192,6 +195,28 @@ If you want to see the whole thing working with the least effort:
 3. Skip Sepolia and Pinata for now. The local chain and local storage give you every feature; you just cannot link a stranger to a transaction.
 
 Add Sepolia and Pinata later when you want the public-chain demonstration. Nothing needs rewriting; they are environment variables.
+
+---
+
+## Already wired in
+
+As of the latest commit these are configured in `backend/.env` and verified live:
+
+| | Status |
+|---|---|
+| Supabase | connected, authenticated, all 16 tables present |
+| Gmail SMTP | authenticated as `apurva.sanpurkar25@vit.edu`, sign-in codes and notices will send |
+| Local blockchain | 3 contracts deployed, keeper funded |
+| AI models | all three loaded |
+
+**One step remains, and only you can do it:** run
+`database/migrations/005_pii_access.sql` in the Supabase SQL editor. It creates
+the four functions that reach the Aadhaar table. Until then `npm run seed` stops
+with a message pointing at it.
+
+Still optional: Sepolia (for a public chain) and Pinata (for real IPFS). The
+local chain and local storage give every feature; you just cannot link a
+stranger to a transaction on Etherscan.
 
 ---
 

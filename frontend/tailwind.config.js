@@ -41,6 +41,15 @@ export default {
         "danger-soft": "var(--danger-soft)",
         "info-soft": "var(--info-soft)",
         "primary-ring": "var(--primary-ring)",
+        "primary-fill": "var(--primary-fill)",
+        "accent-soft": "var(--accent-soft)",
+        "accent-ring": "var(--accent-ring)",
+        "accent-fill": "var(--accent-fill)",
+        "accent-strong": "var(--accent-strong)",
+        "on-accent": "var(--on-accent)",
+        // The literal logo values, for chrome that must not drift.
+        brand: "var(--brand-green)",
+        "brand-orange": "var(--brand-orange)",
       },
       fontFamily: {
         // Per the brief: an elegant serif for display, a geometric sans for body.
@@ -70,8 +79,12 @@ export default {
         inset: "inset 0 1px 1px rgba(255, 255, 255, 0.1)",
       },
       backgroundImage: {
-        "grad-primary": "linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)",
+        // Green into orange, the way the logo reads.
+        "grad-primary": "var(--grad-brand)",
+        "grad-brand": "var(--grad-brand)",
         "grad-surface": "linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%)",
+        "grad-sheen":
+          "linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.13) 45%, transparent 70%)",
       },
       keyframes: {
         reveal: {
@@ -105,6 +118,26 @@ export default {
           "100%": { boxShadow: "0 0 0 0 transparent" },
         },
         spinSlow: { to: { transform: "rotate(360deg)" } },
+        // A light sweep across a surface on hover. Used sparingly, on the few
+        // controls that commit something irreversible.
+        sheen: {
+          "0%": { transform: "translateX(-120%)" },
+          "100%": { transform: "translateX(120%)" },
+        },
+        floatY: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
+        // The scroll cue under the hero.
+        nudge: {
+          "0%, 100%": { transform: "translateY(0)", opacity: "0.45" },
+          "50%": { transform: "translateY(5px)", opacity: "1" },
+        },
+        countPop: {
+          "0%": { transform: "scale(0.96)" },
+          "60%": { transform: "scale(1.03)" },
+          "100%": { transform: "scale(1)" },
+        },
       },
       animation: {
         reveal: "reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards",
@@ -116,6 +149,10 @@ export default {
         shimmer: "shimmer 1.6s infinite",
         "pulse-ring": "pulseRing 2s ease-out infinite",
         "spin-slow": "spinSlow 1.1s linear infinite",
+        sheen: "sheen 0.9s cubic-bezier(0.22, 1, 0.36, 1)",
+        "float-y": "floatY 5s ease-in-out infinite",
+        nudge: "nudge 1.8s ease-in-out infinite",
+        "count-pop": "countPop 0.5s cubic-bezier(0.22, 1, 0.36, 1)",
       },
       transitionTimingFunction: {
         smooth: "cubic-bezier(0.22, 1, 0.36, 1)",

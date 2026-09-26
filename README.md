@@ -68,17 +68,31 @@ pip install -r requirements.txt && cd ..
 
 ### 2 · Database
 
-Run these five files, in order, in the Supabase SQL editor:
+Run these six files, in order, in the Supabase SQL editor:
 
 ```
 database/migrations/001_schema.sql        tables, enums, indexes
 database/migrations/002_rls.sql           row level security, default deny
 database/migrations/003_audit.sql         audit triggers
 database/migrations/004_otp_channels.sql  email OTP channel, email log
+database/migrations/005_pii_access.sql    PII access functions
 database/seed/reference.sql               role reference rows
 ```
 
-Then, in **Supabase → Settings → API → Exposed schemas**, add `restricted` alongside `public`. That is the one manual dashboard step; personally identifying data lives in that schema and PostgREST will not reach it otherwise.
+No dashboard configuration is needed. Personally identifying data lives in a
+`restricted` schema that is deliberately **not** exposed over the API; migration
+`005` reaches it through four `SECURITY DEFINER` functions instead. Exposing the
+schema would have made every table in it reachable forever, including ones added
+later; four named functions do not grow.
+
+Confirm everything is wired with:
+
+```bash
+cd backend && npm run check
+```
+
+It reports Supabase, SMTP and the chain separately, and names the fix for
+whatever is wrong rather than leaving you to infer it.
 
 ### 3 · Contracts
 

@@ -79,13 +79,15 @@ Create a project, then run these in the SQL editor, in order:
 | `database/migrations/001_schema.sql` | schemas, enums, tables, indexes, the `hash32` domain |
 | `database/migrations/002_rls.sql` | row level security: default deny, then explicit policies |
 | `database/migrations/003_audit.sql` | audit triggers on every sensitive table |
+| `database/migrations/004_otp_channels.sql` | email OTP channel, email delivery log |
+| `database/migrations/005_pii_access.sql` | `SECURITY DEFINER` functions for PII |
 | `database/seed/reference.sql` | role reference rows, indexer cursors |
 
-### The one manual step
+### No dashboard step
 
-**Settings → API → Exposed schemas**: add `restricted` next to `public`.
+Aadhaar tokens and encrypted contact details live in a `restricted` schema that is deliberately **not** listed under Settings → API → Exposed schemas.
 
-Aadhaar tokens and encrypted contact details live in the `restricted` schema so access to them can be reasoned about in one place. PostgREST will not reach a schema that is not exposed, and the seed script fails with a clear message if you skip this.
+An earlier version did expose it. That had two problems: it was a manual step invisible in the repository, so it got skipped and produced an error that looked like a code bug; and exposing a schema makes every table in it reachable over REST forever, including ones added later. Migration `005` replaces it with four named functions — read one, list which exist, find by token, upsert — each pinning its `search_path` and granted only to `service_role`. The surface stops growing.
 
 ### Verify RLS took
 

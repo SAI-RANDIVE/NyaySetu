@@ -6,12 +6,15 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "nyaysetu",
-    "backgroundColor": "#070b0a",
+    "backgroundColor": "#05120c",
     "splash": {
-      "backgroundColor": "#070b0a",
+      "image": "./assets/splash.png",
+      "backgroundColor": "#05120c",
       "resizeMode": "contain"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "in.nyaysetu.field",
@@ -19,19 +22,42 @@
         "NSCameraUsageDescription": "NyaySetu photographs evidence at the scene. The image is hashed on this device before it is uploaded.",
         "NSPhotoLibraryUsageDescription": "NyaySetu lets you attach an existing photograph as evidence.",
         "NSLocationWhenInUseUsageDescription": "Evidence and bail check-ins are recorded with the coordinates where they happened, which is what the court verifies."
-      }
+      },
+      "icon": "./assets/icon.png"
     },
     "android": {
       "package": "in.nyaysetu.field",
-      "adaptiveIcon": { "backgroundColor": "#070b0a" },
-      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "plugins": [
-      ["expo-image-picker", { "photosPermission": "NyaySetu lets you attach an existing photograph as evidence.", "cameraPermission": "NyaySetu photographs evidence at the scene." }],
-      ["expo-location", { "locationAlwaysAndWhenInUsePermission": "Evidence and bail check-ins are recorded with the coordinates where they happened." }]
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "NyaySetu lets you attach an existing photograph as evidence.",
+          "cameraPermission": "NyaySetu photographs evidence at the scene."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Evidence and bail check-ins are recorded with the coordinates where they happened."
+        }
+      ]
     ],
     "extra": {
       "apiBaseUrl": "http://10.0.2.2:4000"
+    },
+    "icon": "./assets/icon.png",
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }

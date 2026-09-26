@@ -10,13 +10,14 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copyAssets.mjs",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "seed": "tsx src/scripts/seed.ts",
     "demo": "tsx src/scripts/demoFlow.ts",
     "sweep": "tsx src/scripts/sweep.ts",
-    "chain:check": "tsx src/scripts/chainCheck.ts"
+    "chain:check": "tsx src/scripts/chainCheck.ts",
+    "check": "tsx src/scripts/connectionCheck.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

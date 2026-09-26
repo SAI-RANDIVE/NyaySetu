@@ -53,6 +53,23 @@ And the honest converse: **almost everything else belongs in Postgres.** Evidenc
 
 ---
 
+## 2b · The palette is derived from the logo, and measured
+
+The logo uses exactly two colours: `#009245` green and `#ff751f` orange. Both are used verbatim wherever brand fidelity matters. But a brand colour and a readable colour are not always the same value, so the token system carries both:
+
+| Token | Value (dark) | Contrast | Used for |
+|---|---|---|---|
+| `--brand-green` | `#009245` | 4.73:1 | gradients, chrome, large fills |
+| `--primary` | `#10b45f` | 7.03:1 | text, icons, links |
+| `--primary-fill` | `#00803c` | 5.06:1 under white | filled buttons |
+| `--accent` | `#ff751f` | 7.12:1 | emphasis, attention states |
+
+`#009245` on the dark canvas is 4.73:1, which clears the 3:1 a UI component needs but sits under the 4.5:1 body text needs. White on `#009245` is 4.04:1, also short. Hence two greens. Light theme darkens both further, because `#ff751f` on white is only 2.69:1.
+
+**And the mapping is not arbitrary.** Green means verified, orange means attention. That is what the logo already says, and it happens to be exactly the two states this product cares about most: a hash that matched, and a deadline that has not been met. A third unrelated colour for "pending" would have weakened both. Danger stays a distinct red so a breach never reads as merely pending, and colour never carries meaning alone: every state has an icon and a word as well.
+
+---
+
 ## 3 · "Aadhaar is sensitive. What exactly do you store?"
 
 Nothing reversible.
@@ -181,6 +198,7 @@ It is acceptable only because of what the models are used *for*, and the project
 | **No CORS layer on the model service** | Nothing in a browser talks to it; the Node API is the only caller. Sending no `Access-Control-Allow-Origin` header is stronger than sending a restrictive one, because with no header no page on any origin can read a response whatever it manages to send. It also removed `flask-cors`, which was the one Python dependency carrying an open advisory. |
 | **A signed cookie carrying a half-finished sign-in** | The obvious design hands the client a challenge id and takes it back with the code, which makes id-plus-code sufficient to mint a session from anywhere. Binding the pending sign-in to a short-lived HttpOnly HMAC-signed cookie means the code must be redeemed from the browser that supplied the correct password. It grants nothing on its own and is cleared the moment verification resolves. |
 | **Email addresses masked in the email log** | Outbound mail is logged so "I never got the code" is answerable, but a log of every message would otherwise become a directory of who is on bail. Addresses are stored as `a•••••a@gmail.com`; the full one lives in `public.users` and nowhere else. Bodies and codes are never stored at all. |
+| **PII behind functions, not an exposed schema** | Exposing `restricted` to PostgREST would have made every table in it reachable over REST forever, including tables added later, and it was a dashboard step invisible in the repository. Four `SECURITY DEFINER` functions do exactly one thing each, pin their `search_path` so a caller cannot shadow a table name, and are granted only to `service_role`. Less setup and a surface that does not grow. |
 | **Two audit layers** | The trigger records row diffs and fires whatever made the change, including a direct psql session. The API's `action_log` records *intent*, including attempts that were refused and therefore changed no row. A refused tamper attempt is invisible to a row-diff audit, and it is exactly the event a court wants. |
 
 ---

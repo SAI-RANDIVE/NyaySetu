@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#070b0a" />
+    <meta name="theme-color" content="#05120c" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f8f5" media="(prefers-color-scheme: light)" />
     <meta
       name="description"
       content="NyaySetu anchors evidence, summons and bail conditions to a public blockchain, so integrity is something anyone can verify rather than something a party asserts."
@@ -11,8 +12,26 @@
 
     <title>NyaySetu — Bridge of Justice</title>
 
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <!--
+      The logo's white strokes are negative space, so a transparent favicon
+      vanishes on a dark browser tab. Every icon here is pre-composited onto an
+      opaque white plate, which is also why there is no SVG version: the plate
+      has to be baked in.
+    -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <meta property="og:title" content="NyaySetu - Bridge of Justice" />
+    <meta
+      property="og:description"
+      content="Evidence digests, summons acknowledgements and bail conditions anchored to a public blockchain."
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
 
     <!-- Fonts. preconnect first so the handshake overlaps HTML parsing. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

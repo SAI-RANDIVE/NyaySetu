@@ -54,16 +54,11 @@ router.post(
     let recipientAadhaarToken: string | null = null;
 
     if (body.recipientUserId) {
-      const pii = unwrapMaybe(
-        await db
-          .schema("restricted")
-          .from("user_pii")
-          .select("aadhaar_token")
-          .eq("user_id", body.recipientUserId)
-          .maybeSingle()
-      ) as { aadhaar_token: string } | null;
-      if (!pii) throw badRequest("That recipient has no Aadhaar token on file.");
-      recipientAadhaarToken = pii.aadhaar_token;
+      const { getAadhaarToken } = await import("../lib/pii");
+      recipientAadhaarToken = await getAadhaarToken(body.recipientUserId);
+      if (!recipientAadhaarToken) {
+        throw badRequest("That recipient has no Aadhaar token on file.");
+      }
     } else if (body.recipientAadhaarNumber) {
       const { aadhaarToken } = await import("../lib/crypto");
       // Tokenised here and the number goes out of scope immediately.

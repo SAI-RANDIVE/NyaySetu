@@ -1,10 +1,10 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { Gavel } from "lucide-react";
 import { useAuth } from "./context/AuthContext";
 import { ROLE_HOME } from "./lib/format";
 import type { Role } from "./lib/api";
 import { PortalShell } from "./components/PortalShell";
 import { LinkButton, Spinner } from "./components/ui";
+import { LogoMark } from "./components/Logo";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -31,9 +31,7 @@ function FullPageSpinner() {
   return (
     <div className="grid min-h-screen place-items-center bg-bg">
       <div className="flex flex-col items-center gap-4">
-        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-grad-primary text-on-primary">
-          <Gavel size={22} />
-        </span>
+        <LogoMark size={52} glow className="animate-float-y" />
         <Spinner />
         <p className="font-ui text-xs text-muted">Restoring your session…</p>
       </div>

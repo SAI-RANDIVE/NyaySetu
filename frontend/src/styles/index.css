@@ -47,7 +47,9 @@
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-faint);
+    /* The brand green on hover: a small, cheap signal that the scrollbar is
+       part of the product rather than the browser. */
+    background: var(--primary-fill);
   }
 
   /* Numerals in tables must not shift width as they change. */
@@ -61,10 +63,72 @@
   /* ---------------------------------------------------------------- panels */
   .panel {
     @apply rounded-panel border border-border bg-surface shadow-card;
+    transition:
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.28s ease,
+      box-shadow 0.28s ease;
   }
 
   .panel-tight {
     @apply rounded-card border border-border bg-surface;
+    transition:
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.28s ease,
+      box-shadow 0.28s ease;
+  }
+
+  /**
+   * An interactive card. Applied only where the whole surface is a link or a
+   * button, so a lift never implies an affordance that is not there.
+   */
+  .panel-interactive {
+    @apply panel;
+    cursor: pointer;
+  }
+  .panel-interactive:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary-ring);
+    box-shadow:
+      0 1px 2px var(--shadow-soft),
+      0 20px 44px var(--shadow-deep),
+      0 0 0 1px var(--primary-ring);
+  }
+  .panel-interactive:active {
+    transform: translateY(-1px);
+  }
+
+  /**
+   * A one-pixel gradient edge that appears on hover.
+   *
+   * Drawn with a mask composite rather than a border, so it can be a gradient
+   * and can sit inside the existing radius without shifting layout by a pixel.
+   */
+  .edge-brand {
+    position: relative;
+    isolation: isolate;
+  }
+  .edge-brand::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: var(--grad-brand);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  .edge-brand:hover::after,
+  .edge-brand:focus-within::after {
+    opacity: 1;
   }
 
   .hairline {
@@ -86,6 +150,11 @@
     box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
     border-radius: 20px;
     isolation: isolate;
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .liquid-glass:hover {
+    transform: translateY(-4px) scale(1.012);
   }
 
   .liquid-glass::before {
@@ -95,11 +164,21 @@
     padding: 1.4px;
     border-radius: inherit;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.06));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
+    transition: background 0.5s ease;
+  }
+
+  /* On hover the frame picks up the brand gradient. */
+  .liquid-glass:hover::before {
+    background: linear-gradient(180deg, rgba(0, 146, 69, 0.75), rgba(255, 117, 31, 0.35));
   }
 
   /* --------------------------------------------------------------- landing nav */
@@ -111,10 +190,13 @@
   .nav-link {
     color: var(--nav-text);
     opacity: 0.5;
-    transition: opacity 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      color 0.2s ease;
   }
   .nav-link:hover {
-    opacity: 0.75;
+    opacity: 1;
+    color: var(--brand-green);
   }
   .nav-link[data-active="true"] {
     opacity: 1;
@@ -129,14 +211,21 @@
     width: 3px;
     height: 3px;
     border-radius: 999px;
-    background: var(--nav-text);
+    background: var(--brand-green);
     transform: translateX(-50%);
-    box-shadow: -5px 0 0 var(--nav-text), 5px 0 0 var(--nav-text);
+    box-shadow: -5px 0 0 var(--brand-green), 5px 0 0 var(--brand-orange);
   }
 
   /* ------------------------------------------------------------------ chips */
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-semibold uppercase tracking-wider;
+    transition:
+      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      filter 0.2s ease;
+  }
+  .chip:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
   }
 
   /* --------------------------------------------------------------- skeleton */
@@ -154,6 +243,9 @@
     @apply w-full rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 font-ui text-sm text-text
            placeholder:text-faint transition focus:border-primary focus:outline-none;
   }
+  .input:hover:not(:focus) {
+    border-color: var(--border-strong);
+  }
   .input:focus {
     box-shadow: 0 0 0 3px var(--primary-soft);
   }
@@ -166,6 +258,59 @@
   .hash {
     @apply font-mono text-2xs tracking-tight;
     word-break: break-all;
+  }
+
+  /**
+   * A link whose underline grows from the left on hover, rather than appearing
+   * all at once. Cheap, and it makes a text link feel like a control.
+   */
+  .link-grow {
+    position: relative;
+    text-decoration: none;
+  }
+  .link-grow::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    height: 1px;
+    width: 100%;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .link-grow:hover::after,
+  .link-grow:focus-visible::after {
+    transform: scaleX(1);
+  }
+
+  /**
+   * The sheen that sweeps a primary button on hover.
+   *
+   * Deliberately restrained and used only on buttons that commit something
+   * irreversible, so it reads as "this one matters" rather than as decoration
+   * applied everywhere.
+   */
+  .btn-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-sheen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      110deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.22) 45%,
+      transparent 70%
+    );
+    transform: translateX(-120%);
+    pointer-events: none;
+  }
+  .btn-sheen:hover::before {
+    animation: sheen 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
@@ -188,6 +333,22 @@
   .no-scrollbar {
     scrollbar-width: none;
   }
+
+  /** Text filled with the brand gradient. */
+  .text-brand-gradient {
+    background: var(--grad-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /** Lifts on hover. For small interactive elements, not whole cards. */
+  .lift {
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+  }
 }
 
 /* Anyone who has asked their system not to animate things gets the end state
@@ -208,5 +369,13 @@
     opacity: 1 !important;
     transform: none !important;
     filter: none !important;
+  }
+  /* Hover transforms are motion too, and they are the ones most likely to
+     trigger vestibular discomfort on a trackpad. */
+  .panel-interactive:hover,
+  .liquid-glass:hover,
+  .lift:hover,
+  .chip:hover {
+    transform: none !important;
   }
 }

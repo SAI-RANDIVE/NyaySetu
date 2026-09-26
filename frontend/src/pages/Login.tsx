@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
-  Gavel,
   Info,
   Lock,
   Mail,
@@ -18,6 +17,7 @@ import { ROLE_HOME, ROLE_LABEL } from "../lib/format";
 import { useQuery } from "../lib/useApi";
 import { Button, Field, Input } from "../components/ui";
 import { HeroBackdrop } from "../components/landing";
+import { LogoMark } from "../components/Logo";
 
 /**
  * Sign in, in one or two steps depending on how the deployment is configured.
@@ -196,11 +196,9 @@ export default function Login() {
 
       <Link
         to="/"
-        className="relative z-10 mb-7 flex items-center gap-3 transition-transform hover:scale-[1.02]"
+        className="relative z-10 mb-7 flex items-center gap-3 transition-transform duration-300 ease-smooth hover:scale-[1.03]"
       >
-        <span className="grid h-11 w-11 place-items-center rounded-full bg-white shadow-nav">
-          <Gavel size={19} className="text-[#070b0a]" />
-        </span>
+        <LogoMark size={46} shape="circle" glow />
         <span>
           <span className="block font-display text-xl leading-none text-white">NyaySetu</span>
           <span className="block font-ui text-2xs leading-tight text-white/55">न्यायसेतु</span>
@@ -220,7 +218,7 @@ export default function Login() {
         {step === "password" ? (
           <form
             onSubmit={submitPassword}
-            className="anim rounded-panel border border-white/12 bg-[#0b1210]/85 p-6 shadow-lift backdrop-blur-xl"
+            className="anim rounded-panel border border-white/12 bg-[#071a10]/88 p-6 shadow-lift backdrop-blur-xl"
             style={{ ["--d" as any]: "0.08s" }}
           >
             <h1 className="font-display text-2xl leading-tight text-white">Sign in</h1>
@@ -297,7 +295,7 @@ export default function Login() {
           /* ------------------------------------------------------ step 2 */
           <form
             onSubmit={submitCode}
-            className="animate-menu-in rounded-panel border border-white/12 bg-[#0b1210]/85 p-6 shadow-lift backdrop-blur-xl"
+            className="animate-menu-in rounded-panel border border-white/12 bg-[#071a10]/88 p-6 shadow-lift backdrop-blur-xl"
           >
             <div className="mb-4 flex items-start gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">
@@ -407,7 +405,7 @@ export default function Login() {
             </button>
 
             {showDemo && (
-              <div className="mt-3 animate-menu-in rounded-card border border-white/12 bg-[#0b1210]/85 p-4 backdrop-blur-xl">
+              <div className="mt-3 animate-menu-in rounded-card border border-white/12 bg-[#071a10]/88 p-4 backdrop-blur-xl">
                 <p className="mb-3 font-ui text-2xs leading-relaxed text-white/55">
                   Seeded by <code className="font-mono text-white/75">npm run seed</code>. One
                   password for all of them:{" "}

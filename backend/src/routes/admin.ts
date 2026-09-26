@@ -9,6 +9,7 @@ import { asyncRoute } from "../middleware/error";
 import { validate, uuid, safeText, aadhaarNumber, pagination } from "../middleware/validate";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { recordAction } from "../services/audit";
+import { ownerOfToken, piiDirectory, upsertPii } from "../lib/pii";
 
 const router = Router();
 router.use(requireAuth, requireRole("court_admin"));
@@ -30,9 +31,7 @@ router.get(
     ) as any[];
 
     // Whether an Aadhaar token exists, never the token or the number.
-    const pii = unwrapList(
-      await db.schema("restricted").from("user_pii").select("user_id, aadhaar_last4")
-    ) as { user_id: string; aadhaar_last4: string | null }[];
+    const pii = await piiDirectory();
     const byUser = new Map(pii.map((p) => [p.user_id, p.aadhaar_last4]));
 
     res.json({
@@ -107,25 +106,20 @@ router.post(
       const token = aadhaarToken(body.aadhaarNumber);
       const last4 = aadhaarLast4(body.aadhaarNumber);
 
-      const clash = unwrapMaybe(
-        await db
-          .schema("restricted")
-          .from("user_pii")
-          .select("user_id")
-          .eq("aadhaar_token", token)
-          .maybeSingle()
-      ) as { user_id: string } | null;
+      const clash = await ownerOfToken(token);
       if (clash) {
+        // The account was created a moment ago and is now invalid, so remove it
+        // rather than leaving an account nobody can complete.
         await db.from("users").delete().eq("id", created.id);
         throw conflict("That Aadhaar number is already registered to another account.");
       }
 
-      await db.schema("restricted").from("user_pii").insert({
-        user_id: created.id,
-        aadhaar_token: token,
-        aadhaar_last4: last4,
-        phone_encrypted: body.phone ? encryptField(body.phone) : null,
-        address_encrypted: body.address ? encryptField(body.address) : null,
+      await upsertPii({
+        userId: created.id,
+        aadhaarToken: token,
+        aadhaarLast4: last4,
+        phoneEncrypted: body.phone ? encryptField(body.phone) : null,
+        addressEncrypted: body.address ? encryptField(body.address) : null,
       });
     }
 
@@ -206,20 +200,19 @@ router.put(
 
     const token = aadhaarToken(req.body.aadhaarNumber);
 
-    await db
-      .schema("restricted")
-      .from("user_pii")
-      .upsert(
-        {
-          user_id: req.params.id,
-          aadhaar_token: token,
-          aadhaar_last4: aadhaarLast4(req.body.aadhaarNumber),
-          phone_encrypted: req.body.phone ? encryptField(req.body.phone) : null,
-          address_encrypted: req.body.address ? encryptField(req.body.address) : null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
+    // The same number must not end up on two accounts.
+    const clash = await ownerOfToken(token);
+    if (clash && clash !== req.params.id) {
+      throw conflict("That Aadhaar number is already registered to another account.");
+    }
+
+    await upsertPii({
+      userId: req.params.id,
+      aadhaarToken: token,
+      aadhaarLast4: aadhaarLast4(req.body.aadhaarNumber),
+      phoneEncrypted: req.body.phone ? encryptField(req.body.phone) : null,
+      addressEncrypted: req.body.address ? encryptField(req.body.address) : null,
+    });
 
     await recordAction(req, { action: "admin.set_aadhaar", subject: req.params.id });
     res.json({ ok: true, aadhaarLast4: aadhaarLast4(req.body.aadhaarNumber) });

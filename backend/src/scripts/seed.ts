@@ -13,6 +13,7 @@ import bcrypt from "bcryptjs";
 import { db } from "../lib/supabase";
 import { aadhaarToken, aadhaarLast4, encryptField, caseIdHash, verhoeffValid } from "../lib/crypto";
 import { logger } from "../lib/logger";
+import { upsertPii } from "../lib/pii";
 
 const PASSWORD = process.env.SEED_PASSWORD ?? "NyaySetu@2026";
 
@@ -211,26 +212,20 @@ async function upsertUser(user: SeedUser): Promise<string> {
     userId = data.id;
   }
 
-  const { error: piiError } = await db
-    .schema("restricted")
-    .from("user_pii")
-    .upsert(
-      {
-        user_id: userId,
-        aadhaar_token: aadhaarToken(user.aadhaar),
-        aadhaar_last4: aadhaarLast4(user.aadhaar),
-        phone_encrypted: encryptField(user.phone),
-        address_encrypted: encryptField(user.stationOrCourt),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
-
-  if (piiError) {
+  try {
+    await upsertPii({
+      userId,
+      aadhaarToken: aadhaarToken(user.aadhaar),
+      aadhaarLast4: aadhaarLast4(user.aadhaar),
+      phoneEncrypted: encryptField(user.phone),
+      addressEncrypted: encryptField(user.stationOrCourt),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Writing the Aadhaar token for ${user.email} failed: ${piiError.message}\n` +
-        "If this says the schema is not exposed, add `restricted` under " +
-        "Supabase -> Settings -> API -> Exposed schemas. See DEPLOYMENT.md."
+      `Writing the Aadhaar token for ${user.email} failed: ${message}\n` +
+        "If this says the function does not exist, run " +
+        "database/migrations/005_pii_access.sql in the Supabase SQL editor."
     );
   }
 

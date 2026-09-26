@@ -1,7 +1,20 @@
+import * as fs from "fs";
+import * as path from "path";
 import nodemailer, { type Transporter } from "nodemailer";
 import { env, capabilities } from "../config/env";
 import { logger } from "./logger";
 import { db } from "./supabase";
+import {
+  BRAND,
+  LOGO_CID,
+  button,
+  callout,
+  codePanel,
+  escapeHtml,
+  paragraph,
+  shell,
+  strong,
+} from "./emailTemplates";
 
 /**
  * Outbound email over SMTP.
@@ -30,6 +43,37 @@ export interface SendResult {
 
 let transporter: Transporter | null = null;
 let verified: boolean | null = null;
+
+/**
+ * The logo, attached inline rather than hotlinked.
+ *
+ * Most clients block remote images by default, and the project has no public
+ * host to serve one from anyway. An inline attachment referenced by Content-ID
+ * renders on first open, offline, with no "show images" prompt.
+ *
+ * Read once at module load: it is 8 KB and never changes.
+ */
+const LOGO_PATH = path.resolve(__dirname, "..", "assets", "email-logo.png");
+
+let logoBuffer: Buffer | null = null;
+try {
+  logoBuffer = fs.readFileSync(LOGO_PATH);
+} catch {
+  // Not fatal. The message still sends; the header simply shows no mark.
+  logger.warn("Email logo not found; messages will send without it", { path: LOGO_PATH });
+}
+
+function attachments() {
+  if (!logoBuffer) return undefined;
+  return [
+    {
+      filename: "nyaysetu.png",
+      content: logoBuffer,
+      cid: LOGO_CID,
+      contentDisposition: "inline" as const,
+    },
+  ];
+}
 
 function build(): Transporter | null {
   if (!capabilities.smtp) return null;
@@ -147,6 +191,7 @@ async function send(args: {
       subject: args.subject,
       text: args.text,
       html: args.html,
+      attachments: attachments(),
       // Marks the message as automatic so replies and vacation responders do
       // not bounce back into the mailbox.
       headers: { "Auto-Submitted": "auto-generated", "X-NyaySetu-Purpose": args.purpose },
@@ -174,43 +219,11 @@ async function send(args: {
 /* ======================================================= templates ======== */
 
 /**
- * One shell for every message.
- *
- * Inline styles and a table-free single column, because email clients strip
- * <style> blocks and Outlook ignores flexbox. The dark palette matches the
- * product, and a text/plain alternative always accompanies it, so a client with
- * images and HTML disabled still shows a usable code.
+ * Every message is built from the pieces in emailTemplates.ts, and every one
+ * ships a text/plain alternative alongside the HTML. A client with images and
+ * HTML disabled must still show a usable code: that is the whole reason the
+ * plain part is written out by hand rather than stripped from the markup.
  */
-function shell(title: string, body: string, footnote?: string): string {
-  return `<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#070b0a;">
-  <div style="max-width:520px;margin:0 auto;padding:32px 20px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-    <div style="padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.1);">
-      <span style="display:inline-block;font-size:19px;font-weight:700;color:#f2f6f4;letter-spacing:-0.3px;">NyaySetu</span>
-      <span style="display:inline-block;margin-left:8px;font-size:12px;color:#5f6b67;">न्यायसेतु</span>
-    </div>
-
-    <h1 style="margin:26px 0 12px;font-size:20px;font-weight:600;color:#f2f6f4;line-height:1.35;">${title}</h1>
-    ${body}
-
-    <div style="margin-top:30px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.1);">
-      ${footnote ? `<p style="margin:0 0 10px;font-size:12px;line-height:1.6;color:#8e9a96;">${footnote}</p>` : ""}
-      <p style="margin:0;font-size:11px;line-height:1.6;color:#5f6b67;">
-        This message was sent automatically. Do not reply.
-      </p>
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
-function codeBlock(code: string): string {
-  return `<div style="margin:0 0 20px;padding:18px;background:#0d1412;border:1px solid #5ed29c;border-radius:14px;text-align:center;">
-    <div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:30px;font-weight:700;letter-spacing:10px;color:#5ed29c;">${code}</div>
-  </div>`;
-}
 
 /** The login second factor. */
 export async function sendLoginOtp(args: {
@@ -230,9 +243,10 @@ export async function sendLoginOtp(args: {
     `Your NyaySetu sign-in code is ${args.code}`,
     "",
     `It expires in ${args.ttlMinutes} minutes and can be used once.`,
-    "",
     args.ip ? `Requested from ${args.ip}.` : "",
-    "If this was not you, your password may be known to somebody else. Change it, and tell the court administrator.",
+    "",
+    "If this was not you, somebody else may know your password. Change it and",
+    "tell the court administrator.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -243,18 +257,27 @@ export async function sendLoginOtp(args: {
     purpose: "login_mfa",
     subject: `${args.code} is your NyaySetu sign-in code`,
     text,
-    html: shell(
-      "Your sign-in code",
-      `<p style="margin:0 0 18px;font-size:14px;line-height:1.65;color:#8e9a96;">
-         Hello ${first}, use this code to finish signing in.
-       </p>
-       ${codeBlock(args.code)}
-       <p style="margin:0;font-size:13px;line-height:1.65;color:#8e9a96;">
-         It expires in <strong style="color:#f2f6f4;">${args.ttlMinutes} minutes</strong> and can be used once.
-         ${args.ip ? `Requested from <span style="color:#c4c2c3;">${args.ip}</span>.` : ""}
-       </p>`,
-      "If this was not you, somebody else may know your password. Change it and tell the court administrator."
-    ),
+    html: shell({
+      title: "Your sign-in code",
+      kicker: "Verify it is you",
+      tone: "green",
+      body:
+        paragraph(`Hello ${escapeHtml(first)}, use this code to finish signing in.`) +
+        codePanel(args.code) +
+        paragraph(
+          `It expires in ${strong(`${args.ttlMinutes} minutes`)} and can be used once.` +
+            (args.ip
+              ? ` Requested from <span style="color:${BRAND.text};">${escapeHtml(args.ip)}</span>.`
+              : "")
+        ) +
+        callout(
+          "The code is tied to the browser that entered your password, so it cannot be " +
+            "redeemed anywhere else even if somebody else reads this inbox.",
+          "green"
+        ),
+      footnote:
+        "If this was not you, somebody else may know your password. Change it and tell the court administrator.",
+    }),
   });
 }
 
@@ -278,8 +301,9 @@ export async function sendSummonsNotice(args: {
     "",
     `A summons has been issued to you in ${args.firNumber}${args.courtName ? ` by ${args.courtName}` : ""}.`,
     "",
-    `You must acknowledge it by ${deadline}. If that window closes without your acknowledgement,`,
-    "the court is notified that it could not be served and may proceed on that basis.",
+    `You must acknowledge it by ${deadline}. If that window closes without your`,
+    "acknowledgement, the court is notified that it could not be served and may",
+    "proceed on that basis.",
     "",
     `Sign in to read and acknowledge it: ${args.portalUrl}`,
     "",
@@ -292,23 +316,23 @@ export async function sendSummonsNotice(args: {
     purpose: "summons_notice",
     subject: `Action needed: summons in ${args.firNumber}`,
     text,
-    html: shell(
-      "A summons has been issued to you",
-      `<p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#8e9a96;">
-         ${args.recipientName}, a summons has been issued to you in
-         <strong style="color:#f2f6f4;">${args.firNumber}</strong>${args.courtName ? ` by ${args.courtName}` : ""}.
-       </p>
-       <div style="margin:0 0 20px;padding:14px 16px;background:rgba(245,194,107,0.12);border:1px solid rgba(245,194,107,0.3);border-radius:12px;">
-         <p style="margin:0;font-size:13px;line-height:1.6;color:#f2f6f4;">
-           Acknowledge it by <strong>${deadline}</strong>. If the window closes unanswered, the court is
-           told it could not be served and may proceed on that basis.
-         </p>
-       </div>
-       <a href="${args.portalUrl}" style="display:inline-block;padding:13px 26px;background:#5ed29c;color:#070b0a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;text-decoration:none;border-radius:999px;">
-         Read and acknowledge
-       </a>`,
-      "The summons itself is not attached. It is readable only after you sign in."
-    ),
+    html: shell({
+      title: "A summons has been issued to you",
+      kicker: "Action needed",
+      tone: "orange",
+      body:
+        paragraph(
+          `${escapeHtml(args.recipientName)}, a summons has been issued to you in ` +
+            `${strong(args.firNumber)}${args.courtName ? ` by ${escapeHtml(args.courtName)}` : ""}.`
+        ) +
+        callout(
+          `Acknowledge it by ${strong(deadline)}. If the window closes unanswered, the court is ` +
+            "told it could not be served and may proceed on that basis.",
+          "orange"
+        ) +
+        button(args.portalUrl, "Read and acknowledge", "orange"),
+      footnote: "The summons itself is not attached. It is readable only after you sign in.",
+    }),
   });
 }
 
@@ -327,11 +351,13 @@ export async function sendNonDeliveryAlert(args: {
   });
 
   const text = [
-    `The acknowledgement window for a summons in ${args.firNumber} closed at ${closed} without a response.`,
+    `The acknowledgement window for a summons in ${args.firNumber} closed at`,
+    `${closed} without a response.`,
     "",
     `Recipient: ${args.recipientName}`,
     "",
-    "The contract now reports this summons as FAILED, and that conclusion is recorded on chain.",
+    "The contract now reports this summons as FAILED, and that conclusion is",
+    "recorded on chain.",
     "",
     args.portalUrl,
   ].join("\n");
@@ -342,23 +368,22 @@ export async function sendNonDeliveryAlert(args: {
     purpose: "non_delivery_alert",
     subject: `Summons not served: ${args.firNumber}`,
     text,
-    html: shell(
-      "A summons went unanswered",
-      `<p style="margin:0 0 16px;font-size:14px;line-height:1.65;color:#8e9a96;">
-         The acknowledgement window for a summons in
-         <strong style="color:#f2f6f4;">${args.firNumber}</strong> closed at
-         <strong style="color:#f2f6f4;">${closed}</strong> without a response.
-       </p>
-       <div style="margin:0 0 20px;padding:14px 16px;background:rgba(255,107,107,0.12);border:1px solid rgba(255,107,107,0.3);border-radius:12px;">
-         <p style="margin:0 0 6px;font-size:13px;color:#f2f6f4;"><strong>Recipient:</strong> ${args.recipientName}</p>
-         <p style="margin:0;font-size:13px;line-height:1.6;color:#8e9a96;">
-           The contract now reports this summons as FAILED, and that conclusion is on chain.
-         </p>
-       </div>
-       <a href="${args.portalUrl}" style="display:inline-block;padding:13px 26px;background:#5ed29c;color:#070b0a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;text-decoration:none;border-radius:999px;">
-         Open the summons register
-       </a>`
-    ),
+    html: shell({
+      title: "A summons went unanswered",
+      kicker: "Service failed",
+      tone: "orange",
+      body:
+        paragraph(
+          `The acknowledgement window for a summons in ${strong(args.firNumber)} closed at ` +
+            `${strong(closed)} without a response.`
+        ) +
+        callout(
+          `${strong("Recipient:")} ${escapeHtml(args.recipientName)}<br>` +
+            "The contract now reports this summons as FAILED, and that conclusion is on chain.",
+          "red"
+        ) +
+        button(args.portalUrl, "Open the summons register", "green"),
+    }),
   });
 }
 

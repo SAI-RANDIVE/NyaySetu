@@ -33,6 +33,8 @@ import type { Role } from "../lib/api";
 import { ROLE_HOME, ROLE_LABEL } from "../lib/format";
 import { Reveal } from "../components/ui";
 import { StatusChip } from "../components/trust";
+import { LogoMark } from "../components/Logo";
+import { ScrollProgress, ScrollToTop } from "../components/scroll";
 
 /**
  * The handbook.
@@ -539,13 +541,18 @@ export default function Handbook() {
 
   return (
     <div className="min-h-screen bg-bg">
+      {/* A long document, so how far through it you are is genuinely useful. */}
+      <ScrollProgress />
+      <ScrollToTop />
+
       {/* ------------------------------------------------------------ header */}
       <header className="sticky top-0 z-40 border-b border-border bg-bg-elevated/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
-          <Link to={user ? ROLE_HOME[user.role] : "/"} className="flex shrink-0 items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-grad-primary text-on-primary">
-              <BookOpen size={17} />
-            </span>
+          <Link to={user ? ROLE_HOME[user.role] : "/"} className="group flex shrink-0 items-center gap-2.5">
+            <LogoMark
+              size={38}
+              className="transition-transform duration-300 ease-smooth group-hover:scale-105 group-hover:rotate-[-4deg]"
+            />
             <span className="hidden sm:block">
               <span className="block font-display text-base leading-none text-text">Handbook</span>
               <span className="block font-ui text-2xs leading-tight text-faint">
@@ -566,7 +573,7 @@ export default function Handbook() {
 
             <Link
               to={user ? ROLE_HOME[user.role] : "/login"}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 font-ui text-xs font-bold uppercase tracking-wide text-on-primary transition hover:bg-primary-strong"
+              className="btn-sheen inline-flex h-9 items-center gap-1.5 rounded-full bg-primary-fill px-4 font-ui text-xs font-bold uppercase tracking-wide text-on-primary transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glow"
             >
               {user ? "Back to my portal" : "Sign in"}
               <ArrowRight size={13} />
@@ -953,7 +960,7 @@ export default function Handbook() {
 
             <Reveal delay={0.06}>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <div className="panel h-full p-5">
+                <div className="panel edge-brand h-full p-5 transition-transform duration-300 ease-smooth hover:-translate-y-1">
                   <span className="mb-3 inline-grid h-10 w-10 place-items-center rounded-2xl bg-info-soft text-info">
                     <Mail size={18} />
                   </span>
@@ -977,7 +984,7 @@ export default function Handbook() {
                   </ul>
                 </div>
 
-                <div className="panel h-full p-5">
+                <div className="panel edge-brand h-full p-5 transition-transform duration-300 ease-smooth hover:-translate-y-1">
                   <span className="mb-3 inline-grid h-10 w-10 place-items-center rounded-2xl bg-primary-soft text-primary">
                     <KeyRound size={18} />
                   </span>
@@ -1026,7 +1033,7 @@ export default function Handbook() {
                 {FAQ.map((item) => (
                   <details
                     key={item.q}
-                    className="group rounded-card border border-border bg-surface p-4 transition hover:border-border-strong"
+                    className="group edge-brand rounded-card border border-border bg-surface p-4 transition-all duration-300 hover:border-border-strong"
                   >
                     <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
                       <span className="font-ui text-sm font-semibold text-text">{item.q}</span>
@@ -1116,7 +1123,7 @@ export default function Handbook() {
                 <div className="mt-5 flex flex-wrap gap-3">
                   <Link
                     to={user ? ROLE_HOME[user.role] : "/login"}
-                    className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-ui text-xs font-bold uppercase tracking-wide text-on-primary transition hover:bg-primary-strong"
+                    className="btn-sheen inline-flex items-center gap-2 rounded-full bg-primary-fill px-5 py-2.5 font-ui text-xs font-bold uppercase tracking-wide text-on-primary transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glow"
                   >
                     {user ? "Back to my portal" : "Sign in and try it"}
                     <ArrowRight size={14} />
@@ -1187,7 +1194,7 @@ function IdeaCard({
   body: string;
 }) {
   return (
-    <div className="panel h-full p-5">
+    <div className="panel edge-brand h-full p-5 transition-transform duration-300 ease-smooth hover:-translate-y-1">
       <span className="mb-3 inline-grid h-10 w-10 place-items-center rounded-2xl bg-primary-soft text-primary">
         {icon}
       </span>
@@ -1215,7 +1222,7 @@ function BridgeCard({
   body: string;
 }) {
   return (
-    <article className="panel grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
+    <article className="panel edge-brand grid gap-6 p-6 transition-transform duration-300 ease-smooth hover:-translate-y-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
       <div>
         <span className="mb-3 inline-grid h-11 w-11 place-items-center rounded-2xl bg-primary-soft text-primary">
           <Icon size={20} />
@@ -1270,7 +1277,7 @@ function Trouble({
   action: string;
 }) {
   return (
-    <div className="rounded-card border border-border bg-surface p-4">
+    <div className="edge-brand rounded-card border border-border bg-surface p-4 transition-transform duration-300 ease-smooth hover:-translate-y-0.5">
       <p className="font-ui text-sm font-semibold text-text">{symptom}</p>
       <p className="mt-2 font-ui text-xs leading-relaxed text-muted">
         <strong className="text-text">What it means.</strong> {meaning}

@@ -91,16 +91,11 @@ router.post(
 
     let accusedAadhaarToken: string | null = null;
     if (body.accusedUserId) {
-      const pii = unwrapMaybe(
-        await db
-          .schema("restricted")
-          .from("user_pii")
-          .select("aadhaar_token")
-          .eq("user_id", body.accusedUserId)
-          .maybeSingle()
-      ) as { aadhaar_token: string } | null;
-      if (!pii) throw badRequest("That accused has no Aadhaar token on file.");
-      accusedAadhaarToken = pii.aadhaar_token;
+      const { getAadhaarToken } = await import("../lib/pii");
+      accusedAadhaarToken = await getAadhaarToken(body.accusedUserId);
+      if (!accusedAadhaarToken) {
+        throw badRequest("That accused has no Aadhaar token on file.");
+      }
     } else if (body.accusedAadhaarNumber) {
       const { aadhaarToken } = await import("../lib/crypto");
       accusedAadhaarToken = aadhaarToken(body.accusedAadhaarNumber);

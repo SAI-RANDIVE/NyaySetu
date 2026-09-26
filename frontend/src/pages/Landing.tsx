@@ -22,6 +22,8 @@ import {
   TrustRow,
 } from "../components/landing";
 import { Reveal } from "../components/ui";
+import { LogoMark } from "../components/Logo";
+import { Parallax, PointerGlow, ScrollCue, ScrollProgress, ScrollToTop } from "../components/scroll";
 
 /**
  * The public entry point.
@@ -112,7 +114,11 @@ const STACK = [
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="relative min-h-screen bg-bg">
+      <ScrollProgress />
+      <PointerGlow />
+      <ScrollToTop />
+
       {/* ================================================ cinematic hero */}
       <section
         data-surface="cinematic"
@@ -132,7 +138,7 @@ export default function Landing() {
 
             <p
               className="anim mb-3 font-jakarta text-[11px] font-bold uppercase tracking-[0.18em]"
-              style={{ color: "#5ed29c", ["--d" as any]: "0.1s" }}
+              style={{ color: "#10b45f", ["--d" as any]: "0.1s" }}
             >
               Justice infrastructure · न्यायसेतु
             </p>
@@ -156,13 +162,13 @@ export default function Landing() {
                   letterSpacing: "-0.03em",
                 }}
               >
-                paperwork<span style={{ color: "#5ed29c" }}>.</span>
+                paperwork<span style={{ color: "#ff751f" }}>.</span>
               </span>
             </h1>
 
             <p
               className="anim mt-5 max-w-[min(520px,92%)] font-ui text-[clamp(13.5px,1.55vw,16.5px)] leading-[1.6]"
-              style={{ color: "#d0d0d0", opacity: 0.85, ["--d" as any]: "0.28s" }}
+              style={{ color: "#d4ded8", opacity: 0.88, ["--d" as any]: "0.28s" }}
             >
               NyaySetu anchors evidence digests, summons acknowledgements and bail conditions to a
               public blockchain, so integrity is something anyone can check rather than something a
@@ -177,6 +183,9 @@ export default function Landing() {
 
         <div className="pb-2 pt-6">
           <StatsFooter />
+          <div className="mt-5 flex justify-center">
+            <ScrollCue />
+          </div>
         </div>
       </section>
 
@@ -207,7 +216,7 @@ export default function Landing() {
                 a: "The order is a PDF nobody monitors until something has already gone wrong.",
               },
             ].map((item) => (
-              <div key={item.q} className="panel p-5">
+              <div key={item.q} className="panel edge-brand p-5 transition-transform duration-300 ease-smooth hover:-translate-y-1">
                 <p className="font-display text-lg leading-snug text-text">{item.q}</p>
                 <p className="mt-2.5 font-ui text-sm leading-relaxed text-muted">{item.a}</p>
               </div>
@@ -228,12 +237,18 @@ export default function Landing() {
             </h2>
           </Reveal>
 
-          <div className="mt-11 space-y-5">
+          <Parallax strength={18} className="mt-11 space-y-5">
             {MODULES.map((module, index) => (
-              <Reveal key={module.name} delay={index * 0.08}>
-                <article className="panel grid gap-7 p-6 sm:p-8 lg:grid-cols-[1fr_1.35fr]">
+              <Reveal key={module.name} delay={index * 0.08} className="group">
+                <article className="panel edge-brand grid gap-7 p-6 transition-transform duration-300 ease-smooth hover:-translate-y-1 sm:p-8 lg:grid-cols-[1fr_1.35fr]">
                   <div>
-                    <span className="mb-4 inline-grid h-11 w-11 place-items-center rounded-2xl bg-primary-soft text-primary">
+                    <span
+                      className={`mb-4 inline-grid h-11 w-11 place-items-center rounded-2xl transition-transform duration-300 group-hover:scale-105 ${
+                        index === 1
+                          ? "bg-accent-soft text-accent"
+                          : "bg-primary-soft text-primary"
+                      }`}
+                    >
                       <module.icon size={20} />
                     </span>
                     <h3 className="font-display text-2xl leading-tight text-text">{module.name}</h3>
@@ -257,7 +272,7 @@ export default function Landing() {
                 </article>
               </Reveal>
             ))}
-          </div>
+          </Parallax>
         </div>
       </section>
 
@@ -364,7 +379,7 @@ export default function Landing() {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 font-ui text-sm font-bold uppercase tracking-wide text-on-primary shadow-glow transition hover:-translate-y-0.5"
+                className="btn-sheen inline-flex items-center gap-2 rounded-full bg-primary-fill px-6 py-3 font-ui text-sm font-bold uppercase tracking-wide text-on-primary shadow-glow transition-all duration-300 ease-smooth hover:-translate-y-0.5 hover:shadow-glow-strong"
               >
                 Open the verification portal
                 <ArrowRight size={15} />
@@ -386,7 +401,7 @@ export default function Landing() {
         <Reveal delay={0.08}>
           <dl className="mt-8 grid gap-px overflow-hidden rounded-panel border border-border bg-border sm:grid-cols-2">
             {STACK.map((row) => (
-              <div key={row.label} className="bg-surface p-5">
+              <div key={row.label} className="group bg-surface p-5 transition-colors duration-300 hover:bg-surface-2">
                 <dt className="font-jakarta text-2xs font-bold uppercase tracking-[0.14em] text-primary">
                   {row.label}
                 </dt>
@@ -419,9 +434,7 @@ export default function Landing() {
       <footer className="border-t border-border px-5 py-9 sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-grad-primary text-on-primary">
-              <Gavel size={16} />
-            </span>
+            <LogoMark size={38} />
             <div>
               <p className="font-display text-base leading-none text-text">NyaySetu</p>
               <p className="mt-1 font-ui text-2xs text-faint">

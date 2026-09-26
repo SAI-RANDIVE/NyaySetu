@@ -6,7 +6,6 @@ import {
   Camera,
   ClipboardList,
   FileSearch,
-  Gavel,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -21,6 +20,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { ROLE_LABEL } from "../lib/format";
+import { LogoMark } from "./Logo";
 import type { Role } from "../lib/api";
 
 interface NavItem {
@@ -99,9 +99,10 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-border bg-bg-elevated/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6">
           <Link to={items[0].to} className="flex shrink-0 items-center gap-2.5 group">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-grad-primary text-on-primary shadow-glow transition group-hover:scale-105">
-              <Gavel size={17} />
-            </span>
+            <LogoMark
+              size={38}
+              className="transition-transform duration-300 ease-smooth group-hover:scale-105 group-hover:rotate-[-4deg]"
+            />
             <span className="hidden sm:block">
               <span className="block font-display text-base leading-none text-text">NyaySetu</span>
               <span className="block font-ui text-2xs leading-tight text-faint">
@@ -121,7 +122,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                   `inline-flex items-center gap-2 rounded-full px-3.5 py-2 font-ui text-xs font-semibold transition ${
                     isActive
                       ? "bg-primary-soft text-primary"
-                      : "text-muted hover:bg-surface-2 hover:text-text"
+                      : "text-muted hover:-translate-y-0.5 hover:bg-surface-2 hover:text-text"
                   }`
                 }
               >

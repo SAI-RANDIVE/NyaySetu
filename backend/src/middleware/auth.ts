@@ -4,6 +4,7 @@ import { db, unwrapMaybe } from "../lib/supabase";
 import { hashSessionToken, randomToken } from "../lib/crypto";
 import { forbidden, unauthorised } from "../lib/errors";
 import { logger } from "../lib/logger";
+import { getAadhaarToken } from "../lib/pii";
 
 export type UserRole =
   | "police"
@@ -150,16 +151,20 @@ export async function loadSession(req: Request, _res: Response, next: NextFuncti
       .eq("id", row.id)
       .then(() => undefined);
 
-    // The Aadhaar token lives in the restricted schema and is needed for
-    // relayed actions, so it is loaded once per request rather than per action.
-    const pii = unwrapMaybe(
-      await db
-        .schema("restricted")
-        .from("user_pii")
-        .select("aadhaar_token")
-        .eq("user_id", user.id)
-        .maybeSingle()
-    ) as { aadhaar_token: string } | null;
+    // The Aadhaar token is needed for relayed actions, so it is loaded once per
+    // request rather than per action. It comes through a SECURITY DEFINER
+    // function: the schema holding it is not reachable over the API at all.
+    let aadhaarToken: string | null = null;
+    try {
+      aadhaarToken = await getAadhaarToken(user.id);
+    } catch (error) {
+      // A missing record is normal for staff who never act as a citizen; a
+      // failure here must not lock somebody out of an otherwise valid session.
+      logger.warn("Could not load the Aadhaar token for this session", {
+        userId: user.id,
+        error: error instanceof Error ? error.message : error,
+      });
+    }
 
     req.user = {
       id: user.id,
@@ -169,7 +174,7 @@ export async function loadSession(req: Request, _res: Response, next: NextFuncti
       designation: user.designation,
       stationOrCourt: user.station_or_court,
       theme: user.theme,
-      aadhaarToken: pii?.aadhaar_token ?? null,
+      aadhaarToken,
     };
     req.sessionId = row.id;
     req.csrfToken = row.csrf_token;

@@ -20,7 +20,7 @@ export function Loading({ label = "Loading", rows = 3 }: { label?: string; rows?
       <span className="sr-only">{label}</span>
       <div className="mb-4 flex items-center gap-2 font-ui text-xs text-muted">
         <Spinner size={14} />
-        {label}…
+        <span className="animate-pulse">{label}…</span>
       </div>
       <div className="space-y-2.5">
         {Array.from({ length: rows }).map((_, index) => (
