@@ -394,6 +394,13 @@ export function Modal({
  * Scroll-triggered entrance. IntersectionObserver rather than a scroll listener,
  * so it costs nothing while idle, and it disconnects after firing once: content
  * that fades every time it re-enters the viewport is a nuisance, not polish.
+ *
+ * Two deliberate safeguards, because the failure mode here is a blank page:
+ *
+ *   - threshold 0, so it fires as soon as any sliver enters. A fractional
+ *     threshold can never be met by an element taller than the viewport.
+ *   - a timeout that reveals regardless. If the observer never fires for any
+ *     reason, the content appears a moment late rather than never.
  */
 export function Reveal({
   children,
@@ -425,10 +432,27 @@ export function Reveal({
           observer.disconnect();
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
+      { threshold: 0, rootMargin: "0px 0px -40px 0px" }
     );
     observer.observe(node);
-    return () => observer.disconnect();
+
+    // Last resort, deliberately narrow.
+    //
+    // A blanket timeout would reveal everything on a long page within seconds,
+    // which destroys the effect for sections the reader has not reached yet. So
+    // this rescues only the actual failure case: an element that is already at
+    // or above the fold, and therefore should be visible, but which the
+    // observer never reported. Anything still below the fold is left to the
+    // observer, where it belongs.
+    const failsafe = window.setTimeout(() => {
+      const rect = node.getBoundingClientRect();
+      if (rect.top < window.innerHeight) setShown(true);
+    }, 1500);
+
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(failsafe);
+    };
   }, []);
 
   const Component = Tag as any;

@@ -4,6 +4,65 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   Keyframes for the hand-written animations below.
+   ==========================================================================
+
+   These are declared HERE and not only in tailwind.config.js, and that is not
+   duplication for its own sake.
+
+   Tailwind emits a @keyframes block only when the matching `animate-*` utility
+   appears in scanned markup. `.anim`, `.anim-pulse` and `.btn-sheen` reference
+   their animations from raw CSS, which the scanner never sees, so the keyframes
+   were tree-shaken out of the bundle. `animation: reveal ...` then named an
+   animation that did not exist, the declared `opacity: 0` never animated away,
+   and every element wrapped in <Reveal> rendered invisible. The landing page
+   and the whole sign-in form went blank.
+
+   Anything referenced from hand-written CSS owns its keyframes here. The check
+   in scripts/checkCssAnimations.mjs fails the build if that ever stops being
+   true.
+   ========================================================================== */
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.98);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes revealPulse {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.98);
+    filter: blur(6px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1.03);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
+}
+
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
@@ -315,15 +374,22 @@
 }
 
 @layer utilities {
+  /**
+   * An entrance animation.
+   *
+   * The hidden start is applied by the animation's own first frame, not by a
+   * standing `opacity: 0` declaration. That difference matters: if the
+   * animation never runs, the element is simply visible, instead of being
+   * permanently invisible with no way to recover. Content should never be
+   * hostage to an animation completing.
+   */
   .anim {
-    opacity: 0;
-    animation: reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: reveal 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: var(--d, 0s);
   }
 
   .anim-pulse {
-    opacity: 0;
-    animation: revealPulse 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: revealPulse 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: var(--d, 0s);
   }
 

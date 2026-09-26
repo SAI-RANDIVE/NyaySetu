@@ -15,7 +15,8 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
+    // No baseUrl: it is deprecated in TypeScript 7. Since TS 5, `paths` entries
+    // resolve relative to this file, which is what we wanted anyway.
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src"],
