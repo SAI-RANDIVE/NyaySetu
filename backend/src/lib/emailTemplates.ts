@@ -193,6 +193,47 @@ export function button(href: string, label: string, tone: "green" | "orange" = "
   </table>`;
 }
 
+/**
+ * A credential shown in an email.
+ *
+ * Monospace and letter-spaced so a temporary password can be read off a screen
+ * and typed correctly. Selectable text, never an image: somebody will copy it.
+ */
+export function credentialRow(label: string, value: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px;">
+    <tr>
+      <td style="background:${BRAND.surfaceRaised};border:1px solid ${BRAND.border};border-radius:12px;padding:14px 16px;">
+        <div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                    font-size:11px;color:${BRAND.faint};letter-spacing:1.2px;text-transform:uppercase;
+                    padding-bottom:6px;">${escapeHtml(label)}</div>
+        <div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+                    font-size:17px;font-weight:700;letter-spacing:1.5px;color:${BRAND.text};
+                    word-break:break-all;">${escapeHtml(value)}</div>
+      </td>
+    </tr>
+  </table>`;
+}
+
+/** A numbered list of what to do next. */
+export function steps(items: string[]): string {
+  const rows = items
+    .map(
+      (item, index) => `<tr>
+        <td width="26" valign="top" style="padding:0 0 12px;">
+          <div style="width:20px;height:20px;border-radius:999px;background:${BRAND.green};
+                      color:#ffffff;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                      font-size:11px;font-weight:700;text-align:center;line-height:20px;">${index + 1}</div>
+        </td>
+        <td valign="top" style="padding:0 0 12px 10px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                   font-size:13px;line-height:1.55;color:${BRAND.muted};">${item}</td>
+      </tr>`
+    )
+    .join("");
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="margin:0 0 18px;">${rows}</table>`;
+}
+
 /** A tinted callout for a deadline or a warning. */
 export function callout(text: string, tone: "green" | "orange" | "red" = "orange"): string {
   const map = {

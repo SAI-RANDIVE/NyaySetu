@@ -2,7 +2,15 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db, unwrap, unwrapList, unwrapMaybe } from "../lib/supabase";
-import { aadhaarToken, aadhaarLast4, encryptField } from "../lib/crypto";
+import {
+  aadhaarToken,
+  aadhaarLast4,
+  encryptField,
+  generateTemporaryPassword,
+} from "../lib/crypto";
+import { invitationsReady } from "../lib/schema";
+import { sendInvitation } from "../lib/mailer";
+import { env } from "../config/env";
 import { chain } from "../lib/chain";
 import { conflict, notFound } from "../lib/errors";
 import { asyncRoute } from "../middleware/error";
@@ -14,8 +22,84 @@ import { ownerOfToken, piiDirectory, upsertPii } from "../lib/pii";
 const router = Router();
 router.use(requireAuth, requireRole("court_admin"));
 
-const USER_COLUMNS =
+const USER_BASE_COLUMNS =
   "id, email, full_name, role, designation, station_or_court, wallet_address, is_active, last_login_at, created_at";
+
+const INVITE_COLUMNS = ", must_change_password, invited_at, first_login_at";
+
+/** Widened only once 006 is applied, so the route works either way. */
+async function userColumns(): Promise<string> {
+  return (await invitationsReady()) ? USER_BASE_COLUMNS + INVITE_COLUMNS : USER_BASE_COLUMNS;
+}
+
+/**
+ * The human name of a role, taken from the roles table so the email and the UI
+ * cannot drift apart. Falls back to the enum value, which is ugly but never wrong.
+ */
+async function roleLabel(role: string): Promise<string> {
+  const row = unwrapMaybe(
+    await db.from("roles").select("label").eq("role", role).maybeSingle()
+  ) as { label: string } | null;
+  return row?.label ?? role;
+}
+
+/**
+ * Creates the temporary password, stores its hash, and emails it.
+ *
+ * Shared by account creation and by re-inviting, because the two differ only in
+ * whether the row already exists. Rotating the password on every invitation is
+ * the point: a re-invite must invalidate whatever was in the previous email,
+ * otherwise an old message stays live forever.
+ */
+async function issueInvitation(args: {
+  req: any;
+  userId: string;
+  email: string;
+  fullName: string;
+  role: string;
+  invitedBy: string;
+  invitedByName: string;
+}) {
+  const temporaryPassword = generateTemporaryPassword();
+  const patch: Record<string, unknown> = {
+    password_hash: await bcrypt.hash(temporaryPassword, 12),
+    // A fresh invitation clears a lockout too; the credential it replaces is gone.
+    failed_login_attempts: 0,
+    locked_until: null,
+  };
+
+  if (await invitationsReady()) {
+    patch.must_change_password = true;
+    patch.invited_at = new Date().toISOString();
+    patch.invited_by = args.invitedBy;
+  }
+
+  unwrap(await db.from("users").update(patch).eq("id", args.userId).select("id").single());
+
+  const label = await roleLabel(args.role);
+
+  const delivery = await sendInvitation({
+    to: args.email,
+    userId: args.userId,
+    fullName: args.fullName,
+    roleLabel: label,
+    temporaryPassword,
+    invitedByName: args.invitedByName,
+    portalUrl: `${env.PUBLIC_APP_URL.replace(/\/$/, "")}/login`,
+  });
+
+  return {
+    // Returned to the administrator on purpose. If the mail server refused the
+    // message, somebody still has to be able to read the credential out loud;
+    // and if it succeeded, the administrator is the person who would be asked.
+    temporaryPassword,
+    invitation: {
+      status: delivery.status,
+      error: delivery.error ?? null,
+      forcedChange: await invitationsReady(),
+    },
+  };
+}
 
 router.get(
   "/users",
@@ -25,7 +109,7 @@ router.get(
     const users = unwrapList(
       await db
         .from("users")
-        .select(USER_COLUMNS)
+        .select(await userColumns())
         .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1)
     ) as any[];
@@ -45,7 +129,14 @@ router.get(
 );
 
 /**
- * Create a participant.
+ * Create a participant and invite them.
+ *
+ * No password is accepted from the administrator. One is generated, hashed,
+ * emailed to the address given, and marked single-use, so the only person who
+ * ever knows the credential is the person it belongs to, and only until they
+ * replace it. An administrator who could set somebody else's password could sign
+ * in as them and act in their name, and the audit trail would show the wrong
+ * person; generating it removes that possibility rather than documenting it.
  *
  * The Aadhaar number is accepted once, tokenised, and never stored. Only the
  * HMAC token and the last four digits survive the request.
@@ -55,7 +146,6 @@ router.post(
   validate(
     z.object({
       email: z.string().trim().email().max(200),
-      password: z.string().min(12).max(200),
       fullName: safeText(160),
       role: z.enum([
         "police",
@@ -86,19 +176,22 @@ router.post(
     ) as { id: string } | null;
     if (existing) throw conflict("A user with that email address already exists.");
 
+    // Inserted with a random hash nobody holds, then immediately replaced by
+    // issueInvitation. The column is NOT NULL, and a placeholder that is not a
+    // valid bcrypt hash of anything is safer than a known one.
     const created = unwrap(
       await db
         .from("users")
         .insert({
           email: body.email.toLowerCase(),
-          password_hash: await bcrypt.hash(body.password, 12),
+          password_hash: await bcrypt.hash(generateTemporaryPassword(), 12),
           full_name: body.fullName,
           role: body.role,
           designation: body.designation ?? null,
           station_or_court: body.stationOrCourt ?? null,
           wallet_address: body.walletAddress ?? null,
         })
-        .select(USER_COLUMNS)
+        .select(await userColumns())
         .single()
     ) as any;
 
@@ -123,13 +216,34 @@ router.post(
       });
     }
 
+    const invited = await issueInvitation({
+      req,
+      userId: created.id,
+      email: created.email,
+      fullName: created.full_name,
+      role: created.role,
+      invitedBy: req.user!.id,
+      invitedByName: req.user!.fullName,
+    });
+
     await recordAction(req, {
       action: "admin.create_user",
       subject: created.id,
-      detail: { role: created.role, aadhaarOnFile: Boolean(body.aadhaarNumber) },
+      detail: {
+        role: created.role,
+        aadhaarOnFile: Boolean(body.aadhaarNumber),
+        invitation: invited.invitation.status,
+      },
     });
 
-    res.status(201).json({ user: { ...created, aadhaarOnFile: Boolean(body.aadhaarNumber) } });
+    res.status(201).json({
+      user: {
+        ...created,
+        must_change_password: invited.invitation.forcedChange,
+        aadhaarOnFile: Boolean(body.aadhaarNumber),
+      },
+      ...invited,
+    });
   })
 );
 
@@ -163,8 +277,20 @@ router.patch(
 
     if (Object.keys(patch).length === 0) throw conflict("Nothing to update.");
 
+    // The last active administrator cannot be stood down. The database refuses
+    // it with a trigger, which is what actually holds; this check is only here so
+    // the message names the administrator instead of surfacing a Postgres error.
+    if (body.isActive === false && req.params.id === req.user!.id) {
+      throw conflict("You cannot deactivate the account you are signed in with.");
+    }
+
     const row = unwrap(
-      await db.from("users").update(patch).eq("id", req.params.id).select(USER_COLUMNS).single()
+      await db
+        .from("users")
+        .update(patch)
+        .eq("id", req.params.id)
+        .select(await userColumns())
+        .single()
     );
 
     // Deactivating an account must end its live sessions immediately.
@@ -178,6 +304,59 @@ router.patch(
 
     await recordAction(req, { action: "admin.update_user", subject: req.params.id, detail: patch });
     res.json({ user: row });
+  })
+);
+
+/**
+ * Send the invitation again, with a new password.
+ *
+ * Used when the first email never arrived, or when somebody is locked out and
+ * the simplest honest fix is to start their credential over. This is also the
+ * password-reset path: there is no self-service reset, because a reset link in an
+ * inbox is the same exposure as a password in an inbox, and a court can afford to
+ * make somebody ask.
+ */
+router.post(
+  "/users/:id/invite",
+  validate(z.object({ id: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    const target = unwrapMaybe(
+      await db
+        .from("users")
+        .select("id, email, full_name, role, is_active")
+        .eq("id", req.params.id)
+        .maybeSingle()
+    ) as { id: string; email: string; full_name: string; role: string; is_active: boolean } | null;
+
+    if (!target) throw notFound("User");
+    if (!target.is_active) {
+      throw conflict("This account is deactivated. Enable it before sending an invitation.");
+    }
+
+    const invited = await issueInvitation({
+      req,
+      userId: target.id,
+      email: target.email,
+      fullName: target.full_name,
+      role: target.role,
+      invitedBy: req.user!.id,
+      invitedByName: req.user!.fullName,
+    });
+
+    // Whatever they were doing with the old password ends here.
+    await db
+      .from("sessions")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", target.id)
+      .is("revoked_at", null);
+
+    await recordAction(req, {
+      action: "admin.reinvite_user",
+      subject: target.id,
+      detail: { delivery: invited.invitation.status },
+    });
+
+    res.json({ ok: true, ...invited });
   })
 );
 

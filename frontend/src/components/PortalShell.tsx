@@ -63,6 +63,7 @@ const NAV: Record<Role, NavItem[]> = {
   court_admin: [
     { to: "/admin", label: "Overview", icon: LayoutDashboard, end: true },
     { to: "/admin/users", label: "Participants", icon: Users },
+    { to: "/admin/access", label: "Case access", icon: ShieldCheck },
     { to: "/admin/audit", label: "Audit trail", icon: FileSearch },
     { to: "/admin/chain", label: "Chain status", icon: Activity },
     { to: "/admin/cases", label: "Cases", icon: ClipboardList },

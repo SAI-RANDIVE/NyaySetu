@@ -135,9 +135,19 @@ For a local chain, `CHAIN_PRIVATE_KEY` can be Hardhat's first account — it is 
 
 ```bash
 npm run chain:check   # 24 checks against the live contracts, no database needed
-npm run seed          # demo cast: one account per role, plus a case
+npm run bootstrap     # the first court administrator; prints its password once
 npm run api           # http://localhost:4000
 ```
+
+`npm run bootstrap` reads `BOOTSTRAP_ADMIN_EMAIL` from `backend/.env`, or takes
+it directly:
+
+```bash
+cd backend && npm run bootstrap -- --email you@example.com --name "Your Name"
+```
+
+Use a mailbox you can read. Every sign-in emails a six digit code to that
+address, so an address that bounces is an account you cannot get into.
 
 ### 6 · Frontend
 
@@ -145,20 +155,32 @@ npm run api           # http://localhost:4000
 npm run web           # http://localhost:5173
 ```
 
-Sign in with any seeded account. One password for all of them: `NyaySetu@2026`
+Sign in at `/login` with the address and password `npm run bootstrap` printed.
 
-If SMTP is configured, sign-in is two steps: password, then a six digit code emailed to the account address. Seed with `SEED_EMAIL_BASE=you@gmail.com` so the codes reach a mailbox you own. Without SMTP, sign-in stays password-only and the second step never appears.
+Sign-in is two steps when SMTP is configured: the password, then a six digit code
+emailed to the account's own address. Without SMTP it stays password-only and the
+second step never appears.
 
-| Email | Role |
+### Accounts
+
+**There are none until you make them, and there is no sign-up.** A court is a
+closed institution: somebody with authority decides who is a judge. So the only
+route into the system is a court administrator creating an account from `/admin`,
+which emails its holder a one-time password.
+
+| Step | Where |
 |---|---|
-| police@nyaysetu.demo | Police officer |
-| forensic@nyaysetu.demo | Forensic laboratory |
-| prosecutor@nyaysetu.demo | Public prosecutor |
-| judge@nyaysetu.demo | Judge |
-| defence@nyaysetu.demo | Defence counsel |
-| accused@nyaysetu.demo | Accused |
-| surety@nyaysetu.demo | Surety (read-only compliance) |
-| admin@nyaysetu.demo | Court administrator |
+| The first administrator | `npm run bootstrap`, once, from a terminal |
+| Everybody else | `/admin/users` → **Invite a participant** |
+| Which cases they can open | `/admin/access` |
+
+An invited account can do exactly one thing until it replaces the password it was
+emailed: replace it. Every other route answers `403 PASSWORD_CHANGE_REQUIRED`,
+because a password that has been sent by email is a password sitting in an inbox.
+
+Holding a role is not the same as being on a case. A judge is a judge; *this*
+judge is on *this* case. Grant that separately at `/admin/access`, or the portal
+will be correctly empty.
 
 ### 7 · Mobile, optional
 
@@ -173,13 +195,11 @@ An Android emulator reaches your laptop at `10.0.2.2`, not `localhost`. A physic
 
 ---
 
-## The nine-step demo
+## The nine-step walkthrough
 
-```bash
-npm run demo
-```
-
-Drives the whole flow over HTTP with real cookies, real CSRF headers and real transactions. A green run is proof the stack works, not a mock.
+Drive it yourself from the portals; there is no scripted cast to stand in for
+real accounts. Invite one account per role from `/admin`, assign them all to one
+case at `/admin/access`, then:
 
 1. Police register evidence at a scene
 2. The forensic laboratory confirms the hash on arrival
@@ -231,7 +251,7 @@ This distinction matters more than anything else in the honesty of the project.
 |---|---|---|
 | Contracts | 53 unit tests: tamper rejection, unauthorised transfer, expired summons, missed check-in, geo-fence breach | `npm run contracts:test` |
 | Backend ↔ contracts | 24 integration checks against a live chain, no database needed | `npm run chain:check` |
-| Whole stack | The nine-step demo over HTTP | `npm run demo` |
+| Sign-in and invitations | 21 assertions over real HTTP: two-step sign-in, single-use invitation, the gate that refuses every other route, credential rotation, the last-admin guard | `cd backend && npm run auth:check -- <admin-email> <password> <you+check@your-mail>` |
 | Types | Strict TypeScript across backend and frontend | `npm run typecheck` |
 | Models | Metrics printed at train time, written to `models/metadata.json` | `npm run ai:train` |
 | Dependencies (shipped) | 0 vulnerabilities across all three Node packages | `npm run audit` |

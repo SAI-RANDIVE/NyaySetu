@@ -193,6 +193,31 @@ export function hashSessionToken(token: string): string {
   return "0x" + crypto.createHash("sha256").update(token).digest("hex");
 }
 
+/**
+ * A temporary password for an invited account.
+ *
+ * Readable aloud and typable from an email, which matters because somebody will
+ * retype it: groups of four, no characters that blur together (no O/0, l/1/I),
+ * and an unambiguous separator. Entropy comes from length rather than from
+ * punctuation nobody can find on a phone keyboard.
+ *
+ * 4 groups x 4 chars from a 28-character alphabet is about 77 bits, and it is
+ * single-use: the holder must replace it at first sign-in.
+ */
+export function generateTemporaryPassword(): string {
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const groups: string[] = [];
+
+  for (let group = 0; group < 4; group++) {
+    let chunk = "";
+    for (let i = 0; i < 4; i++) {
+      chunk += alphabet[crypto.randomInt(0, alphabet.length)];
+    }
+    groups.push(chunk);
+  }
+  return groups.join("-");
+}
+
 /** Six digit OTP from a CSPRNG, not Math.random. */
 export function generateOtp(): string {
   return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");

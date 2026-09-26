@@ -105,6 +105,12 @@ export interface User {
   role: string;
   designation: string | null;
   hasAadhaarToken?: boolean;
+  /**
+   * True while the account still holds the temporary password from its
+   * invitation. The API refuses every route except changing it, and this app has
+   * no screen for that, so sign-in stops here and points at the web portal.
+   */
+  mustChangePassword?: boolean;
 }
 
 export interface CaseRow {

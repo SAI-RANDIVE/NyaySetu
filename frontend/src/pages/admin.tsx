@@ -10,19 +10,33 @@ import {
   HardDrive,
   KeyRound,
   Link2Off,
+  MailWarning,
   Plus,
   RefreshCw,
   ScrollText,
+  Send,
+  ShieldCheck,
+  Trash2,
   Users as UsersIcon,
   Wallet,
 } from "lucide-react";
-import { api, type HealthResponse, type Role } from "../lib/api";
+import { api, type CaseRow, type HealthResponse, type Role } from "../lib/api";
 import { useMutation, useQuery } from "../lib/useApi";
 import { useToast } from "../context/ToastContext";
 import { ROLE_LABEL, formatDateTime, formatEth, relativeTime } from "../lib/format";
 import { shortHash } from "../lib/hash";
 import { AsyncView, EmptyState } from "../components/DataState";
-import { Button, Card, Field, Input, Modal, PageHeader, Select, Stat } from "../components/ui";
+import {
+  Button,
+  Card,
+  CopyButton,
+  Field,
+  Input,
+  Modal,
+  PageHeader,
+  Select,
+  Stat,
+} from "../components/ui";
 import { StatusChip, TxLink } from "../components/trust";
 
 /* ==================================================== AdminOverview ====== */
@@ -267,12 +281,30 @@ interface UserRow {
   last_login_at: string | null;
   aadhaarOnFile: boolean;
   aadhaarLast4: string | null;
+  /** Present once migration 006 has been applied. */
+  must_change_password?: boolean;
+  invited_at?: string | null;
+  first_login_at?: string | null;
+}
+
+/**
+ * What an invitation currently looks like from the registry's side.
+ *
+ * "Invited" and "never signed in" are different facts and a court administrator
+ * chasing somebody needs both: one says the email went out, the other says
+ * nothing came back.
+ */
+function inviteState(row: UserRow): { tone: "success" | "warning" | "neutral"; label: string } {
+  if (row.must_change_password) return { tone: "warning", label: "Invited" };
+  if (!row.last_login_at) return { tone: "neutral", label: "Never signed in" };
+  return { tone: "success", label: "Active" };
 }
 
 export function AdminUsers() {
   const toast = useToast();
   const users = useQuery<{ users: UserRow[] }>("/api/admin/users?limit=200");
   const [createOpen, setCreateOpen] = useState(false);
+  const [inviting, setInviting] = useState<UserRow | null>(null);
 
   const toggle = useMutation(async (args: { id: string; isActive: boolean }) =>
     api.patch(`/api/admin/users/${args.id}`, { isActive: args.isActive })
@@ -283,10 +315,10 @@ export function AdminUsers() {
       <PageHeader
         eyebrow="Court registry"
         title="Participants"
-        description="Every account on the platform. Deactivating one revokes its live sessions immediately."
+        description="Every account on the platform. There is no sign-up: an account exists because you created it, and it can do nothing until its holder replaces the password you sent them. Deactivating one revokes its live sessions immediately."
         actions={
           <Button icon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
-            Add participant
+            Invite a participant
           </Button>
         }
       />
@@ -299,8 +331,8 @@ export function AdminUsers() {
           isEmpty={(data) => data.users.length === 0}
           empty={
             <EmptyState
-              title="No participants"
-              description="Run the seed script, or add accounts here."
+              title="No participants yet"
+              description="Invite the first officer, lab analyst or judge. They receive a one-time password by email and choose their own on first sign-in."
               icon={<UsersIcon size={19} />}
             />
           }
@@ -310,7 +342,7 @@ export function AdminUsers() {
               <table className="w-full min-w-[820px] border-collapse">
                 <thead>
                   <tr className="border-b border-border">
-                    {["Name", "Role", "Posting", "Aadhaar", "Last seen", "Status", ""].map((heading) => (
+                    {["Name", "Role", "Posting", "Aadhaar", "Last seen", "Account", ""].map((heading) => (
                       <th
                         key={heading}
                         className="px-5 py-2.5 text-left font-ui text-2xs font-semibold uppercase tracking-wider text-faint"
@@ -346,28 +378,50 @@ export function AdminUsers() {
                         </span>
                       </td>
                       <td className="px-5 py-3">
-                        <StatusChip
-                          tone={row.is_active ? "success" : "neutral"}
-                          label={row.is_active ? "Active" : "Disabled"}
-                        />
+                        {row.is_active ? (
+                          <StatusChip {...inviteState(row)} />
+                        ) : (
+                          <StatusChip tone="neutral" label="Disabled" />
+                        )}
+                        {row.invited_at && row.must_change_password && (
+                          <p className="mt-1 font-ui text-2xs text-faint">
+                            emailed {relativeTime(row.invited_at)}
+                          </p>
+                        )}
                       </td>
-                      <td className="px-5 py-3 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={async () => {
-                            const outcome = await toggle.run({ id: row.id, isActive: !row.is_active });
-                            if (outcome) {
-                              toast.success(
-                                row.is_active ? "Account disabled" : "Account enabled",
-                                row.is_active ? "Its live sessions have been revoked." : undefined
-                              );
-                              users.refetch();
-                            }
-                          }}
-                        >
-                          {row.is_active ? "Disable" : "Enable"}
-                        </Button>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon={<Send size={12} />}
+                            disabled={!row.is_active}
+                            onClick={() => setInviting(row)}
+                          >
+                            {row.must_change_password ? "Resend" : "Reset"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              const outcome = await toggle.run({
+                                id: row.id,
+                                isActive: !row.is_active,
+                              });
+                              if (outcome) {
+                                toast.success(
+                                  row.is_active ? "Account disabled" : "Account enabled",
+                                  row.is_active
+                                    ? "Its live sessions have been revoked."
+                                    : undefined
+                                );
+                                users.refetch();
+                              }
+                            }}
+                          >
+                            {row.is_active ? "Disable" : "Enable"}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -381,12 +435,183 @@ export function AdminUsers() {
       <CreateUserModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => {
-          users.refetch();
-          setCreateOpen(false);
-        }}
+        onCreated={() => users.refetch()}
+      />
+
+      <ReinviteModal
+        target={inviting}
+        onClose={() => setInviting(null)}
+        onSent={() => users.refetch()}
       />
     </>
+  );
+}
+
+/**
+ * The panel that hands a credential over.
+ *
+ * Shown after a successful invitation whether or not the email went out, because
+ * the administrator is the fallback channel: if the mail server refused the
+ * message, this is the only copy of the password that exists, and once this modal
+ * closes the platform holds nothing but its hash.
+ */
+function CredentialPanel({
+  email,
+  password,
+  delivery,
+}: {
+  email: string;
+  password: string;
+  delivery: { status: string; error?: string | null; forcedChange?: boolean };
+}) {
+  const sent = delivery.status === "sent";
+
+  return (
+    <div className="space-y-4">
+      <div
+        className={`rounded-card border px-4 py-3 ${
+          sent ? "border-success-soft bg-success-soft" : "border-warning-soft bg-warning-soft"
+        }`}
+      >
+        <p className="flex items-center gap-1.5 font-ui text-xs font-semibold text-text">
+          {sent ? <CheckCircle2 size={13} /> : <MailWarning size={13} />}
+          {sent ? "The invitation was emailed" : "The invitation could not be emailed"}
+        </p>
+        <p className="mt-1 font-ui text-2xs leading-relaxed text-muted">
+          {sent
+            ? `Sent to ${email}. The password below is in that message; you do not need to pass it on.`
+            : delivery.error ??
+              "The mail server refused the message. Give the password below to its holder by some other means."}
+        </p>
+      </div>
+
+      <div className="rounded-card border border-border bg-surface-raised px-4 py-3.5">
+        <p className="font-ui text-2xs uppercase tracking-wider text-faint">Email</p>
+        <p className="mt-1 break-all font-mono text-sm text-text">{email}</p>
+
+        <p className="mt-3.5 font-ui text-2xs uppercase tracking-wider text-faint">
+          One-time password
+        </p>
+        <div className="mt-1 flex items-center gap-2">
+          <p className="flex-1 break-all font-mono text-base font-bold tracking-wide text-primary">
+            {password}
+          </p>
+          <CopyButton value={password} label="Copy" />
+        </div>
+      </div>
+
+      <p className="font-ui text-2xs leading-relaxed text-muted">
+        {delivery.forcedChange === false ? (
+          <>
+            Migration <code className="font-mono">006_invitations.sql</code> has not been applied, so
+            this password will not expire on first use. Run it and re-invite.
+          </>
+        ) : (
+          <>
+            This works once. The platform refuses every route for this account until its holder has
+            chosen a password of their own, so nothing can be done with a copy of it afterwards.
+          </>
+        )}
+      </p>
+
+      <p className="font-ui text-2xs leading-relaxed text-faint">
+        This is the only time it is shown. Only its hash is stored; if it is lost, send a new
+        invitation rather than trying to recover this one.
+      </p>
+    </div>
+  );
+}
+
+interface InviteResult {
+  temporaryPassword: string;
+  invitation: { status: string; error?: string | null; forcedChange?: boolean };
+}
+
+/**
+ * Re-invite, which is also the password-reset path.
+ *
+ * Deliberately not self-service. A reset link sitting in an inbox is the same
+ * exposure as a password sitting in an inbox, and a court can afford to make
+ * somebody ask a registrar. It rotates the credential, so whatever was in the
+ * previous email stops working.
+ */
+function ReinviteModal({
+  target,
+  onClose,
+  onSent,
+}: {
+  target: UserRow | null;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [result, setResult] = useState<InviteResult | null>(null);
+  const send = useMutation(async (id: string) => api.post<InviteResult>(`/api/admin/users/${id}/invite`));
+
+  const close = () => {
+    setResult(null);
+    onClose();
+  };
+
+  return (
+    <Modal
+      open={Boolean(target)}
+      onClose={close}
+      title={result ? "New password issued" : "Send a new invitation"}
+      description={
+        result
+          ? undefined
+          : "A fresh one-time password is generated and emailed. Whatever was in the previous invitation stops working, and every live session on this account is signed out."
+      }
+      width="max-w-lg"
+      footer={
+        result ? (
+          <Button onClick={close}>Done</Button>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={close}>
+              Cancel
+            </Button>
+            <Button
+              loading={send.pending}
+              icon={<Send size={13} />}
+              onClick={async () => {
+                if (!target) return;
+                const outcome = await send.run(target.id);
+                if (outcome) {
+                  setResult(outcome);
+                  onSent();
+                }
+              }}
+            >
+              Send it
+            </Button>
+          </>
+        )
+      }
+    >
+      {result && target ? (
+        <CredentialPanel
+          email={target.email}
+          password={result.temporaryPassword}
+          delivery={result.invitation}
+        />
+      ) : (
+        <div className="space-y-3">
+          <p className="font-ui text-sm text-text">
+            {target?.full_name}{" "}
+            <span className="font-ui text-xs text-muted">
+              · {target ? ROLE_LABEL[target.role] : ""}
+            </span>
+          </p>
+          <p className="font-mono text-xs text-muted">{target?.email}</p>
+          {send.error && (
+            <p role="alert" className="font-ui text-xs text-danger">
+              {send.error.message}
+            </p>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -399,10 +624,8 @@ function CreateUserModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const toast = useToast();
   const [form, setForm] = useState({
     email: "",
-    password: "",
     fullName: "",
     role: "police" as Role,
     designation: "",
@@ -410,11 +633,11 @@ function CreateUserModal({
     aadhaarNumber: "",
     phone: "",
   });
+  const [result, setResult] = useState<InviteResult | null>(null);
 
   const create = useMutation(async () =>
-    api.post("/api/admin/users", {
+    api.post<InviteResult>("/api/admin/users", {
       email: form.email.trim(),
-      password: form.password,
       fullName: form.fullName.trim(),
       role: form.role,
       designation: form.designation.trim() || undefined,
@@ -424,37 +647,66 @@ function CreateUserModal({
     })
   );
 
-  const valid =
-    /\S+@\S+\.\S+/.test(form.email) && form.password.length >= 12 && form.fullName.trim().length >= 3;
+  const valid = /\S+@\S+\.\S+/.test(form.email) && form.fullName.trim().length >= 3;
+
+  const close = () => {
+    setResult(null);
+    setForm({
+      email: "",
+      fullName: "",
+      role: "police",
+      designation: "",
+      stationOrCourt: "",
+      aadhaarNumber: "",
+      phone: "",
+    });
+    onClose();
+  };
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
-      title="Add a participant"
-      description="An Aadhaar number entered here is converted to a one-way token and discarded. Only the token and the last four digits are kept."
+      onClose={close}
+      title={result ? "Invitation issued" : "Invite a participant"}
+      description={
+        result
+          ? undefined
+          : "You do not choose their password. One is generated, emailed to the address below, and expires the first time it is used. An Aadhaar number entered here is converted to a one-way token and discarded; only the token and the last four digits are kept."
+      }
       width="max-w-xl"
       footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            disabled={!valid}
-            loading={create.pending}
-            onClick={async () => {
-              const outcome = await create.run(undefined as never);
-              if (outcome) {
-                toast.success("Participant added", `${form.fullName} can now sign in.`);
-                onCreated();
-              }
-            }}
-          >
-            Create
-          </Button>
-        </>
+        result ? (
+          <Button onClick={close}>Done</Button>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={close}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!valid}
+              loading={create.pending}
+              icon={<Send size={13} />}
+              onClick={async () => {
+                const outcome = await create.run(undefined as never);
+                if (outcome) {
+                  setResult(outcome);
+                  onCreated();
+                }
+              }}
+            >
+              Create and invite
+            </Button>
+          </>
+        )
       }
     >
+      {result ? (
+        <CredentialPanel
+          email={form.email.trim()}
+          password={result.temporaryPassword}
+          delivery={result.invitation}
+        />
+      ) : (
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Full name" required>
@@ -476,15 +728,6 @@ function CreateUserModal({
             type="email"
             value={form.email}
             onChange={(event) => setForm({ ...form, email: event.target.value })}
-          />
-        </Field>
-
-        <Field label="Initial password" required hint="At least 12 characters. They can change it after signing in.">
-          <Input
-            type="text"
-            value={form.password}
-            onChange={(event) => setForm({ ...form, password: event.target.value })}
-            className="font-mono"
           />
         </Field>
 
@@ -529,7 +772,271 @@ function CreateUserModal({
           </p>
         )}
       </div>
+      )}
     </Modal>
+  );
+}
+
+/* ====================================================== AdminAccess ====== */
+
+/**
+ * Per-case access.
+ *
+ * Holding a role is not the same as being on a case. A judge is a judge, but this
+ * judge is on this case, and that distinction is what keeps a district's entire
+ * evidence store from being readable by everyone who holds a badge. The API
+ * mirrors it: assertCaseAccess checks the assignment on every case-scoped route,
+ * and the RLS policies check it again in the database.
+ *
+ * Two rules are worth knowing before using this screen:
+ *
+ *   - The court registry is not listed. A court_admin sees every case by design,
+ *     which is what makes this screen possible in the first place.
+ *   - Defence counsel is always downgraded to read. The server does it, not this
+ *     form, so it holds however the request was made.
+ */
+export function AdminAccess() {
+  const toast = useToast();
+  const cases = useQuery<{ cases: CaseRow[] }>("/api/cases");
+  const users = useQuery<{ users: UserRow[] }>("/api/admin/users?limit=200");
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const activeCase = selected ?? cases.data?.cases[0]?.id ?? null;
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="Court registry"
+        title="Case access"
+        description="Who may open which case. A role gets somebody into their portal; an assignment here is what puts a specific case in front of them. Without one, every request for that case is refused by the API and by the database."
+      />
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
+        <Card title="Cases" bodyClassName="!px-0 !py-0">
+          <AsyncView
+            state={cases}
+            onRetry={cases.refetch}
+            context="cases"
+            isEmpty={(data) => data.cases.length === 0}
+            empty={
+              <EmptyState
+                title="No cases yet"
+                description="An FIR has to be registered by a police account before there is anything to grant access to."
+                icon={<ClipboardList size={19} />}
+              />
+            }
+          >
+            {(data) => (
+              <ul className="max-h-[620px] overflow-y-auto">
+                {data.cases.map((row) => {
+                  const active = row.id === activeCase;
+                  return (
+                    <li key={row.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelected(row.id)}
+                        className={`flex w-full flex-col gap-0.5 border-l-2 px-4 py-3 text-left transition-colors duration-200 ${
+                          active
+                            ? "border-primary bg-primary-soft"
+                            : "border-transparent hover:bg-surface-raised"
+                        }`}
+                      >
+                        <span className="font-mono text-2xs text-muted">{row.fir_number}</span>
+                        <span className="line-clamp-2 font-ui text-xs font-medium text-text">
+                          {row.title}
+                        </span>
+                        <span className="font-ui text-2xs text-faint">{row.police_station}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </AsyncView>
+        </Card>
+
+        {activeCase ? (
+          <CaseAccessPanel
+            caseId={activeCase}
+            users={users.data?.users ?? []}
+            onChanged={() => toast.success("Access updated")}
+          />
+        ) : (
+          <Card title="Access list">
+            <EmptyState
+              title="Nothing selected"
+              description="Pick a case on the left."
+              icon={<ShieldCheck size={19} />}
+            />
+          </Card>
+        )}
+      </div>
+    </>
+  );
+}
+
+interface Assignment {
+  user_id: string;
+  access: "read" | "write";
+  created_at: string;
+  user_directory: { full_name: string; role: Role; designation: string | null };
+}
+
+function CaseAccessPanel({
+  caseId,
+  users,
+  onChanged,
+}: {
+  caseId: string;
+  users: UserRow[];
+  onChanged: () => void;
+}) {
+  const toast = useToast();
+  const detail = useQuery<{ case: CaseRow; assignments: Assignment[] }>(
+    `/api/cases/${caseId}`,
+    [caseId]
+  );
+
+  const [userId, setUserId] = useState("");
+  const [access, setAccess] = useState<"read" | "write">("read");
+
+  const grant = useMutation(async () =>
+    api.post<{ downgradedToRead: boolean }>(`/api/cases/${caseId}/assignments`, { userId, access })
+  );
+  const revoke = useMutation(async (id: string) =>
+    api.del(`/api/cases/${caseId}/assignments/${id}`)
+  );
+
+  // The registry already sees everything, and an account that cannot sign in
+  // cannot use an assignment, so neither is worth offering.
+  const assigned = new Set((detail.data?.assignments ?? []).map((a) => a.user_id));
+  const candidates = users.filter(
+    (user) => user.is_active && user.role !== "court_admin" && !assigned.has(user.id)
+  );
+
+  return (
+    <div className="space-y-5">
+      <Card
+        title="Who can open this case"
+        subtitle={detail.data ? `${detail.data.case.fir_number} · ${detail.data.case.title}` : undefined}
+        bodyClassName="!px-0 !py-0"
+      >
+        <AsyncView
+          state={detail}
+          onRetry={detail.refetch}
+          context="case access"
+          isEmpty={(data) => data.assignments.length === 0}
+          empty={
+            <EmptyState
+              title="Nobody is assigned"
+              description="Not even the officer who registered the FIR can open it until somebody is. Add the first person below."
+              icon={<Link2Off size={19} />}
+            />
+          }
+        >
+          {(data) => (
+            <ul className="divide-y divide-border">
+              {data.assignments.map((row) => (
+                <li key={row.user_id} className="flex items-center gap-3 px-5 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-ui text-sm font-medium text-text">
+                      {row.user_directory.full_name}
+                    </p>
+                    <p className="font-ui text-2xs text-muted">
+                      {ROLE_LABEL[row.user_directory.role]}
+                      {row.user_directory.designation ? ` · ${row.user_directory.designation}` : ""}
+                    </p>
+                  </div>
+                  <StatusChip
+                    tone={row.access === "write" ? "info" : "neutral"}
+                    label={row.access === "write" ? "Read & write" : "Read only"}
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<Trash2 size={12} />}
+                    loading={revoke.pending}
+                    onClick={async () => {
+                      const outcome = await revoke.run(row.user_id);
+                      if (outcome) {
+                        toast.success(
+                          "Access revoked",
+                          `${row.user_directory.full_name} can no longer open this case.`
+                        );
+                        detail.refetch();
+                        onChanged();
+                      }
+                    }}
+                  >
+                    Revoke
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </AsyncView>
+      </Card>
+
+      <Card title="Grant access" subtitle="Takes effect on their next request; no re-login needed.">
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_150px_auto] sm:items-end">
+          <Field label="Participant">
+            <Select value={userId} onChange={(event) => setUserId(event.target.value)}>
+              <option value="">Choose somebody…</option>
+              {candidates.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.full_name} — {ROLE_LABEL[user.role]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Access">
+            <Select
+              value={access}
+              onChange={(event) => setAccess(event.target.value as "read" | "write")}
+            >
+              <option value="read">Read only</option>
+              <option value="write">Read &amp; write</option>
+            </Select>
+          </Field>
+
+          <Button
+            disabled={!userId}
+            loading={grant.pending}
+            icon={<Plus size={13} />}
+            onClick={async () => {
+              const outcome = await grant.run(undefined as never);
+              if (outcome) {
+                toast.success(
+                  "Access granted",
+                  outcome.downgradedToRead
+                    ? "Downgraded to read only: defence counsel never gets write access to prosecution material."
+                    : undefined
+                );
+                setUserId("");
+                detail.refetch();
+                onChanged();
+              }
+            }}
+          >
+            Grant
+          </Button>
+        </div>
+
+        {candidates.length === 0 && (
+          <p className="mt-3 font-ui text-2xs leading-relaxed text-muted">
+            Everybody who could be added already has access, or there is nobody else to add. Invite a
+            participant first.
+          </p>
+        )}
+
+        {grant.error && (
+          <p role="alert" className="mt-3 font-ui text-xs text-danger">
+            {grant.error.message}
+          </p>
+        )}
+      </Card>
+    </div>
   );
 }
 

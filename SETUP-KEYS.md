@@ -98,12 +98,22 @@ SMTP_PASSWORD=abcdefghijklmnop
 ### Also worth setting
 
 ```dotenv
-SEED_EMAIL_BASE=yourname@gmail.com
+BOOTSTRAP_ADMIN_EMAIL=yourname@gmail.com
+BOOTSTRAP_ADMIN_NAME=Your Name
 ```
 
-This makes the eight demo accounts use plus-addressed aliases of your real mailbox — `yourname+police@gmail.com`, `yourname+judge@gmail.com`, and so on. Gmail delivers all of them to the same inbox, so one mailbox receives the sign-in codes for every role. Without it the accounts use `@nyaysetu.demo`, which is not a real domain, and no code can arrive.
+This is the account `npm run bootstrap` creates: the one court administrator, and
+the only account that is not created from inside the platform. Use the same
+mailbox as `SMTP_USER` or any other address you can read — every sign-in emails a
+six digit code to it.
 
-**If you would rather not use email at all:** set `LOGIN_OTP_ENABLED=false` and sign-in stays password-only. Everything else works.
+**Demonstrating more than one role from one mailbox.** Invite the other accounts
+with plus-addressed aliases of the same inbox — `yourname+judge@gmail.com`,
+`yourname+police@gmail.com`. Gmail, Outlook and Fastmail all deliver those to the
+same place, so one mailbox receives the sign-in codes for every role, and each is
+still a genuinely separate account with its own password and its own audit trail.
+
+**If you would rather not use email at all:** set `LOGIN_OTP_ENABLED=false` and sign-in stays password-only. Everything else works, including invitations — the password is then shown to the administrator in the browser instead of being emailed.
 
 ---
 
@@ -211,7 +221,7 @@ As of the latest commit these are configured in `backend/.env` and verified live
 
 **One step remains, and only you can do it:** run
 `database/migrations/005_pii_access.sql` in the Supabase SQL editor. It creates
-the four functions that reach the Aadhaar table. Until then `npm run seed` stops
+the four functions that reach the Aadhaar table. Until then Aadhaar capture stops
 with a message pointing at it.
 
 Still optional: Sepolia (for a public chain) and Pinata (for real IPFS). The
@@ -232,7 +242,6 @@ SUPABASE_SERVICE_ROLE_KEY=
 # --- email (recommended) ---
 SMTP_USER=
 SMTP_PASSWORD=
-SEED_EMAIL_BASE=
 
 # --- public chain (optional) ---
 SEPOLIA_RPC_URL=
@@ -245,18 +254,20 @@ PINATA_JWT=
 ETHERSCAN_API_KEY=
 ```
 
-Leave any line blank to skip it. I will wire them in, run the migrations check, seed the demo cast, start every service, and report what each subsystem says about itself.
+Leave any line blank to skip it. I will wire them in, run the migrations check, create the first administrator, start every service, and report what each subsystem says about itself.
 
 ---
 
 ## What happens the moment you send them
 
 1. Values go into `backend/.env` and `contracts/.env`. Neither is ever committed.
-2. `npm run seed` creates eight accounts, one per role, plus a worked case.
+2. `npm run bootstrap` creates one court administrator and prints its password.
+   Every other account is invited from `/admin`; there is no demo cast.
 3. Contracts deploy to Sepolia if you supplied a key, otherwise the local chain.
 4. Everything starts; `/api/health` is checked subsystem by subsystem.
 5. `npm run chain:check` runs its 24 integration checks against the live chain.
-6. You get the sign-in URL and the credentials, and I walk you through the nine-step demo.
+6. You get the sign-in URL and the administrator's credentials, and from `/admin`
+   you invite one account per role and put them on a case.
 
 ---
 

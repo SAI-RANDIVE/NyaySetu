@@ -17,6 +17,19 @@ import { colours, styles } from "../theme";
  * two seconds rather than twenty minutes.
  */
 
+/**
+ * Why this app refuses an invited account rather than handling it.
+ *
+ * The temporary password has to be replaced before anything else will work, and
+ * building a second password-change screen here would mean a second
+ * implementation of the same rules to keep in step with the first. Sending them
+ * to the portal once, on the device they were already given, is a smaller thing
+ * to get wrong. After that, this app signs them in normally.
+ */
+const FIRST_RUN_MESSAGE =
+  "This account still has the one-time password from its invitation. Open the " +
+  "NyaySetu portal in a browser and choose your own password first, then sign in here.";
+
 interface Step1Response {
   mfaRequired: boolean;
   user?: User;
@@ -31,8 +44,11 @@ interface Step1Response {
 
 export function LoginScreen({ onSignedIn }: { onSignedIn: (user: User) => void }) {
   const [step, setStep] = useState<"password" | "code">("password");
-  const [email, setEmail] = useState("police@nyaysetu.demo");
-  const [password, setPassword] = useState("NyaySetu@2026");
+  // Blank, not prefilled. There are no demo accounts to prefill with: an account
+  // exists because a court administrator created it and emailed its holder a
+  // one-time password.
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
 
   const [challenge, setChallenge] = useState<Step1Response | null>(null);
@@ -67,6 +83,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (user: User) => void }
         return;
       }
 
+      if (result.user?.mustChangePassword) return setError(FIRST_RUN_MESSAGE);
       if (result.csrfToken) setCsrfToken(result.csrfToken);
       if (result.user) onSignedIn(result.user);
     } catch (caught) {
@@ -83,6 +100,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (user: User) => void }
       const result = await api.post<{ user: User; csrfToken: string }>("/api/auth/login/verify", {
         otp,
       });
+      if (result.user.mustChangePassword) return setError(FIRST_RUN_MESSAGE);
       setCsrfToken(result.csrfToken);
       onSignedIn(result.user);
     } catch (caught) {
@@ -154,7 +172,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (user: User) => void }
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
-                placeholder="officer@nyaysetu.demo"
+                placeholder="you@department.gov.in"
                 placeholderTextColor={colours.faint}
               />
             </View>

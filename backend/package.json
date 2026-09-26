@@ -13,8 +13,8 @@
     "build": "tsc -p tsconfig.json && node scripts/copyAssets.mjs",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "seed": "tsx src/scripts/seed.ts",
-    "demo": "tsx src/scripts/demoFlow.ts",
+    "bootstrap": "tsx src/scripts/bootstrapAdmin.ts",
+    "auth:check": "tsx src/scripts/authCheck.ts",
     "sweep": "tsx src/scripts/sweep.ts",
     "chain:check": "tsx src/scripts/chainCheck.ts",
     "check": "tsx src/scripts/connectionCheck.ts"

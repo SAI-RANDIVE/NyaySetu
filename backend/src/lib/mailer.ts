@@ -10,9 +10,11 @@ import {
   button,
   callout,
   codePanel,
+  credentialRow,
   escapeHtml,
   paragraph,
   shell,
+  steps,
   strong,
 } from "./emailTemplates";
 
@@ -277,6 +279,77 @@ export async function sendLoginOtp(args: {
         ),
       footnote:
         "If this was not you, somebody else may know your password. Change it and tell the court administrator.",
+    }),
+  });
+}
+
+/**
+ * The invitation a new account receives.
+ *
+ * This is the only moment a password travels by email, which is why the one it
+ * carries is temporary and single-use. The message says so plainly rather than
+ * burying it, because a recipient who does not understand that will leave it in
+ * their inbox.
+ */
+export async function sendInvitation(args: {
+  to: string;
+  userId: string;
+  fullName: string;
+  roleLabel: string;
+  temporaryPassword: string;
+  invitedByName: string;
+  portalUrl: string;
+}): Promise<SendResult> {
+  const first = args.fullName.split(" ")[0] || "there";
+
+  const text = [
+    `${first},`,
+    "",
+    `${args.invitedByName} has created a NyaySetu account for you as ${args.roleLabel}.`,
+    "",
+    `Sign in at: ${args.portalUrl}`,
+    `Email:      ${args.to}`,
+    `Password:   ${args.temporaryPassword}`,
+    "",
+    "This password works once. You will be asked to choose your own before you",
+    "can go any further.",
+    "",
+    "Signing in takes two steps: this password, then a six digit code sent to",
+    "this same address. Nobody can reach your account with the password alone.",
+    "",
+    "If you were not expecting this, tell the court administrator. Do not sign in.",
+  ].join("\n");
+
+  return send({
+    to: args.to,
+    userId: args.userId,
+    purpose: "invitation",
+    subject: `Your NyaySetu account: ${args.roleLabel}`,
+    text,
+    html: shell({
+      title: "An account has been created for you",
+      kicker: "Welcome",
+      tone: "green",
+      body:
+        paragraph(
+          `${escapeHtml(first)}, ${escapeHtml(args.invitedByName)} has created a NyaySetu account ` +
+            `for you as ${strong(args.roleLabel)}.`
+        ) +
+        credentialRow("Email", args.to) +
+        credentialRow("Temporary password", args.temporaryPassword) +
+        callout(
+          `This password works ${strong("once")}. You will be asked to choose your own before you can ` +
+            "go any further, so it stops being useful the moment you have used it.",
+          "orange"
+        ) +
+        steps([
+          "Open the sign-in page and enter the address and password above.",
+          "A six digit code arrives at this same address. Enter it.",
+          "Choose a password of your own. That is the one you keep.",
+        ]) +
+        button(args.portalUrl, "Sign in", "green"),
+      footnote:
+        "If you were not expecting this, tell the court administrator and do not sign in.",
     }),
   });
 }

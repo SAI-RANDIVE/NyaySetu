@@ -259,7 +259,7 @@ Saying these first is stronger than being caught by them.
 
 ## 13 · The ten-minute demo, and where to slow down
 
-`npm run demo` runs all nine steps. If you are driving the UI instead, this is the order:
+Drive it from the portals. Invite one account per role from `/admin`, put them all on one case at `/admin/access`, then follow this order:
 
 1. **Landing page** (15 s) — say the thesis: proof rather than paperwork.
 2. **Police → capture** (90 s) — this is the moment to slow down. Point at the digest appearing *before* the upload button becomes available, and say: this number is computed on the device, and the server can only agree with it or refuse.

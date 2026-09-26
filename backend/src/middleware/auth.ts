@@ -2,9 +2,10 @@ import { NextFunction, Request, Response } from "express";
 import { env } from "../config/env";
 import { db, unwrapMaybe } from "../lib/supabase";
 import { hashSessionToken, randomToken } from "../lib/crypto";
-import { forbidden, unauthorised } from "../lib/errors";
+import { AppError, forbidden, unauthorised } from "../lib/errors";
 import { logger } from "../lib/logger";
 import { getAadhaarToken } from "../lib/pii";
+import { invitationsReady } from "../lib/schema";
 
 export type UserRole =
   | "police"
@@ -24,6 +25,11 @@ export interface SessionUser {
   stationOrCourt: string | null;
   theme: "dark" | "light";
   aadhaarToken: string | null;
+  /**
+   * True while the account still holds the temporary password from its
+   * invitation. Every route except changing it refuses to run.
+   */
+  mustChangePassword: boolean;
 }
 
 declare global {
@@ -49,8 +55,19 @@ declare global {
  * SameSite=Strict so a cross-site form cannot ride along.
  */
 
-const SESSION_SELECT =
-  "id, user_id, csrf_token, expires_at, revoked_at, users!inner(id, email, full_name, role, designation, station_or_court, theme, is_active)";
+const SESSION_BASE_COLUMNS =
+  "id, user_id, csrf_token, expires_at, revoked_at, " +
+  "users!inner(id, email, full_name, role, designation, station_or_court, theme, is_active";
+
+/**
+ * must_change_password only exists once 006 has been applied, and selecting a
+ * column that is not there yet fails the whole session lookup, which would read
+ * as "nobody can sign in" with nothing in the response to explain why. So the
+ * projection is chosen from what the database actually has.
+ */
+function sessionSelect(invitations: boolean): string {
+  return SESSION_BASE_COLUMNS + (invitations ? ", must_change_password)" : ")");
+}
 
 export async function createSession(
   res: Response,
@@ -129,10 +146,12 @@ export async function loadSession(req: Request, _res: Response, next: NextFuncti
     const token = req.cookies?.[env.SESSION_COOKIE_NAME];
     if (!token || typeof token !== "string") return next();
 
+    const invitations = await invitationsReady();
+
     const row = unwrapMaybe(
       await db
         .from("sessions")
-        .select(SESSION_SELECT)
+        .select(sessionSelect(invitations))
         .eq("token_hash", hashSessionToken(token))
         .maybeSingle()
     ) as any;
@@ -175,6 +194,7 @@ export async function loadSession(req: Request, _res: Response, next: NextFuncti
       stationOrCourt: user.station_or_court,
       theme: user.theme,
       aadhaarToken,
+      mustChangePassword: Boolean(user.must_change_password),
     };
     req.sessionId = row.id;
     req.csrfToken = row.csrf_token;
@@ -212,6 +232,31 @@ export function requireRole(...roles: UserRole[]) {
     }
     return next();
   };
+}
+
+/**
+ * Refuses everything until an invited account has replaced its temporary
+ * password.
+ *
+ * Mounted on the feature routers rather than inside each one, because the rule
+ * is "nothing until this is settled" and a list of exceptions maintained by hand
+ * is a list somebody will forget to add to. /api/auth is deliberately not behind
+ * it: that is where the password gets changed.
+ *
+ * The response carries a code rather than only a message, so the SPA can route
+ * to the change-password screen instead of showing a dead end.
+ */
+export function requirePasswordSettled(req: Request, _res: Response, next: NextFunction) {
+  if (req.user?.mustChangePassword) {
+    return next(
+      new AppError(
+        403,
+        "PASSWORD_CHANGE_REQUIRED",
+        "Choose your own password before going any further. The one you were emailed works once."
+      )
+    );
+  }
+  return next();
 }
 
 /**

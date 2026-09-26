@@ -1,7 +1,7 @@
 -- ===========================================================================
 -- NyaySetu :: seed/reference.sql
 -- Reference rows only. Demo users, cases and evidence are created by
---   cd backend && npm run seed
+--   cd backend && npm run bootstrap
 -- because those need bcrypt hashes and Aadhaar tokens the API must compute.
 -- ===========================================================================
 

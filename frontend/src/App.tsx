@@ -8,6 +8,7 @@ import { LogoMark } from "./components/Logo";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import FirstRun from "./pages/FirstRun";
 import Handbook from "./pages/Handbook";
 import { CaseDossierPage, CasesPage, EvidenceDetailPage } from "./pages/shared";
 import { CapturePage, PoliceDashboard } from "./pages/police";
@@ -16,7 +17,7 @@ import { ProsecutorDashboard } from "./pages/prosecutor";
 import { BailBoard, JudgeDashboard, SummonsPage } from "./pages/judge";
 import { DefenceVerify } from "./pages/defence";
 import { AccusedCheckIn, AccusedHome, AccusedSummons } from "./pages/accused";
-import { AdminAudit, AdminChain, AdminOverview, AdminUsers } from "./pages/admin";
+import { AdminAccess, AdminAudit, AdminChain, AdminOverview, AdminUsers } from "./pages/admin";
 
 /**
  * Routing.
@@ -49,6 +50,13 @@ function Guard({ roles, children }: { roles?: Role[]; children: React.ReactNode 
   if (!user) {
     // Remember where they were headed so sign-in can return them there.
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  // An invited account has one destination until it has replaced the password it
+  // was emailed. The API enforces this too; without the redirect the user would
+  // just watch every panel fail with a 403 and no explanation.
+  if (user.mustChangePassword) {
+    return <Navigate to="/first-run" replace />;
   }
 
   if (roles && !roles.includes(user.role)) {
@@ -126,6 +134,9 @@ export default function App() {
           understand what the system claims about them before they have an
           account, and putting this behind a sign-in would defeat that. */}
       <Route path="/handbook" element={<Handbook />} />
+      {/* Signed in, but not through the gate: deliberately outside Guard, which
+          would bounce it straight back here. */}
+      <Route path="/first-run" element={<FirstRun />} />
 
       {/* -------------------------------------------------------- police */}
       <Route
@@ -246,6 +257,14 @@ export default function App() {
         element={
           <Guard roles={["court_admin"]}>
             <AdminUsers />
+          </Guard>
+        }
+      />
+      <Route
+        path="/admin/access"
+        element={
+          <Guard roles={["court_admin"]}>
+            <AdminAccess />
           </Guard>
         }
       />

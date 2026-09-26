@@ -210,7 +210,7 @@ INDEXER_ENABLED=true
 ### Seed, once
 
 ```bash
-cd backend && npm run seed
+cd backend && npm run bootstrap
 ```
 
 Creates one account per role plus a demo case. In a real deployment, create real accounts through `POST /api/admin/users` instead and skip this.
@@ -343,3 +343,13 @@ curl https://nyaysetu-api.up.railway.app/api/health
 | Sign-in succeeds but every later call 401s | The cookie is being dropped cross-site | `COOKIE_SAMESITE=none` and HTTPS on both ends, and the exact origin in `CORS_ORIGINS` |
 | `Writing the Aadhaar token failed … schema` | `restricted` is not exposed | Supabase → Settings → API → Exposed schemas |
 | Transactions stop confirming | The keeper is out of ETH | Top it up; `/api/health` shows the balance |
+
+---
+
+## Hosting it on Vercel, Render or similar
+
+See **[HOSTING.md](HOSTING.md)**. Read it before importing the repo into Vercel:
+the frontend builds fine, and four things in the API break silently unless they
+are configured for it — the scheduler that closes the 72 hour summons window, the
+blob fallback with no writable disk, and the two `127.0.0.1` URLs for the chain
+and the model service.

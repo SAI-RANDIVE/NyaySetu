@@ -134,6 +134,12 @@ const schema = z.object({
   // Where the links in an email point. Must be the SPA, not the API.
   PUBLIC_APP_URL: z.string().default("http://localhost:5173"),
 
+  // Shared secret for POST /api/health/sweep, so a hosted cron can drive the
+  // 72 hour summons window and the bail check-in sweep on a platform where the
+  // process does not stay alive between requests. Unset means the endpoint is
+  // not mounted at all, rather than mounted and unprotected.
+  CRON_SECRET: optionalString,
+
   // ------------------------------------------------------------------- jobs
   // 72 hours, per the specification.
   SUMMONS_WINDOW_HOURS: z.coerce.number().int().positive().default(72),
@@ -208,6 +214,7 @@ export type Env = typeof env;
 const smtpConfigured = Boolean(raw.SMTP_HOST && raw.SMTP_USER && raw.SMTP_PASSWORD);
 
 export const capabilities = {
+  cron: Boolean(raw.CRON_SECRET),
   chain: Boolean(raw.CHAIN_RPC_URL && raw.CHAIN_PRIVATE_KEY),
   ipfs: Boolean(raw.PINATA_JWT || (raw.PINATA_API_KEY && raw.PINATA_API_SECRET)),
   ai: Boolean(raw.AI_SERVICE_URL),

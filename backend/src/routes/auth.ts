@@ -15,13 +15,27 @@ import {
   readLoginChallengeCookie,
 } from "../middleware/loginChallenge";
 import { loginOtpProvider, loginSubjectToken } from "../otp";
+import { invitationsReady } from "../lib/schema";
 import { recordAction } from "../services/audit";
 
 const router = Router();
 
-const USER_SELECT =
+const USER_BASE_SELECT =
   "id, email, password_hash, full_name, role, designation, station_or_court, theme, is_active, " +
   "failed_login_attempts, locked_until, mfa_email_enabled, email_verified_at";
+
+/**
+ * The projection, widened only if 006 has been applied.
+ *
+ * Asking for a column the database does not have fails the entire query, and
+ * this query is the sign-in path, so a premature reference here would lock
+ * everybody out until somebody thought to read the migration folder.
+ */
+async function userSelect(): Promise<string> {
+  return (await invitationsReady())
+    ? USER_BASE_SELECT + ", must_change_password, first_login_at"
+    : USER_BASE_SELECT;
+}
 
 interface UserRow {
   id: string;
@@ -37,6 +51,9 @@ interface UserRow {
   locked_until: string | null;
   mfa_email_enabled: boolean | null;
   email_verified_at: string | null;
+  // Present only once 006 has been applied; treated as false until then.
+  must_change_password?: boolean | null;
+  first_login_at?: string | null;
 }
 
 function publicUser(user: UserRow) {
@@ -48,6 +65,9 @@ function publicUser(user: UserRow) {
     designation: user.designation,
     stationOrCourt: user.station_or_court,
     theme: user.theme,
+    // The SPA needs this in the sign-in response, not on a later request: the
+    // forced password screen has to be the first thing the user sees.
+    mustChangePassword: Boolean(user.must_change_password),
   };
 }
 
@@ -83,7 +103,7 @@ router.post(
     const { email, password } = req.body as z.infer<typeof loginSchema>;
 
     const user = unwrapMaybe(
-      await db.from("users").select(USER_SELECT).ilike("email", email).maybeSingle()
+      await db.from("users").select(await userSelect()).ilike("email", email).maybeSingle()
     ) as UserRow | null;
 
     if (!user) {
@@ -240,7 +260,7 @@ router.post(
     }
 
     const user = unwrapMaybe(
-      await db.from("users").select(USER_SELECT).eq("id", pending.userId).maybeSingle()
+      await db.from("users").select(await userSelect()).eq("id", pending.userId).maybeSingle()
     ) as UserRow | null;
 
     // Re-checked after the code, not only before it: an account suspended in the
@@ -291,7 +311,7 @@ router.post(
     const pending = readLoginChallengeCookie(req);
 
     const user = unwrapMaybe(
-      await db.from("users").select(USER_SELECT).eq("id", pending.userId).maybeSingle()
+      await db.from("users").select(await userSelect()).eq("id", pending.userId).maybeSingle()
     ) as UserRow | null;
     if (!user || !user.is_active) {
       clearLoginChallengeCookie(res);
@@ -361,6 +381,7 @@ router.get(
         stationOrCourt: user.stationOrCourt,
         theme: user.theme,
         hasAadhaarToken: Boolean(user.aadhaarToken),
+        mustChangePassword: user.mustChangePassword,
       },
       csrfToken: req.csrfToken,
     });
@@ -404,8 +425,23 @@ router.post(
       throw badRequest("Your current password is not correct.");
     }
 
+    // Refusing to let the temporary password be re-set as the permanent one.
+    // Without this the forced change is theatre: paste it twice and nothing has
+    // actually changed, while the flag says it has.
+    if (req.body.newPassword === req.body.currentPassword) {
+      throw badRequest("Choose a password different from the one you have now.");
+    }
+
     const hash = await bcrypt.hash(req.body.newPassword, 12);
-    await db.from("users").update({ password_hash: hash }).eq("id", req.user!.id);
+
+    const settled: Record<string, unknown> = { password_hash: hash };
+    if (await invitationsReady()) {
+      // This is the moment an invitation is spent.
+      settled.must_change_password = false;
+      settled.first_login_at = new Date().toISOString();
+    }
+
+    await db.from("users").update(settled).eq("id", req.user!.id);
 
     // A password change invalidates every other session for this user.
     await db
@@ -422,7 +458,11 @@ router.post(
 
 /**
  * What the sign-in screen needs to know before it draws itself: whether a
- * second factor is coming, and whether this is a demo deployment.
+ * second factor is coming.
+ *
+ * There is deliberately nothing here about demo accounts. There are none. Every
+ * account is created by a court administrator from /admin, so the sign-in screen
+ * has no credentials to offer and no list of addresses to leak.
  */
 router.get("/config", (_req, res) => {
   res.json({
@@ -431,9 +471,6 @@ router.get("/config", (_req, res) => {
     aadhaarProvider: capabilities.otpProvider,
     aadhaarSimulated: capabilities.otpProvider === "sandbox",
     environment: env.NODE_ENV,
-    // Demo credentials are offered by the UI only when the API says this is not
-    // production, so they cannot be surfaced on a real deployment.
-    showDemoAccounts: !env.isProduction,
   });
 });
 

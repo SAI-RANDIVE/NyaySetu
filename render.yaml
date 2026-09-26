@@ -1,0 +1,181 @@
+# ===========================================================================
+# NyaySetu :: Render blueprint
+#
+# Render rather than a serverless platform for the API, for one reason: two of
+# the three modules depend on noticing that something did NOT happen. A summons
+# nobody acknowledged inside 72 hours, and a bail check-in that never arrived,
+# are both absences, and an absence emits no event. A loop inside the API process
+# notices them. A function that is killed after each response cannot.
+#
+# Deploy: render.com -> New -> Blueprint -> this repository.
+# See HOSTING.md for the cross-site cookie settings, which are the step people
+# miss.
+# ===========================================================================
+
+services:
+  - type: web
+    name: nyaysetu-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render supplies PORT; the app reads it.
+
+      # --------------------------------------------------------- required
+      # sync: false means "ask me in the dashboard, do not put it in git".
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # Neither of these can ever be rotated: changing the pepper invalidates
+      # every stored Aadhaar token, and changing the key makes every encrypted
+      # file undecryptable. Copy them from backend/.env exactly.
+      - key: AADHAAR_TOKEN_PEPPER
+        sync: false
+      - key: EVIDENCE_ENCRYPTION_KEY
+        sync: false
+      - key: EVIDENCE_ENCRYPTION_KEY_ID
+        value: v1
+
+      # ------------------------------------------------- site and cookies
+      # Both must be the SPA's HTTPS origin. CORS_ORIGINS wrong means every
+      # request is refused before it reaches a route, which looks like the API
+      # being down rather than a configuration error.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
+      # The SPA and the API are on different sites, so the session cookie has to
+      # be allowed cross-site. "none" demands Secure, which production turns on.
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: SESSION_COOKIE_NAME
+        value: nyaysetu_session
+      - key: CSRF_COOKIE_NAME
+        value: nyaysetu_csrf
+      - key: SESSION_TTL_HOURS
+        value: "8"
+
+      # ------------------------------------------------------------- email
+      # Sign-in codes and summons notices. For Gmail, SMTP_PASSWORD is a
+      # 16-character App Password with the spaces removed, not the account
+      # password. Without these, sign-in falls back to one factor.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: LOGIN_OTP_ENABLED
+        value: "true"
+      - key: EMAIL_NOTIFICATIONS_ENABLED
+        value: "true"
+
+      # ------------------------------------------------------------- chain
+      # Leave blank and every anchored action answers 503 rather than pretending
+      # it was recorded. Fill in to go live on Sepolia; the addresses come from
+      # `npm run deploy:sepolia`, because contracts/deployed is not shipped here.
+      - key: CHAIN_NETWORK
+        value: sepolia
+      - key: CHAIN_RPC_URL
+        sync: false
+      - key: CHAIN_PRIVATE_KEY
+        sync: false
+      - key: EVIDENCE_CHAIN_ADDRESS
+        sync: false
+      - key: SUMMONS_CHAIN_ADDRESS
+        sync: false
+      - key: BAIL_CHAIN_ADDRESS
+        sync: false
+      # Two on a public testnet: one confirmation can still be reorganised away.
+      - key: CHAIN_CONFIRMATIONS
+        value: "2"
+
+      # -------------------------------------------------------------- IPFS
+      # Blank is survivable here, unlike on serverless, because this service has
+      # a writable disk: blobs fall back to storage/blobs. Not a production
+      # posture, since a free instance's disk is not durable.
+      - key: PINATA_JWT
+        sync: false
+      - key: PINATA_GATEWAY
+        value: https://gateway.pinata.cloud
+
+      # ----------------------------------------------------------------- AI
+      # The model service is Python and cannot share this runtime. Host it
+      # separately (see below) or leave blank and screening reports itself
+      # unavailable rather than calling an unexamined item clean.
+      - key: AI_SERVICE_URL
+        sync: false
+      - key: AI_SERVICE_KEY
+        sync: false
+      - key: AI_TIMEOUT_MS
+        value: "8000"
+
+      # ---------------------------------------------------------- identity
+      - key: OTP_PROVIDER
+        value: sandbox
+      - key: OTP_TTL_SECONDS
+        value: "300"
+      - key: OTP_MAX_ATTEMPTS
+        value: "3"
+
+      # -------------------------------------------------------------- jobs
+      # True, and this is the whole reason for choosing Render. One instance
+      # only: set both to false on every replica but one.
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: INDEXER_ENABLED
+        value: "true"
+      - key: SUMMONS_WINDOW_HOURS
+        value: "72"
+      - key: SWEEP_INTERVAL_MS
+        value: "120000"
+
+      # ------------------------------------------------------ rate limits
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: RATE_LIMIT_MAX
+        value: "120"
+      - key: AUTH_RATE_LIMIT_MAX
+        value: "10"
+      - key: OTP_RATE_LIMIT_MAX
+        value: "5"
+      - key: LOGIN_LOCKOUT_ATTEMPTS
+        value: "5"
+      - key: LOGIN_LOCKOUT_MINUTES
+        value: "15"
+      - key: MAX_UPLOAD_BYTES
+        value: "52428800"
+
+  # ------------------------------------------------------------------------
+  # The model service. Uncomment to host it, then set AI_SERVICE_URL above to
+  # the URL Render gives it, and the same AI_SERVICE_KEY on both.
+  #
+  # Nothing in a browser calls this service, so it needs no CORS headers at all;
+  # the shared secret is what stops anything else on the internet calling it.
+  # ------------------------------------------------------------------------
+  # - type: web
+  #   name: nyaysetu-ai
+  #   runtime: python
+  #   plan: free
+  #   rootDir: ai-service
+  #   buildCommand: pip install -r requirements.txt && python train.py
+  #   startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+  #   healthCheckPath: /health
+  #   envVars:
+  #     - key: AI_SERVICE_KEY
+  #       sync: false
+  #     - key: ANOMALY_SCORE_THRESHOLD
+  #       value: "0.62"

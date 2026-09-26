@@ -43,6 +43,10 @@ export const unavailable = (message: string) =>
 
 /** Wraps a Supabase error object into something with a status code. */
 export function fromSupabase(error: { message: string; code?: string; details?: string }): AppError {
+  // P0001 is a deliberate RAISE from one of our own triggers, and its message
+  // was written to be read by a person, so it is the one case where the database
+  // text is passed through rather than replaced.
+  if (error.code === "P0001") return conflict(error.message);
   // 23505 unique_violation, 23503 foreign_key_violation, 23514 check_violation
   if (error.code === "23505") return conflict("That record already exists.", error.details);
   if (error.code === "23503") return badRequest("Referenced record does not exist.", error.details);

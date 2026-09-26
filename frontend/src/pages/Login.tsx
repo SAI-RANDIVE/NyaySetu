@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
   BookOpen,
-  Info,
   Lock,
   Mail,
   MailCheck,
@@ -13,7 +12,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api, ApiError, type User } from "../lib/api";
-import { ROLE_HOME, ROLE_LABEL } from "../lib/format";
+import { ROLE_HOME } from "../lib/format";
 import { useQuery } from "../lib/useApi";
 import { Button, Field, Input } from "../components/ui";
 import { HeroBackdrop } from "../components/landing";
@@ -35,7 +34,6 @@ interface AuthConfig {
   aadhaarProvider: string;
   aadhaarSimulated: boolean;
   environment: string;
-  showDemoAccounts: boolean;
 }
 
 interface Step1Response {
@@ -50,19 +48,6 @@ interface Step1Response {
   /** Present only outside production, and only when delivery failed. */
   otp?: string;
 }
-
-const DEMO_ACCOUNTS: { slug: string; role: keyof typeof ROLE_LABEL; note?: string }[] = [
-  { slug: "police", role: "police" },
-  { slug: "forensic", role: "forensic_lab" },
-  { slug: "prosecutor", role: "prosecutor" },
-  { slug: "judge", role: "judge" },
-  { slug: "defence", role: "defence_lawyer" },
-  { slug: "accused", role: "accused" },
-  { slug: "surety", role: "accused", note: "surety view" },
-  { slug: "admin", role: "court_admin" },
-];
-
-const DEMO_PASSWORD = "NyaySetu@2026";
 
 export default function Login() {
   const { user, loading: sessionLoading, refresh } = useAuth();
@@ -79,7 +64,6 @@ export default function Login() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [challenge, setChallenge] = useState<Step1Response | null>(null);
-  const [showDemo, setShowDemo] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
 
   // Countdown on the code step, so nobody sits waiting on an expired code.
@@ -97,14 +81,8 @@ export default function Login() {
     return () => window.clearInterval(timer);
   }, [step, challenge?.expiresAt]);
 
-  // Demo addresses follow whatever the seed used, so derive them from the
-  // address that was just typed rather than hardcoding a domain that may be wrong.
-  const demoDomain = useMemo(() => {
-    const at = email.indexOf("@");
-    return at > 0 ? email.slice(at + 1) : "nyaysetu.demo";
-  }, [email]);
-
   if (!sessionLoading && user) {
+    if (user.mustChangePassword) return <Navigate to="/first-run" replace />;
     const from = (location.state as { from?: string } | null)?.from;
     return <Navigate to={from ?? ROLE_HOME[user.role]} replace />;
   }
@@ -128,7 +106,7 @@ export default function Login() {
 
       // Password-only deployment: the session already exists.
       await refresh();
-      navigate(result.user ? ROLE_HOME[result.user.role] : "/", { replace: true });
+      navigate(landingFor(result.user), { replace: true });
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -147,7 +125,7 @@ export default function Login() {
     try {
       const result = await api.post<{ user: User }>("/api/auth/login/verify", { otp });
       await refresh();
-      navigate(ROLE_HOME[result.user.role], { replace: true });
+      navigate(landingFor(result.user), { replace: true });
     } catch (caught) {
       const details = caught instanceof ApiError ? (caught.details as any) : null;
       setError(caught instanceof ApiError ? caught.message : "That code could not be verified.");
@@ -226,6 +204,11 @@ export default function Login() {
               Your role decides which portal opens. Sessions are held server-side, so an account can
               be cut off the moment it is suspended.
             </p>
+            <p className="mt-2.5 font-ui text-2xs leading-relaxed text-white/40">
+              There is no sign-up. Accounts are created by the court registry, which emails you an
+              address and a one-time password. If you were told you should have one and it has not
+              arrived, ask the registry to send it again.
+            </p>
 
             <div className="mt-6 space-y-4">
               <Field label="Email address" required>
@@ -239,7 +222,7 @@ export default function Login() {
                     required
                     autoComplete="username"
                     autoFocus
-                    placeholder="officer@nyaysetu.demo"
+                    placeholder="you@department.gov.in"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     className="border-white/15 bg-white/5 pl-10 text-white placeholder:text-white/30"
@@ -392,57 +375,6 @@ export default function Login() {
           </form>
         )}
 
-        {/* ------------------------------------------------ demo accounts */}
-        {step === "password" && config.data?.showDemoAccounts && (
-          <div className="anim mt-4" style={{ ["--d" as any]: "0.18s" }}>
-            <button
-              type="button"
-              onClick={() => setShowDemo((value) => !value)}
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-2.5 font-ui text-2xs font-semibold uppercase tracking-wider text-white/60 transition hover:border-white/30 hover:text-white"
-            >
-              <Info size={12} />
-              {showDemo ? "Hide demo accounts" : "Show demo accounts"}
-            </button>
-
-            {showDemo && (
-              <div className="mt-3 animate-menu-in rounded-card border border-white/12 bg-[#071a10]/88 p-4 backdrop-blur-xl">
-                <p className="mb-3 font-ui text-2xs leading-relaxed text-white/55">
-                  Seeded by <code className="font-mono text-white/75">npm run seed</code>. One
-                  password for all of them:{" "}
-                  <code className="font-mono text-white/75">{DEMO_PASSWORD}</code>
-                </p>
-                <ul className="space-y-1">
-                  {DEMO_ACCOUNTS.map((account) => {
-                    const address = `${account.slug}@${demoDomain}`;
-                    return (
-                      <li key={account.slug}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEmail(address);
-                            setPassword(DEMO_PASSWORD);
-                            setShowDemo(false);
-                          }}
-                          className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left transition hover:bg-white/5"
-                        >
-                          <span className="truncate font-mono text-2xs text-white/80">{address}</span>
-                          <span className="shrink-0 font-ui text-2xs text-white/45">
-                            {account.note ?? ROLE_LABEL[account.role]}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <p className="mt-3 font-ui text-2xs leading-relaxed text-white/40">
-                  Type your own address above first and these switch to match its domain, which is
-                  what you want if you seeded with <code className="font-mono">SEED_EMAIL_BASE</code>.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* ------------------------------------------------ handbook link */}
         <Link
           to="/handbook"
@@ -455,6 +387,17 @@ export default function Login() {
       </div>
     </div>
   );
+}
+
+/**
+ * Where a successful sign-in lands.
+ *
+ * An invited account goes to the password gate, not to its portal: its temporary
+ * password has just been spent, and every other route would refuse it anyway.
+ */
+function landingFor(user: User | undefined): string {
+  if (!user) return "/";
+  return user.mustChangePassword ? "/first-run" : ROLE_HOME[user.role];
 }
 
 function StepPip({ active, done, label }: { active: boolean; done: boolean; label: string }) {

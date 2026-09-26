@@ -7,7 +7,7 @@ import { logger } from "./lib/logger";
 import { initChain, chain } from "./lib/chain";
 import { pingDatabase } from "./lib/supabase";
 import { otpProvider } from "./otp";
-import { loadSession } from "./middleware/auth";
+import { loadSession, requirePasswordSettled } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { generalLimiter } from "./middleware/rateLimit";
 import { errorHandler, notFoundHandler } from "./middleware/error";
@@ -69,13 +69,17 @@ app.use(generalLimiter);
 app.use(csrfProtection);
 
 app.use("/api/health", healthRoutes);
+// Not behind requirePasswordSettled: this router is how the password is changed.
 app.use("/api/auth", authRoutes);
-app.use("/api/cases", caseRoutes);
-app.use("/api/evidence", evidenceRoutes);
-app.use("/api/summons", summonsRoutes);
-app.use("/api/bail", bailRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/admin", adminRoutes);
+
+// Everything that does real work waits until an invited account has replaced the
+// temporary password it was emailed.
+app.use("/api/cases", requirePasswordSettled, caseRoutes);
+app.use("/api/evidence", requirePasswordSettled, evidenceRoutes);
+app.use("/api/summons", requirePasswordSettled, summonsRoutes);
+app.use("/api/bail", requirePasswordSettled, bailRoutes);
+app.use("/api/ai", requirePasswordSettled, aiRoutes);
+app.use("/api/admin", requirePasswordSettled, adminRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

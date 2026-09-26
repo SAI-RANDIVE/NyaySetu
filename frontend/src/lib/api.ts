@@ -147,6 +147,12 @@ export interface User {
   stationOrCourt: string | null;
   theme: "dark" | "light";
   hasAadhaarToken?: boolean;
+  /**
+   * True while the account still holds the temporary password from its
+   * invitation. The API refuses every route except changing it, so the router
+   * sends these users to /first-run and nowhere else.
+   */
+  mustChangePassword?: boolean;
 }
 
 export type Stage = "SCENE" | "FORENSIC_LAB" | "PROSECUTOR" | "COURT";
