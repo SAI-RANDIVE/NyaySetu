@@ -215,7 +215,7 @@ export async function requestCheckInOtp(req: Request, user: SessionUser, caseId:
   if (!bail.active) throw conflict("This bail order is closed.");
 
   const dispatch = await otpProvider.sendOtp({
-    aadhaarToken,
+    subjectToken: aadhaarToken,
     purpose: "bail_checkin",
     referenceId: bail.id,
     destinationHint: "registered mobile",
@@ -264,7 +264,7 @@ export async function checkIn(
   const verification = await otpProvider.verifyOtp({
     challengeId: input.challengeId,
     otp: input.otp,
-    aadhaarToken,
+    subjectToken: aadhaarToken,
     purpose: "bail_checkin",
     referenceId: bail.id,
   });

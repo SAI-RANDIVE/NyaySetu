@@ -1,17 +1,57 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { env } from "../config/env";
+import { env, capabilities } from "../config/env";
 import { db, unwrapMaybe } from "../lib/supabase";
 import { badRequest, unauthorised } from "../lib/errors";
 import { logger } from "../lib/logger";
 import { asyncRoute } from "../middleware/error";
-import { validate, safeText } from "../middleware/validate";
-import { authLimiter } from "../middleware/rateLimit";
+import { validate, otpCode } from "../middleware/validate";
+import { authLimiter, otpLimiter } from "../middleware/rateLimit";
 import { createSession, destroySession, requireAuth } from "../middleware/auth";
+import {
+  clearLoginChallengeCookie,
+  issueLoginChallengeCookie,
+  readLoginChallengeCookie,
+} from "../middleware/loginChallenge";
+import { loginOtpProvider, loginSubjectToken } from "../otp";
 import { recordAction } from "../services/audit";
 
 const router = Router();
+
+const USER_SELECT =
+  "id, email, password_hash, full_name, role, designation, station_or_court, theme, is_active, " +
+  "failed_login_attempts, locked_until, mfa_email_enabled, email_verified_at";
+
+interface UserRow {
+  id: string;
+  email: string;
+  password_hash: string;
+  full_name: string;
+  role: string;
+  designation: string | null;
+  station_or_court: string | null;
+  theme: "dark" | "light";
+  is_active: boolean;
+  failed_login_attempts: number | null;
+  locked_until: string | null;
+  mfa_email_enabled: boolean | null;
+  email_verified_at: string | null;
+}
+
+function publicUser(user: UserRow) {
+  return {
+    id: user.id,
+    email: user.email,
+    fullName: user.full_name,
+    role: user.role,
+    designation: user.designation,
+    stationOrCourt: user.station_or_court,
+    theme: user.theme,
+  };
+}
+
+/* ======================================================= sign in, step 1 === */
 
 const loginSchema = z.object({
   email: z.string().trim().email().max(200),
@@ -19,12 +59,21 @@ const loginSchema = z.object({
 });
 
 /**
- * Sign in.
+ * Password step.
  *
  * Failure is deliberately uniform: a wrong password and an unknown address
- * return the same message, so the endpoint is not an account enumerator. A
- * dummy bcrypt comparison runs for unknown addresses so the response time does
- * not give the answer away either.
+ * return the same message, so the endpoint is not an account enumerator. A dummy
+ * bcrypt comparison runs for unknown addresses so the response time does not
+ * give the answer away either.
+ *
+ * On success, one of two things happens:
+ *
+ *   - email codes are active  -> no session yet. A code is emailed, a signed
+ *                                pending-login cookie is set, and the client is
+ *                                told to collect the second factor.
+ *   - email codes are not     -> a session is created immediately, exactly as
+ *                                before. A deployment with no mail server still
+ *                                works; it just has one factor.
  */
 router.post(
   "/login",
@@ -34,14 +83,8 @@ router.post(
     const { email, password } = req.body as z.infer<typeof loginSchema>;
 
     const user = unwrapMaybe(
-      await db
-        .from("users")
-        .select(
-          "id, email, password_hash, full_name, role, designation, station_or_court, theme, is_active, failed_login_attempts, locked_until"
-        )
-        .ilike("email", email)
-        .maybeSingle()
-    ) as any;
+      await db.from("users").select(USER_SELECT).ilike("email", email).maybeSingle()
+    ) as UserRow | null;
 
     if (!user) {
       // Constant-ish work for an unknown address.
@@ -51,16 +94,16 @@ router.post(
 
     if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
       const minutes = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60_000);
-      throw unauthorised(`This account is locked for another ${minutes} minute(s) after repeated failures.`);
+      throw unauthorised(
+        `This account is locked for another ${minutes} minute(s) after repeated failures.`
+      );
     }
 
     if (!user.is_active) {
       throw unauthorised("This account has been deactivated. Contact the court administrator.");
     }
 
-    const matches = await bcrypt.compare(password, user.password_hash);
-
-    if (!matches) {
+    if (!(await bcrypt.compare(password, user.password_hash))) {
       const attempts = (user.failed_login_attempts ?? 0) + 1;
       const shouldLock = attempts >= env.LOGIN_LOCKOUT_ATTEMPTS;
 
@@ -83,52 +126,220 @@ router.post(
       );
     }
 
+    // The password was right, so the attempt counter resets whichever path follows.
     await db
       .from("users")
-      .update({
-        failed_login_attempts: 0,
-        locked_until: null,
-        last_login_at: new Date().toISOString(),
-      })
+      .update({ failed_login_attempts: 0, locked_until: null })
       .eq("id", user.id);
+
+    const needsSecondFactor = Boolean(loginOtpProvider) && user.mfa_email_enabled !== false;
+
+    if (!needsSecondFactor) {
+      const { csrfToken } = await createSession(res, user.id, {
+        userAgent: req.get("user-agent") ?? undefined,
+        ip: req.ip,
+      });
+      await db.from("users").update({ last_login_at: new Date().toISOString() }).eq("id", user.id);
+
+      req.user = { ...publicUser(user), role: user.role as any, aadhaarToken: null };
+      await recordAction(req, {
+        action: "auth.login",
+        detail: { secondFactor: false, reason: loginOtpProvider ? "user_opted_out" : "smtp_not_configured" },
+      });
+
+      return res.json({
+        mfaRequired: false,
+        user: publicUser(user),
+        csrfToken,
+        expiresInHours: env.SESSION_TTL_HOURS,
+      });
+    }
+
+    // Second factor: email a code and hand back only a pending-login cookie.
+    const dispatch = await loginOtpProvider!.sendOtp({
+      subjectToken: loginSubjectToken(user.id),
+      purpose: "login_mfa",
+      referenceId: user.id,
+      email: user.email,
+      userId: user.id,
+      fullName: user.full_name,
+      requestIp: req.ip ?? null,
+    });
+
+    issueLoginChallengeCookie(res, {
+      userId: user.id,
+      challengeId: dispatch.challengeId,
+      ttlSeconds: env.LOGIN_OTP_TTL_SECONDS,
+    });
+
+    req.user = { ...publicUser(user), role: user.role as any, aadhaarToken: null };
+    await recordAction(req, {
+      action: "auth.login_otp_sent",
+      detail: { challengeId: dispatch.challengeId, delivered: !dispatch.deliveryFailed },
+    });
+
+    if (dispatch.deliveryFailed) {
+      logger.error("Sign-in code could not be emailed", {
+        userId: user.id,
+        error: dispatch.deliveryError,
+      });
+    }
+
+    return res.json({
+      mfaRequired: true,
+      challengeId: dispatch.challengeId,
+      maskedDestination: dispatch.maskedDestination,
+      expiresAt: dispatch.expiresAt,
+      // True when the mail server refused the message. The UI must say so
+      // rather than leaving the user waiting for a code that is not coming.
+      deliveryFailed: Boolean(dispatch.deliveryFailed),
+      deliveryError: dispatch.deliveryError,
+      // Present only outside production, and only when delivery failed, so a
+      // misconfigured app password does not lock you out of a local install.
+      ...(dispatch.otp ? { otp: dispatch.otp } : {}),
+    });
+  })
+);
+
+/* ======================================================= sign in, step 2 === */
+
+/**
+ * Code step. Needs the emailed code AND the pending-login cookie, so a code
+ * alone is not enough and it cannot be redeemed from another browser.
+ */
+router.post(
+  "/login/verify",
+  otpLimiter,
+  validate(z.object({ otp: otpCode })),
+  asyncRoute(async (req, res) => {
+    if (!loginOtpProvider) {
+      throw badRequest("Email sign-in codes are not enabled on this deployment.");
+    }
+
+    const pending = readLoginChallengeCookie(req);
+
+    const verification = await loginOtpProvider.verifyOtp({
+      challengeId: pending.challengeId,
+      otp: req.body.otp,
+      subjectToken: loginSubjectToken(pending.userId),
+      purpose: "login_mfa",
+      referenceId: pending.userId,
+    });
+
+    if (!verification.verified) {
+      // Exhausted attempts kill the pending sign-in outright: leaving the cookie
+      // alive would invite grinding a fresh code against the same session.
+      if (verification.reason === "attempts_exhausted" || verification.reason === "expired") {
+        clearLoginChallengeCookie(res);
+      }
+      throw badRequest(otpFailureMessage(verification.reason), {
+        reason: verification.reason,
+        attemptsRemaining: verification.attemptsRemaining,
+        restart: verification.reason === "attempts_exhausted" || verification.reason === "expired",
+      });
+    }
+
+    const user = unwrapMaybe(
+      await db.from("users").select(USER_SELECT).eq("id", pending.userId).maybeSingle()
+    ) as UserRow | null;
+
+    // Re-checked after the code, not only before it: an account suspended in the
+    // ninety seconds it took to read an email must not get a session.
+    if (!user || !user.is_active) {
+      clearLoginChallengeCookie(res);
+      throw unauthorised("This account is no longer active. Contact the court administrator.");
+    }
+
+    clearLoginChallengeCookie(res);
 
     const { csrfToken } = await createSession(res, user.id, {
       userAgent: req.get("user-agent") ?? undefined,
       ip: req.ip,
     });
 
-    req.user = {
-      id: user.id,
-      email: user.email,
-      fullName: user.full_name,
-      role: user.role,
-      designation: user.designation,
-      stationOrCourt: user.station_or_court,
-      theme: user.theme,
-      aadhaarToken: null,
-    };
-    await recordAction(req, { action: "auth.login" });
+    await db
+      .from("users")
+      .update({
+        last_login_at: new Date().toISOString(),
+        // A verified code proves control of the mailbox, which is the only
+        // moment this can honestly be recorded.
+        email_verified_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    req.user = { ...publicUser(user), role: user.role as any, aadhaarToken: null };
+    await recordAction(req, { action: "auth.login", detail: { secondFactor: true, channel: "email" } });
 
     res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.full_name,
-        role: user.role,
-        designation: user.designation,
-        stationOrCourt: user.station_or_court,
-        theme: user.theme,
-      },
+      mfaRequired: false,
+      user: publicUser(user),
       csrfToken,
       expiresInHours: env.SESSION_TTL_HOURS,
     });
   })
 );
 
+/** Resend, bound to the same pending sign-in. */
+router.post(
+  "/login/resend",
+  otpLimiter,
+  asyncRoute(async (req, res) => {
+    if (!loginOtpProvider) {
+      throw badRequest("Email sign-in codes are not enabled on this deployment.");
+    }
+
+    const pending = readLoginChallengeCookie(req);
+
+    const user = unwrapMaybe(
+      await db.from("users").select(USER_SELECT).eq("id", pending.userId).maybeSingle()
+    ) as UserRow | null;
+    if (!user || !user.is_active) {
+      clearLoginChallengeCookie(res);
+      throw unauthorised("This account is no longer active.");
+    }
+
+    const dispatch = await loginOtpProvider.sendOtp({
+      subjectToken: loginSubjectToken(user.id),
+      purpose: "login_mfa",
+      referenceId: user.id,
+      email: user.email,
+      userId: user.id,
+      fullName: user.full_name,
+      requestIp: req.ip ?? null,
+    });
+
+    // The old challenge was consumed when the new one was issued, so the cookie
+    // has to point at the new id or verification would fail on scope.
+    issueLoginChallengeCookie(res, {
+      userId: user.id,
+      challengeId: dispatch.challengeId,
+      ttlSeconds: env.LOGIN_OTP_TTL_SECONDS,
+    });
+
+    res.json({
+      challengeId: dispatch.challengeId,
+      maskedDestination: dispatch.maskedDestination,
+      expiresAt: dispatch.expiresAt,
+      deliveryFailed: Boolean(dispatch.deliveryFailed),
+      deliveryError: dispatch.deliveryError,
+      ...(dispatch.otp ? { otp: dispatch.otp } : {}),
+    });
+  })
+);
+
+/** Abandon a half-finished sign-in, so the UI can offer a clean "start again". */
+router.post("/login/cancel", (req, res) => {
+  clearLoginChallengeCookie(res);
+  res.json({ ok: true });
+});
+
+/* ============================================================== session === */
+
 router.post(
   "/logout",
   asyncRoute(async (req, res) => {
     if (req.user) await recordAction(req, { action: "auth.logout" });
+    clearLoginChallengeCookie(res);
     await destroySession(res, req.sessionId);
     res.json({ ok: true });
   })
@@ -209,13 +420,50 @@ router.post(
   })
 );
 
+/**
+ * What the sign-in screen needs to know before it draws itself: whether a
+ * second factor is coming, and whether this is a demo deployment.
+ */
+router.get("/config", (_req, res) => {
+  res.json({
+    emailOtpEnabled: Boolean(loginOtpProvider),
+    smtpConfigured: capabilities.smtp,
+    aadhaarProvider: capabilities.otpProvider,
+    aadhaarSimulated: capabilities.otpProvider === "sandbox",
+    environment: env.NODE_ENV,
+    // Demo credentials are offered by the UI only when the API says this is not
+    // production, so they cannot be surfaced on a real deployment.
+    showDemoAccounts: !env.isProduction,
+  });
+});
+
 /** Reference data for the sign-in screen and role badges. */
 router.get(
   "/roles",
   asyncRoute(async (_req, res) => {
-    const { data } = await db.from("roles").select("role, label, description, portal_path").order("role");
+    const { data } = await db
+      .from("roles")
+      .select("role, label, description, portal_path")
+      .order("role");
     res.json({ roles: data ?? [] });
   })
 );
+
+function otpFailureMessage(reason?: string): string {
+  switch (reason) {
+    case "expired":
+      return "That code has expired. Enter your password again to get a new one.";
+    case "consumed":
+      return "That code has already been used.";
+    case "attempts_exhausted":
+      return "Too many wrong codes. Enter your password again to start over.";
+    case "scope_mismatch":
+      return "That code was issued for a different sign-in.";
+    case "not_found":
+      return "That code is no longer valid. Enter your password again.";
+    default:
+      return "That code is not correct.";
+  }
+}
 
 export default router;

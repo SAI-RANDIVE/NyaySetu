@@ -84,8 +84,32 @@ class Session {
     return json;
   }
 
+  /**
+   * Signs in, completing the email second factor when the deployment requires
+   * one.
+   *
+   * The script can only finish that step when the API echoes the code back,
+   * which it does outside production when the mail server could not take the
+   * message. With a working mail server the code goes to a real inbox and no
+   * script can read it, so the demo tells you to turn the second factor off
+   * rather than appearing to hang.
+   */
   async login(email: string): Promise<Json> {
     const result = await this.request("POST", "/api/auth/login", { email, password: PASSWORD });
+
+    if (result.mfaRequired) {
+      if (!result.otp) {
+        throw new Error(
+          `${email} needs an emailed sign-in code, which this script cannot read.\n` +
+            "  For the scripted demo set LOGIN_OTP_ENABLED=false in backend/.env and restart the API.\n" +
+            "  To demonstrate two-factor sign-in, use the web portal instead."
+        );
+      }
+      const verified = await this.request("POST", "/api/auth/login/verify", { otp: result.otp });
+      this.csrf = verified.csrfToken;
+      return verified.user;
+    }
+
     this.csrf = result.csrfToken;
     return result.user;
   }

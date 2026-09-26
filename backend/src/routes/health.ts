@@ -3,7 +3,8 @@ import { env, capabilities } from "../config/env";
 import { chain } from "../lib/chain";
 import { pingDatabase } from "../lib/supabase";
 import { health as aiHealth } from "../lib/ai";
-import { otpProvider } from "../otp";
+import { loginOtpProvider, otpProvider } from "../otp";
+import { mailerHealth } from "../lib/mailer";
 import { asyncRoute } from "../middleware/error";
 
 const router = Router();
@@ -17,11 +18,12 @@ const router = Router();
 router.get(
   "/",
   asyncRoute(async (_req, res) => {
-    const [database, ai, blockNumber, keeperBalance] = await Promise.all([
+    const [database, ai, blockNumber, keeperBalance, mail] = await Promise.all([
       pingDatabase(),
       aiHealth(),
       chain.blockNumber(),
       chain.keeperBalance(),
+      mailerHealth(),
     ]);
 
     const healthy = database;
@@ -54,12 +56,36 @@ router.get(
           reachable: ai,
           note: ai ? undefined : "Evidence screening and risk scoring will report themselves unavailable.",
         },
+        email: {
+          configured: mail.configured,
+          reachable: mail.reachable,
+          host: mail.host,
+          from: mail.from,
+          error: mail.error,
+          note: !mail.configured
+            ? "SMTP is not configured. Sign-in is password-only and no notices are sent."
+            : mail.reachable
+              ? "SMTP verified. Sign-in codes and summons notices are live."
+              : "SMTP is configured but the server rejected the credentials. For Gmail, use a 16-character App Password.",
+        },
         identity: {
+          // Citizen actions: acknowledging a summons, filing a bail check-in.
+          citizenChannel: otpProvider.name,
+          citizenAuthorisedForProduction: otpProvider.isAuthorisedForProduction,
+          // Sign-in second factor.
+          loginChannel: loginOtpProvider?.name ?? null,
+          loginOtpEnabled: Boolean(loginOtpProvider),
+          // Kept for older clients that read these two field names.
           provider: otpProvider.name,
           authorisedForProduction: otpProvider.isAuthorisedForProduction,
-          note: otpProvider.isAuthorisedForProduction
-            ? "Live UIDAI provider selected."
-            : "Sandbox OTP provider. Identity assertions are simulated, not Aadhaar-verified.",
+          note: [
+            otpProvider.isAuthorisedForProduction
+              ? "Live UIDAI provider selected for citizen actions."
+              : "Citizen actions use the sandbox Aadhaar provider: simulated, not Aadhaar-verified.",
+            loginOtpProvider
+              ? "Sign-in requires a real emailed code."
+              : "Sign-in is password-only.",
+          ].join(" "),
         },
       },
     });

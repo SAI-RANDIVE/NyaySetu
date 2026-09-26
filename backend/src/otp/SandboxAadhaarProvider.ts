@@ -4,6 +4,7 @@ import { generateOtp, hashOtp, safeEqual } from "../lib/crypto";
 import { logger } from "../lib/logger";
 import { badRequest } from "../lib/errors";
 import {
+  OtpChannel,
   OtpDispatch,
   OtpProvider,
   SendOtpRequest,
@@ -25,6 +26,7 @@ import {
  */
 export class SandboxAadhaarProvider implements OtpProvider {
   readonly name = "sandbox-aadhaar";
+  readonly channel: OtpChannel = "aadhaar";
   readonly isAuthorisedForProduction = false;
 
   async sendOtp(request: SendOtpRequest): Promise<OtpDispatch> {
@@ -36,19 +38,23 @@ export class SandboxAadhaarProvider implements OtpProvider {
     await db
       .from("otp_challenges")
       .update({ consumed_at: new Date().toISOString() })
-      .eq("aadhaar_token", request.aadhaarToken)
+      .eq("subject_token", request.subjectToken)
       .eq("purpose", request.purpose)
       .is("consumed_at", null);
 
-    const scope = this.scopeFor(request.aadhaarToken, request.purpose, request.referenceId);
+    const scope = scopeFor(request.subjectToken, request.purpose, request.referenceId);
+    const maskedDestination = request.destinationHint ?? "registered mobile ending ••••";
 
     const row = unwrap(
       await db
         .from("otp_challenges")
         .insert({
           purpose: request.purpose,
-          aadhaar_token: request.aadhaarToken,
+          channel: this.channel,
+          subject_token: request.subjectToken,
           reference_id: request.referenceId ?? null,
+          user_id: request.userId ?? null,
+          masked_destination: maskedDestination,
           otp_hash: hashOtp(otp, scope),
           max_attempts: env.OTP_MAX_ATTEMPTS,
           expires_at: expiresAt,
@@ -70,77 +76,110 @@ export class SandboxAadhaarProvider implements OtpProvider {
     return {
       challengeId: row.id,
       expiresAt,
-      maskedDestination: request.destinationHint ?? "registered mobile ending ****",
+      maskedDestination,
+      channel: this.channel,
       ...(env.otpEcho ? { otp } : {}),
     };
   }
 
   async verifyOtp(request: VerifyOtpRequest): Promise<VerifyOtpResult> {
-    if (!/^[0-9]{6}$/.test(request.otp)) {
-      throw badRequest("The OTP must be six digits.");
-    }
+    return verifyChallenge(request, this.channel);
+  }
+}
 
-    const challenge = unwrapMaybe(
-      await db
-        .from("otp_challenges")
-        .select("id, purpose, aadhaar_token, reference_id, otp_hash, attempts, max_attempts, expires_at, consumed_at")
-        .eq("id", request.challengeId)
-        .maybeSingle()
-    ) as
-      | {
-          id: string;
-          purpose: string;
-          aadhaar_token: string;
-          reference_id: string | null;
-          otp_hash: string;
-          attempts: number;
-          max_attempts: number;
-          expires_at: string;
-          consumed_at: string | null;
-        }
-      | null;
+/* ============================================ shared challenge lifecycle === */
 
-    if (!challenge) return { verified: false, reason: "not_found" };
-    if (challenge.consumed_at) return { verified: false, reason: "consumed" };
-    if (new Date(challenge.expires_at).getTime() < Date.now()) {
-      return { verified: false, reason: "expired" };
-    }
-    if (challenge.attempts >= challenge.max_attempts) {
-      return { verified: false, reason: "attempts_exhausted", attemptsRemaining: 0 };
-    }
+/**
+ * Binds the stored digest to the exact action it was issued for, so a code
+ * cannot be replayed against a different purpose or a different record.
+ */
+export function scopeFor(
+  subjectToken: string,
+  purpose: string,
+  referenceId?: string | null
+): string {
+  return `${subjectToken}|${purpose}|${referenceId ?? ""}`;
+}
 
-    // A code is valid for exactly the action it was issued for.
-    if (
-      challenge.aadhaar_token !== request.aadhaarToken ||
-      challenge.purpose !== request.purpose ||
-      (challenge.reference_id ?? null) !== (request.referenceId ?? null)
-    ) {
-      return { verified: false, reason: "scope_mismatch" };
-    }
+interface ChallengeRow {
+  id: string;
+  purpose: string;
+  channel: string;
+  subject_token: string;
+  reference_id: string | null;
+  otp_hash: string;
+  attempts: number;
+  max_attempts: number;
+  expires_at: string;
+  consumed_at: string | null;
+}
 
-    const scope = this.scopeFor(challenge.aadhaar_token, request.purpose, challenge.reference_id);
-    const matches = safeEqual(hashOtp(request.otp, scope), challenge.otp_hash);
+/**
+ * Verification, shared by every channel.
+ *
+ * The lifecycle rules are identical whether the code arrived by SMS or by
+ * email, and having one implementation is what guarantees that: a second copy
+ * would eventually drift and one channel would end up with a weaker attempt cap
+ * or a missing scope check.
+ *
+ * `expectedChannel` is checked, not assumed. A challenge created for email must
+ * not be verifiable through the Aadhaar provider, or a deployment with both
+ * active would let the weaker path validate the stronger one's codes.
+ */
+export async function verifyChallenge(
+  request: VerifyOtpRequest,
+  expectedChannel: OtpChannel
+): Promise<VerifyOtpResult> {
+  if (!/^[0-9]{6}$/.test(request.otp)) {
+    throw badRequest("The OTP must be six digits.");
+  }
 
-    if (!matches) {
-      const attempts = challenge.attempts + 1;
-      await db.from("otp_challenges").update({ attempts }).eq("id", challenge.id);
-      return {
-        verified: false,
-        reason: attempts >= challenge.max_attempts ? "attempts_exhausted" : "mismatch",
-        attemptsRemaining: Math.max(0, challenge.max_attempts - attempts),
-      };
-    }
-
+  const challenge = unwrapMaybe(
     await db
       .from("otp_challenges")
-      .update({ consumed_at: new Date().toISOString(), attempts: challenge.attempts + 1 })
-      .eq("id", challenge.id);
+      .select(
+        "id, purpose, channel, subject_token, reference_id, otp_hash, attempts, max_attempts, expires_at, consumed_at"
+      )
+      .eq("id", request.challengeId)
+      .maybeSingle()
+  ) as ChallengeRow | null;
 
-    return { verified: true };
+  if (!challenge) return { verified: false, reason: "not_found" };
+  if (challenge.consumed_at) return { verified: false, reason: "consumed" };
+  if (new Date(challenge.expires_at).getTime() < Date.now()) {
+    return { verified: false, reason: "expired" };
+  }
+  if (challenge.attempts >= challenge.max_attempts) {
+    return { verified: false, reason: "attempts_exhausted", attemptsRemaining: 0 };
   }
 
-  /** Binds the stored digest to the action, so a code cannot be replayed elsewhere. */
-  private scopeFor(aadhaarToken: string, purpose: string, referenceId?: string | null): string {
-    return `${aadhaarToken}|${purpose}|${referenceId ?? ""}`;
+  // A code is valid for exactly the action, subject and channel it was issued for.
+  if (
+    challenge.subject_token !== request.subjectToken ||
+    challenge.purpose !== request.purpose ||
+    challenge.channel !== expectedChannel ||
+    (challenge.reference_id ?? null) !== (request.referenceId ?? null)
+  ) {
+    return { verified: false, reason: "scope_mismatch" };
   }
+
+  const scope = scopeFor(challenge.subject_token, request.purpose, challenge.reference_id);
+  const matches = safeEqual(hashOtp(request.otp, scope), challenge.otp_hash);
+
+  if (!matches) {
+    const attempts = challenge.attempts + 1;
+    await db.from("otp_challenges").update({ attempts }).eq("id", challenge.id);
+    return {
+      verified: false,
+      reason: attempts >= challenge.max_attempts ? "attempts_exhausted" : "mismatch",
+      attemptsRemaining: Math.max(0, challenge.max_attempts - attempts),
+    };
+  }
+
+  await db
+    .from("otp_challenges")
+    .update({ consumed_at: new Date().toISOString(), attempts: challenge.attempts + 1 })
+    .eq("id", challenge.id);
+
+  return { verified: true };
 }

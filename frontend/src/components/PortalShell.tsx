@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
+  BookOpen,
   Camera,
   ClipboardList,
   FileSearch,
@@ -131,6 +132,15 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <Link
+              to="/handbook"
+              aria-label="Handbook"
+              title="Handbook: how this platform works"
+              className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted transition hover:border-primary hover:text-primary"
+            >
+              <BookOpen size={15} />
+            </Link>
+
             <button
               type="button"
               onClick={toggle}
@@ -203,6 +213,15 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
                     </NavLink>
                   </li>
                 ))}
+                <li>
+                  <Link
+                    to="/handbook"
+                    className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 font-ui text-sm font-semibold text-muted transition hover:bg-surface-2"
+                  >
+                    <BookOpen size={16} />
+                    Handbook
+                  </Link>
+                </li>
                 <li className="pt-1">
                   <button
                     type="button"
@@ -226,9 +245,14 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           <p className="font-ui text-2xs text-faint">
             NyaySetu · न्यायसेतु · evidence, summons and bail anchored to Ethereum Sepolia
           </p>
-          <Link to="/" className="font-ui text-2xs text-faint transition hover:text-primary">
-            About the project
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/handbook" className="font-ui text-2xs text-faint transition hover:text-primary">
+              Handbook
+            </Link>
+            <Link to="/" className="font-ui text-2xs text-faint transition hover:text-primary">
+              About the project
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

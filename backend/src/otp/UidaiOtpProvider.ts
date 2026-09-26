@@ -2,6 +2,7 @@ import { env } from "../config/env";
 import { AppError, unavailable } from "../lib/errors";
 import { logger } from "../lib/logger";
 import {
+  OtpChannel,
   OtpDispatch,
   OtpProvider,
   SendOtpRequest,
@@ -61,6 +62,7 @@ import {
  */
 export class UidaiOtpProvider implements OtpProvider {
   readonly name = "uidai";
+  readonly channel: OtpChannel = "aadhaar";
   readonly isAuthorisedForProduction = true;
 
   constructor() {

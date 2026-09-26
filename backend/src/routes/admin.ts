@@ -226,6 +226,32 @@ router.put(
   })
 );
 
+/** Outbound email attempts. Addresses are masked; bodies are never stored. */
+router.get(
+  "/email-log",
+  validate(pagination.extend({ status: safeText(16).optional() }), "query"),
+  asyncRoute(async (req, res) => {
+    const { limit, offset, status } = req.query as any;
+    let query = db
+      .from("email_log")
+      .select("id, purpose, masked_to, subject, status, error, occurred_at")
+      .order("occurred_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (status) query = query.eq("status", status);
+
+    const entries = unwrapList(await query) as any[];
+    res.json({
+      entries,
+      counts: {
+        sent: entries.filter((e) => e.status === "sent").length,
+        failed: entries.filter((e) => e.status === "failed").length,
+        skipped: entries.filter((e) => e.status === "skipped").length,
+      },
+    });
+  })
+);
+
 /** Row-level audit trail from the database triggers. */
 router.get(
   "/audit/rows",

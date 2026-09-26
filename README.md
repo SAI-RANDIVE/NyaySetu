@@ -4,6 +4,8 @@
 
 Final year project · Vishwakarma Institute of Technology, Pune · AI & Data Science · 2026
 
+**New here?** Read the in-app **[Handbook](#the-handbook)** — it explains the one technical idea and then walks through what each of the seven roles actually does. **Setting it up?** **[SETUP-KEYS.md](SETUP-KEYS.md)** lists every credential, where to get it, and what breaks without it.
+
 ---
 
 ## What problem this actually solves
@@ -66,13 +68,14 @@ pip install -r requirements.txt && cd ..
 
 ### 2 · Database
 
-Run these three files, in order, in the Supabase SQL editor:
+Run these five files, in order, in the Supabase SQL editor:
 
 ```
-database/migrations/001_schema.sql
-database/migrations/002_rls.sql
-database/migrations/003_audit.sql
-database/seed/reference.sql
+database/migrations/001_schema.sql        tables, enums, indexes
+database/migrations/002_rls.sql           row level security, default deny
+database/migrations/003_audit.sql         audit triggers
+database/migrations/004_otp_channels.sql  email OTP channel, email log
+database/seed/reference.sql               role reference rows
 ```
 
 Then, in **Supabase → Settings → API → Exposed schemas**, add `restricted` alongside `public`. That is the one manual dashboard step; personally identifying data lives in that schema and PostgREST will not reach it otherwise.
@@ -130,6 +133,8 @@ npm run web           # http://localhost:5173
 
 Sign in with any seeded account. One password for all of them: `NyaySetu@2026`
 
+If SMTP is configured, sign-in is two steps: password, then a six digit code emailed to the account address. Seed with `SEED_EMAIL_BASE=you@gmail.com` so the codes reach a mailbox you own. Without SMTP, sign-in stays password-only and the second step never appears.
+
 | Email | Role |
 |---|---|
 | police@nyaysetu.demo | Police officer |
@@ -176,6 +181,36 @@ Steps 3 and 9 are the ones worth watching. Step 3 shows that a rejected tamper a
 
 ---
 
+## The handbook
+
+There is a full walkthrough built into the app at **`/handbook`**, public and readable without an account. It covers:
+
+- the one technical idea, a digest, in two paragraphs and with a worked example
+- what each of the three bridges replaces, and why
+- **a step-by-step walkthrough for each of the seven roles**, with what that role deliberately cannot do
+- what every badge and status chip in the interface means
+- why there are two different one-time codes, and which one is simulated
+- eight common questions, a plain-English glossary, and a triage list for when something goes wrong
+
+It is linked from the landing page, the sign-in screen and every portal header. When you are signed in it jumps straight to your own role.
+
+---
+
+## Two one-time codes, and only one of them is simulated
+
+This distinction matters more than anything else in the honesty of the project.
+
+| | Signing in | Acting on a case |
+|---|---|---|
+| **Channel** | Email, over your own SMTP server | Aadhaar-registered mobile |
+| **Proves** | You control this account | This specific person performed this legal act |
+| **Used for** | The second factor after a password | Acknowledging a summons, filing a bail check-in |
+| **Real?** | **Yes.** A working mail server delivers it. | **No.** Simulated, because UIDAI access is government-gated. |
+
+`/api/health` reports both separately, and the interface says "simulated" wherever an Aadhaar code appears. Collapsing them into one provider would let the simulated channel stand in for the real one, which is exactly the kind of quiet substitution this project is built to prevent.
+
+---
+
 ## What is verified, and how
 
 | Layer | Check | How to run it |
@@ -187,6 +222,7 @@ Steps 3 and 9 are the ones worth watching. Step 3 shows that a rejected tamper a
 | Models | Metrics printed at train time, written to `models/metadata.json` | `npm run ai:train` |
 | Dependencies (shipped) | 0 vulnerabilities across all three Node packages | `npm run audit` |
 | Dependencies (Python) | 0 vulnerabilities | `npm run audit:python` |
+| Whole stack boots | Chain, models, API and web all start; health reports each subsystem | see below |
 
 ---
 
@@ -194,7 +230,7 @@ Steps 3 and 9 are the ones worth watching. Step 3 shows that a rejected tamper a
 
 Read these before the viva; they are the questions an examiner will ask.
 
-**Aadhaar OTP is simulated.** The live UIDAI API requires AUA/KUA registration, an ASA route, a licence key and a digital signature certificate. UIDAI grants that to government departments, not to student projects, and there is no public sandbox that issues real OTPs. `backend/src/otp/UidaiOtpProvider.ts` writes out the real protocol and refuses to run without credentials, rather than pretending. The sandbox provider matches the real lifecycle exactly: a six digit code, a short TTL, a capped attempt count, single use, bound to one action. `/api/health` reports `authorisedForProduction: false` so a demo deployment can never be mistaken for an authenticated one.
+**Aadhaar OTP is simulated; email OTP is not.** Sign-in uses a real code delivered by a real mail server. Citizen actions on a case use a simulated Aadhaar channel, because the live UIDAI API requires AUA/KUA registration, an ASA route, a licence key and a digital signature certificate. UIDAI grants that to government departments, not to student projects, and there is no public sandbox that issues real OTPs. `backend/src/otp/UidaiOtpProvider.ts` writes out the real protocol and refuses to run without credentials, rather than pretending. The sandbox provider matches the real lifecycle exactly: a six digit code, a short TTL, a capped attempt count, single use, bound to one action. `/api/health` reports `authorisedForProduction: false` so a demo deployment can never be mistaken for an authenticated one.
 
 **The models are trained on synthetic data.** Evidence metadata from live investigations is protected. Bail outcomes linked to individuals are personal data under the DPDP Act 2023. NJDG publishes aggregate pendency, not the per-case features a delay regressor needs. Every distribution is written out in `ai-service/src/datasets.py` so a reviewer can judge what the models learned. The outputs are decision support, never findings of fact.
 

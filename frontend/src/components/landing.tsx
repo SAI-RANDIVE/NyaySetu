@@ -94,11 +94,18 @@ export function HeroBackdrop() {
 
 /* =================================================== LandingHeader ======= */
 
-const LINKS = [
+interface NavLinkDef {
+  href: string;
+  label: string;
+  /** A router route rather than an in-page anchor. */
+  route?: boolean;
+}
+
+const LINKS: NavLinkDef[] = [
   { href: "#modules", label: "Modules" },
   { href: "#architecture", label: "Architecture" },
   { href: "#verify", label: "Verify" },
-  { href: "#stack", label: "Stack" },
+  { href: "/handbook", label: "Handbook", route: true },
 ];
 
 export function LandingHeader() {
@@ -131,16 +138,26 @@ export function LandingHeader() {
 
         {/* White nav pill, desktop only */}
         <nav className="hidden h-[clamp(44px,5.2vw,48px)] max-w-[460px] flex-1 items-center justify-around rounded-full px-2 py-1 nav-pill md:flex">
-          {LINKS.map((link, index) => (
-            <a
-              key={link.href}
-              href={link.href}
-              data-active={index === 0 ? "true" : undefined}
-              className="nav-link relative px-2.5 py-2 font-ui text-[clamp(12px,1.3vw,14px)] font-medium tracking-[-0.01em]"
-            >
-              {link.label}
-            </a>
-          ))}
+          {LINKS.map((link, index) =>
+            link.route ? (
+              <Link
+                key={link.href}
+                to={link.href}
+                className="nav-link relative px-2.5 py-2 font-ui text-[clamp(12px,1.3vw,14px)] font-medium tracking-[-0.01em]"
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <a
+                key={link.href}
+                href={link.href}
+                data-active={index === 0 ? "true" : undefined}
+                className="nav-link relative px-2.5 py-2 font-ui text-[clamp(12px,1.3vw,14px)] font-medium tracking-[-0.01em]"
+              >
+                {link.label}
+              </a>
+            )
+          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
@@ -178,13 +195,23 @@ export function LandingHeader() {
             <ul className="space-y-1">
               {LINKS.map((link, index) => (
                 <li key={link.href} style={{ animationDelay: `${0.04 * index}s` }} className="animate-menu-in">
-                  <a
-                    href={link.href}
-                    onClick={() => setOpen(false)}
-                    className="block rounded-2xl px-4 py-3.5 font-ui text-base font-medium text-[#2e2e2e] transition hover:bg-black/5"
-                  >
-                    {link.label}
-                  </a>
+                  {link.route ? (
+                    <Link
+                      to={link.href}
+                      onClick={() => setOpen(false)}
+                      className="block rounded-2xl px-4 py-3.5 font-ui text-base font-medium text-[#2e2e2e] transition hover:bg-black/5"
+                    >
+                      {link.label}
+                    </Link>
+                  ) : (
+                    <a
+                      href={link.href}
+                      onClick={() => setOpen(false)}
+                      className="block rounded-2xl px-4 py-3.5 font-ui text-base font-medium text-[#2e2e2e] transition hover:bg-black/5"
+                    >
+                      {link.label}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
@@ -428,14 +455,14 @@ export function HeroCta() {
         <ArrowRight size={15} />
       </Link>
 
-      <a
-        href="#modules"
+      <Link
+        to="/handbook"
         className="inline-flex items-center gap-2 rounded-full border border-white/25 px-[clamp(20px,2.6vw,24px)] py-[clamp(11px,1.6vh,13px)]
           font-ui text-[clamp(13px,1.5vw,14.5px)] font-semibold uppercase tracking-wide text-white/85
           transition hover:border-white/45 hover:text-white"
       >
-        How it works
-      </a>
+        Read the handbook
+      </Link>
     </div>
   );
 }

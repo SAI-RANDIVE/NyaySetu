@@ -179,7 +179,30 @@ It is acceptable only because of what the models are used *for*, and the project
 | **Explicit nonce ledger for the keeper** | The keeper is a relayer: one wallet, many citizens' transactions. Letting the signer ask the node for a pending count is not reliable — the count straight after a send does not always include it — and two sends then reuse a nonce and one vanishes silently. Serial queue plus an explicit ledger, incremented only after acceptance. This was found by integration testing, not by reading. |
 | **Rate limits keyed by session, falling back to an IPv6 /64** | A shared police-station NAT would otherwise lock out a whole thana because one officer mistyped a password. A routed /64 has 2⁶⁴ addresses, so keying on a bare IP is no limit at all. |
 | **No CORS layer on the model service** | Nothing in a browser talks to it; the Node API is the only caller. Sending no `Access-Control-Allow-Origin` header is stronger than sending a restrictive one, because with no header no page on any origin can read a response whatever it manages to send. It also removed `flask-cors`, which was the one Python dependency carrying an open advisory. |
+| **A signed cookie carrying a half-finished sign-in** | The obvious design hands the client a challenge id and takes it back with the code, which makes id-plus-code sufficient to mint a session from anywhere. Binding the pending sign-in to a short-lived HttpOnly HMAC-signed cookie means the code must be redeemed from the browser that supplied the correct password. It grants nothing on its own and is cleared the moment verification resolves. |
+| **Email addresses masked in the email log** | Outbound mail is logged so "I never got the code" is answerable, but a log of every message would otherwise become a directory of who is on bail. Addresses are stored as `a•••••a@gmail.com`; the full one lives in `public.users` and nowhere else. Bodies and codes are never stored at all. |
 | **Two audit layers** | The trigger records row diffs and fires whatever made the change, including a direct psql session. The API's `action_log` records *intent*, including attempts that were refused and therefore changed no row. A refused tamper attempt is invisible to a row-diff audit, and it is exactly the event a court wants. |
+
+---
+
+## 10b · "Your OTP is fake, so your whole identity story is fake"
+
+This is the sharpest version of the Aadhaar challenge, and the answer is that there are **two** channels doing **two** jobs, and only one of them is simulated.
+
+| | Sign-in second factor | Citizen action |
+|---|---|---|
+| Channel | Email, via the deployment's own SMTP server | Aadhaar-registered mobile |
+| Question it answers | Is this really the person who holds this account? | Did this specific person perform this legal act? |
+| Implementation | `EmailOtpProvider`, genuinely real | `SandboxAadhaarProvider`, simulated |
+| `isAuthorisedForProduction` | `true` | `false` |
+
+Three design points worth making when this comes up:
+
+**They are separate providers, not one with a switch.** `otp/index.ts` builds both. A challenge records which channel issued it, and `verifyChallenge` refuses a code created for one channel if it is presented through the other. Without that check, a deployment running both would let the weaker path validate the stronger path's codes.
+
+**The lifecycle is shared, so the simulated one is not weaker in any other respect.** Both use one implementation of the rules: a CSPRNG code, a short TTL, a capped attempt count, single use, and a scope binding it to one purpose and one record. The only thing the sandbox does not do is reach UIDAI.
+
+**`/api/health` reports them separately**, and the interface prints "simulated" wherever an Aadhaar code is displayed. An examiner should be able to find that notice without being told, because a system that quietly faked an identity check would be worse than one that plainly does not have it.
 
 ---
 

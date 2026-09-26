@@ -7,6 +7,7 @@ import { badRequest, conflict, notFound, forbidden } from "../lib/errors";
 import { logger } from "../lib/logger";
 import { env } from "../config/env";
 import { otpProvider } from "../otp";
+import { sendNonDeliveryAlert, sendSummonsNotice } from "../lib/mailer";
 import { recordAction } from "./audit";
 import { SessionUser } from "../middleware/auth";
 
@@ -125,6 +126,22 @@ export async function issueSummons(req: Request, user: SessionUser, input: Issue
     detail: { chainSummonsId, txHash: result.txHash, windowHours },
   });
 
+  // Tell the recipient a summons exists. The summons itself is NOT emailed: its
+  // contents are privileged, and an email inbox is not an access-controlled
+  // place to keep them. The notice carries a deadline and a link, nothing more.
+  //
+  // Fire-and-forget on purpose. A mail server that is down must not undo a
+  // summons that is already anchored on chain.
+  if (env.emailNotificationsEnabled) {
+    void notifyRecipient({
+      recipientUserId: input.recipientUserId ?? null,
+      recipientName: input.recipientName,
+      firNumber: caseRow.fir_number,
+      courtName: caseRow.court_name,
+      expiryAt: expiryAt.toISOString(),
+    });
+  }
+
   return {
     summons: { ...row, chain_summons_id: chainSummonsId, issue_tx_hash: result.txHash },
     chain: {
@@ -152,7 +169,7 @@ export async function requestAcknowledgementOtp(req: Request, user: SessionUser,
   }
 
   const dispatch = await otpProvider.sendOtp({
-    aadhaarToken,
+    subjectToken: aadhaarToken,
     purpose: "summons_ack",
     referenceId: row.id,
     destinationHint: "registered mobile",
@@ -194,7 +211,7 @@ export async function confirmAcknowledgement(
   const verification = await otpProvider.verifyOtp({
     challengeId: input.challengeId,
     otp: input.otp,
-    aadhaarToken,
+    subjectToken: aadhaarToken,
     purpose: "summons_ack",
     referenceId: row.id,
   });
@@ -325,6 +342,10 @@ export async function sweepNonDelivery(): Promise<{ marked: number; ids: string[
         .eq("id", row.id);
       marked.push(row.id);
       logger.info("Summons marked non-delivered", { summonsId: row.id, recipient: row.recipient_name });
+
+      // The court dashboard already shows this, but a sweep runs unattended at
+      // two in the morning and a judge is not watching a dashboard then.
+      if (env.emailNotificationsEnabled) void alertIssuer(row);
     } catch (error) {
       logger.warn("Could not mark a summons non-delivered", {
         summonsId: row.id,
@@ -334,6 +355,47 @@ export async function sweepNonDelivery(): Promise<{ marked: number; ids: string[
   }
 
   return { marked: marked.length, ids: marked };
+}
+
+/** Emails the judge or admin who issued a summons that went unanswered. */
+async function alertIssuer(row: {
+  id: string;
+  case_id: string;
+  recipient_name: string;
+  expiry_at: string;
+  issued_by?: string | null;
+}): Promise<void> {
+  try {
+    const summons = unwrapMaybe(
+      await db
+        .from("summons")
+        .select("issued_by, cases(fir_number)")
+        .eq("id", row.id)
+        .maybeSingle()
+    ) as { issued_by: string | null; cases: { fir_number: string } | null } | null;
+
+    if (!summons?.issued_by) return;
+
+    const issuer = unwrapMaybe(
+      await db.from("users").select("id, email, is_active").eq("id", summons.issued_by).maybeSingle()
+    ) as { id: string; email: string; is_active: boolean } | null;
+
+    if (!issuer?.email || !issuer.is_active) return;
+
+    await sendNonDeliveryAlert({
+      to: issuer.email,
+      userId: issuer.id,
+      recipientName: row.recipient_name,
+      firNumber: summons.cases?.fir_number ?? "the case",
+      expiryAt: row.expiry_at,
+      portalUrl: `${env.PUBLIC_APP_URL.replace(/\/$/, "")}/judge/summons`,
+    });
+  } catch (error) {
+    logger.warn("Could not send the non-delivery alert", {
+      summonsId: row.id,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 }
 
 export async function listForCase(caseId: string) {
@@ -383,6 +445,50 @@ export async function courtOverview() {
       row.status === "PENDING" && new Date(row.expiry_at).getTime() < now ? "FAILED" : row.status,
     hoursRemaining: Math.max(0, (new Date(row.expiry_at).getTime() - now) / 3600_000),
   }));
+}
+
+/**
+ * Looks up the recipient's address and sends the notice.
+ *
+ * Only an account with an email gets one. A summons issued against a raw
+ * Aadhaar number with no NyaySetu account has no address to send to, and
+ * inventing one is not an option, so it is silently skipped and the court still
+ * has the on-chain record either way.
+ */
+async function notifyRecipient(args: {
+  recipientUserId: string | null;
+  recipientName: string;
+  firNumber: string;
+  courtName: string | null;
+  expiryAt: string;
+}): Promise<void> {
+  try {
+    if (!args.recipientUserId) return;
+
+    const recipient = unwrapMaybe(
+      await db
+        .from("users")
+        .select("id, email, is_active")
+        .eq("id", args.recipientUserId)
+        .maybeSingle()
+    ) as { id: string; email: string; is_active: boolean } | null;
+
+    if (!recipient?.email || !recipient.is_active) return;
+
+    await sendSummonsNotice({
+      to: recipient.email,
+      userId: recipient.id,
+      recipientName: args.recipientName,
+      firNumber: args.firNumber,
+      courtName: args.courtName,
+      expiryAt: args.expiryAt,
+      portalUrl: `${env.PUBLIC_APP_URL.replace(/\/$/, "")}/accused/summons`,
+    });
+  } catch (error) {
+    logger.warn("Could not send the summons notice", {
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 }
 
 export async function loadSummons(summonsId: string) {

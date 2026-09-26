@@ -140,14 +140,14 @@ export interface OtpDispatch {
   otp?: string;
 }
 
-export async function login(email: string, password: string): Promise<User> {
-  const result = await api.post<{ user: User; csrfToken: string }>("/api/auth/login", {
-    email,
-    password,
-  });
-  setCsrfToken(result.csrfToken);
-  return result.user;
-}
+/**
+ * Sign-in is deliberately NOT wrapped in a helper here.
+ *
+ * It is a two-step exchange when the deployment requires an emailed code, and a
+ * helper that returned a User would have to either hide that or lie about it.
+ * LoginScreen drives both steps directly, so the branch is visible where it
+ * matters. See POST /api/auth/login and /api/auth/login/verify.
+ */
 
 export async function whoAmI(): Promise<User | null> {
   try {

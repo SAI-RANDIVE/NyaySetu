@@ -105,6 +105,35 @@ const schema = z.object({
   UIDAI_CLIENT_SECRET: optionalString,
   UIDAI_AUA_CODE: optionalString,
 
+  // ---------------------------------------------------------------- SMTP
+  // Outbound email: the login second factor, and summons notices.
+  SMTP_HOST: optionalString,
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: optionalString,
+  // For Gmail this is a 16-character App Password, not the account password.
+  SMTP_PASSWORD: optionalString,
+  SMTP_FROM: optionalString,
+
+  // Two-factor sign-in by email. Off unless SMTP is configured, because
+  // switching it on without a working mailbox would lock everybody out.
+  LOGIN_OTP_ENABLED: z
+    .string()
+    .default("true")
+    .transform((v) => v === "true"),
+  LOGIN_OTP_TTL_SECONDS: z.coerce.number().int().positive().default(600),
+  // Signs the short-lived cookie that carries a half-finished sign-in between
+  // the password step and the code step. Falls back to the Aadhaar pepper.
+  LOGIN_CHALLENGE_SECRET: optionalString,
+
+  // Emails a recipient that a summons exists. Never includes its contents.
+  EMAIL_NOTIFICATIONS_ENABLED: z
+    .string()
+    .default("true")
+    .transform((v) => v === "true"),
+
+  // Where the links in an email point. Must be the SPA, not the API.
+  PUBLIC_APP_URL: z.string().default("http://localhost:5173"),
+
   // ------------------------------------------------------------------- jobs
   // 72 hours, per the specification.
   SUMMONS_WINDOW_HOURS: z.coerce.number().int().positive().default(72),
@@ -165,14 +194,27 @@ export const env = {
   isProduction: raw.NODE_ENV === "production",
   cookieSecure: raw.NODE_ENV === "production" || raw.COOKIE_SAMESITE === "none",
   localBlobDir: path.resolve(process.cwd(), raw.LOCAL_BLOB_DIR),
+  // One secret is enough for a demo; a deployment should set its own.
+  loginChallengeSecret: raw.LOGIN_CHALLENGE_SECRET ?? raw.AADHAAR_TOKEN_PEPPER,
+  // Convenience mirror of capabilities.emailNotifications, so services can ask
+  // env one question instead of importing two modules.
+  emailNotificationsEnabled:
+    Boolean(raw.SMTP_HOST && raw.SMTP_USER && raw.SMTP_PASSWORD) && raw.EMAIL_NOTIFICATIONS_ENABLED,
 };
 
 export type Env = typeof env;
 
 /** What is wired up, for /api/health and the admin dashboard. */
+const smtpConfigured = Boolean(raw.SMTP_HOST && raw.SMTP_USER && raw.SMTP_PASSWORD);
+
 export const capabilities = {
   chain: Boolean(raw.CHAIN_RPC_URL && raw.CHAIN_PRIVATE_KEY),
   ipfs: Boolean(raw.PINATA_JWT || (raw.PINATA_API_KEY && raw.PINATA_API_SECRET)),
   ai: Boolean(raw.AI_SERVICE_URL),
+  smtp: smtpConfigured,
   otpProvider: raw.OTP_PROVIDER,
+  // Asking for email MFA without a mailbox to send from would lock every
+  // account out, so the requirement is the AND of the two.
+  loginOtp: smtpConfigured && raw.LOGIN_OTP_ENABLED,
+  emailNotifications: smtpConfigured && raw.EMAIL_NOTIFICATIONS_ENABLED,
 };

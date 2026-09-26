@@ -8,6 +8,7 @@ import { LinkButton, Spinner } from "./components/ui";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import Handbook from "./pages/Handbook";
 import { CaseDossierPage, CasesPage, EvidenceDetailPage } from "./pages/shared";
 import { CapturePage, PoliceDashboard } from "./pages/police";
 import { ForensicInbox } from "./pages/forensic";
@@ -123,6 +124,10 @@ export default function App() {
       {/* ------------------------------------------------------- public */}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      {/* Public on purpose: a defence lawyer or an accused person needs to
+          understand what the system claims about them before they have an
+          account, and putting this behind a sign-in would defeat that. */}
+      <Route path="/handbook" element={<Handbook />} />
 
       {/* -------------------------------------------------------- police */}
       <Route

@@ -16,7 +16,33 @@ import { logger } from "../lib/logger";
 
 const PASSWORD = process.env.SEED_PASSWORD ?? "NyaySetu@2026";
 
+/**
+ * Where sign-in codes actually go.
+ *
+ * The default addresses end in @nyaysetu.demo, which is not a real domain, so an
+ * emailed sign-in code has nowhere to land. Set SEED_EMAIL_BASE to an address
+ * you control and every demo account becomes a plus-addressed alias of it:
+ *
+ *   SEED_EMAIL_BASE=apurva@gmail.com
+ *     -> apurva+police@gmail.com, apurva+judge@gmail.com, and so on
+ *
+ * Gmail, Outlook and Fastmail all deliver plus-addressed mail to the same
+ * inbox, so one mailbox receives the codes for all eight roles. That is what
+ * makes two-factor sign-in demonstrable without eight real mailboxes.
+ */
+const EMAIL_BASE = (process.env.SEED_EMAIL_BASE ?? "").trim();
+
+function addressFor(slug: string, fallback: string): string {
+  if (!EMAIL_BASE || !EMAIL_BASE.includes("@")) return fallback;
+  const [local, domain] = EMAIL_BASE.split("@");
+  // Strip any existing +tag so re-running with a tagged base does not nest them.
+  const base = local.split("+")[0];
+  return `${base}+${slug}@${domain}`;
+}
+
 interface SeedUser {
+  /** Used for the plus-address alias and as the map key. */
+  slug: string;
   email: string;
   fullName: string;
   role:
@@ -36,7 +62,8 @@ interface SeedUser {
 
 const USERS: SeedUser[] = [
   {
-    email: "police@nyaysetu.demo",
+    slug: "police",
+    email: addressFor("police", "police@nyaysetu.demo"),
     fullName: "Insp. Meera Deshpande",
     role: "police",
     designation: "Inspector, Crime Branch",
@@ -45,7 +72,8 @@ const USERS: SeedUser[] = [
     phone: "+919820000001",
   },
   {
-    email: "forensic@nyaysetu.demo",
+    slug: "forensic",
+    email: addressFor("forensic", "forensic@nyaysetu.demo"),
     fullName: "Dr. Anil Kulkarni",
     role: "forensic_lab",
     designation: "Assistant Director, Digital Forensics",
@@ -54,7 +82,8 @@ const USERS: SeedUser[] = [
     phone: "+919820000002",
   },
   {
-    email: "prosecutor@nyaysetu.demo",
+    slug: "prosecutor",
+    email: addressFor("prosecutor", "prosecutor@nyaysetu.demo"),
     fullName: "Adv. Rohit Sathe",
     role: "prosecutor",
     designation: "Additional Public Prosecutor",
@@ -63,7 +92,8 @@ const USERS: SeedUser[] = [
     phone: "+919820000003",
   },
   {
-    email: "judge@nyaysetu.demo",
+    slug: "judge",
+    email: addressFor("judge", "judge@nyaysetu.demo"),
     fullName: "Hon. Justice S. Iyer",
     role: "judge",
     designation: "Additional Sessions Judge",
@@ -72,7 +102,8 @@ const USERS: SeedUser[] = [
     phone: "+919820000004",
   },
   {
-    email: "defence@nyaysetu.demo",
+    slug: "defence",
+    email: addressFor("defence", "defence@nyaysetu.demo"),
     fullName: "Adv. Priya Nair",
     role: "defence_lawyer",
     designation: "Counsel for the accused",
@@ -81,7 +112,8 @@ const USERS: SeedUser[] = [
     phone: "+919820000005",
   },
   {
-    email: "accused@nyaysetu.demo",
+    slug: "accused",
+    email: addressFor("accused", "accused@nyaysetu.demo"),
     fullName: "Vikram Jadhav",
     role: "accused",
     designation: "Accused, on bail",
@@ -90,7 +122,8 @@ const USERS: SeedUser[] = [
     phone: "+919820000006",
   },
   {
-    email: "surety@nyaysetu.demo",
+    slug: "surety",
+    email: addressFor("surety", "surety@nyaysetu.demo"),
     fullName: "Sunita Jadhav",
     role: "accused",
     designation: "Surety / guarantor",
@@ -103,7 +136,8 @@ const USERS: SeedUser[] = [
     note: "surety",
   },
   {
-    email: "admin@nyaysetu.demo",
+    slug: "admin",
+    email: addressFor("admin", "admin@nyaysetu.demo"),
     fullName: "R. Kulkarni",
     role: "court_admin",
     designation: "Court Registrar",
@@ -152,6 +186,9 @@ async function upsertUser(user: SeedUser): Promise<string> {
         is_active: true,
         failed_login_attempts: 0,
         locked_until: null,
+        // A re-seed can change the address, so a previous verification no
+        // longer applies. The next successful sign-in code re-establishes it.
+        email_verified_at: null,
       })
       .eq("id", existing.id);
     if (error) throw new Error(`Updating ${user.email}: ${error.message}`);
@@ -217,10 +254,19 @@ async function main() {
     { onConflict: "role" }
   );
 
+  if (EMAIL_BASE) {
+    console.log(`  addresses derived from ${EMAIL_BASE} using plus-addressing\n`);
+  } else {
+    console.log(
+      "  using @nyaysetu.demo addresses, which cannot receive mail.\n" +
+        "  Set SEED_EMAIL_BASE=you@gmail.com to get real, deliverable aliases.\n"
+    );
+  }
+
   const ids: Record<string, string> = {};
   for (const user of USERS) {
     ids[user.note === "surety" ? "surety" : user.role] = await upsertUser(user);
-    console.log(`  user  ${user.email.padEnd(26)} ${user.role}`);
+    console.log(`  user  ${user.email.padEnd(34)} ${user.role}`);
   }
 
   // ------------------------------------------------------------------- case
@@ -284,7 +330,14 @@ async function main() {
   console.log(`  password: ${PASSWORD}\n`);
   for (const user of USERS) {
     const label = user.note === "surety" ? "accused (surety)" : user.role;
-    console.log(`  ${user.email.padEnd(26)} ${label}`);
+    console.log(`  ${user.email.padEnd(34)} ${label}`);
+  }
+
+  if (!EMAIL_BASE) {
+    console.log(
+      "\nNote: these addresses cannot receive email. If LOGIN_OTP_ENABLED is on,\n" +
+        "      re-seed with SEED_EMAIL_BASE=you@gmail.com so the codes arrive."
+    );
   }
   console.log(
     "\nAadhaar numbers for OTP flows (synthetic, valid checksums):\n" +

@@ -28,22 +28,49 @@
  * ----------------------------------------------------------------------------
  */
 
-export type OtpPurpose = "login" | "summons_ack" | "bail_checkin";
+export type OtpPurpose = "login" | "login_mfa" | "summons_ack" | "bail_checkin";
+
+/**
+ * Which route the code travelled. Recorded so a challenge issued to an email
+ * address can never be verified as though it had gone to a registered mobile.
+ */
+export type OtpChannel = "aadhaar" | "email" | "sms";
 
 export interface SendOtpRequest {
-  /** Salted hash of the Aadhaar number. The number itself never reaches here. */
-  aadhaarToken: string;
+  /**
+   * Whoever the challenge is about.
+   *
+   * A salted Aadhaar token for a citizen action, or an HMAC of the user id for
+   * a sign-in. Deliberately not called aadhaarToken: the email channel
+   * authenticates a user account, not an Aadhaar holder, and a column or a
+   * parameter that lies about what it holds is how the two get confused.
+   */
+  subjectToken: string;
   purpose: OtpPurpose;
-  /** Summons id, case id, whatever the OTP is about. Binds the code to one action. */
+  /** Summons id, case id, user id: whatever the OTP is about. Binds the code to one action. */
   referenceId?: string | null;
-  /** Masked phone or name, for the "code sent to xxxxxx1234" line in the UI. */
+  /** Masked phone or address, for the "code sent to a•••••a@gmail.com" line. */
   destinationHint?: string | null;
+  /** Needed by the email channel. Never logged in full. */
+  email?: string | null;
+  userId?: string | null;
+  fullName?: string | null;
+  /** Shown in the email so a recipient can spot a sign-in they did not start. */
+  requestIp?: string | null;
 }
 
 export interface OtpDispatch {
   challengeId: string;
   expiresAt: string;
   maskedDestination: string;
+  channel?: OtpChannel;
+  /**
+   * Set when the channel accepted the code but could not deliver it: a wrong
+   * app password, a bounced address. The caller must treat this as a failure to
+   * authenticate, not as a code the user simply has not typed yet.
+   */
+  deliveryFailed?: boolean;
+  deliveryError?: string;
   /**
    * Present only for the sandbox provider, and only when
    * OTP_ECHO_IN_RESPONSE is on and NODE_ENV is not production. It is what lets
@@ -55,7 +82,7 @@ export interface OtpDispatch {
 export interface VerifyOtpRequest {
   challengeId: string;
   otp: string;
-  aadhaarToken: string;
+  subjectToken: string;
   purpose: OtpPurpose;
   referenceId?: string | null;
 }
@@ -69,6 +96,7 @@ export interface VerifyOtpResult {
 
 export interface OtpProvider {
   readonly name: string;
+  readonly channel: OtpChannel;
   /**
    * False for the sandbox. The health endpoint surfaces this so nobody can
    * mistake a demo deployment for an authenticated one.

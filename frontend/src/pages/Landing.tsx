@@ -429,12 +429,20 @@ export default function Landing() {
               </p>
             </div>
           </div>
-          <Link
-            to="/login"
-            className="font-ui text-xs font-semibold uppercase tracking-wider text-primary hover:underline"
-          >
-            Sign in
-          </Link>
+          <div className="flex items-center gap-5">
+            <Link
+              to="/handbook"
+              className="font-ui text-xs font-semibold uppercase tracking-wider text-muted transition hover:text-primary"
+            >
+              Handbook
+            </Link>
+            <Link
+              to="/login"
+              className="font-ui text-xs font-semibold uppercase tracking-wider text-primary hover:underline"
+            >
+              Sign in
+            </Link>
+          </div>
         </div>
       </footer>
     </div>
