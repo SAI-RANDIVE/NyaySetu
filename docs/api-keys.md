@@ -278,6 +278,6 @@ Two of the values in `backend/.env` are already generated and should never chang
 - **`AADHAAR_TOKEN_PEPPER`** is mixed into every stored Aadhaar token. Change it and every existing token becomes unmatchable, so every OTP flow fails permanently. There is no recovery.
 - **`EVIDENCE_ENCRYPTION_KEY`** decrypts every stored evidence file. Lose it and the evidence is gone.
 
-They are in `backend/.env` now, git-ignored. Before anything resembling a real deployment, regenerate both and put them in a secrets manager. `DEPLOYMENT.md` covers that.
+They are in `backend/.env` now, git-ignored. Before anything resembling a real deployment, regenerate both and put them in a secrets manager. `deployment.md` covers that.
 
 And the obvious one: a private key in a text file is fine for a throwaway testnet wallet and unacceptable for anything else. Never reuse a wallet that holds real funds.

@@ -21,7 +21,7 @@ export const db: SupabaseClient = createClient(
 /**
  * PII lives in the `restricted` schema. For PostgREST to reach it, the schema
  * must be listed under Supabase Settings -> API -> Exposed schemas. See
- * DEPLOYMENT.md; it is the one manual dashboard step.
+ * docs/deployment.md; it is the one manual dashboard step.
  */
 export const restricted = db.schema("restricted");
 

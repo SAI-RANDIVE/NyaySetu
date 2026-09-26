@@ -1,8 +1,14 @@
 -- ===========================================================================
 -- NyaySetu :: seed/reference.sql
--- Reference rows only. Demo users, cases and evidence are created by
+-- Reference rows only: the role table the UI reads its labels from, and the
+-- indexer's starting block. Nothing here is a user, a case or a piece of
+-- evidence, and nothing here is demo data.
+--
+-- Accounts cannot be created in SQL at all. A password has to be bcrypt-hashed
+-- and an Aadhaar number HMAC'd with a server-side pepper, and neither belongs in
+-- a file that gets committed. So the first administrator comes from
 --   cd backend && npm run bootstrap
--- because those need bcrypt hashes and Aadhaar tokens the API must compute.
+-- and every other account is invited from /admin.
 -- ===========================================================================
 
 insert into public.roles (role, label, description, portal_path) values

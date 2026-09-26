@@ -68,7 +68,7 @@ export function ErrorState({
           {unavailable && (
             <p className="mt-2 font-ui text-2xs leading-relaxed text-faint">
               Check the health endpoint at <code className="font-mono">/api/health</code> to see which
-              subsystem is missing, then follow DEPLOYMENT.md for that step.
+              subsystem is missing, then follow docs/deployment.md for that step.
             </p>
           )}
 

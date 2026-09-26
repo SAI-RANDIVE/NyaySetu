@@ -8,7 +8,7 @@
 # notices them. A function that is killed after each response cannot.
 #
 # Deploy: render.com -> New -> Blueprint -> this repository.
-# See HOSTING.md for the cross-site cookie settings, which are the step people
+# See docs/hosting.md for the cross-site cookie settings, which are the step people
 # miss.
 # ===========================================================================
 
@@ -63,6 +63,11 @@ services:
         value: nyaysetu_csrf
       - key: SESSION_TTL_HOURS
         value: "8"
+      # Signs the short-lived cookie that carries a half-finished sign-in between
+      # the password step and the code step. Render generates it, so it is never
+      # pasted anywhere and is not the Aadhaar pepper doing a second job.
+      - key: LOGIN_CHALLENGE_SECRET
+        generateValue: true
 
       # ------------------------------------------------------------- email
       # Sign-in codes and summons notices. For Gmail, SMTP_PASSWORD is a

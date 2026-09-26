@@ -4,7 +4,7 @@
 
 Final year project · Vishwakarma Institute of Technology, Pune · AI & Data Science · 2026
 
-**New here?** Read the in-app **[Handbook](#the-handbook)** — it explains the one technical idea and then walks through what each of the seven roles actually does. **Setting it up?** **[SETUP-KEYS.md](SETUP-KEYS.md)** lists every credential, where to get it, and what breaks without it.
+**New here?** Read the in-app **[Handbook](#the-handbook)** — it explains the one technical idea and then walks through what each of the seven roles actually does. **Setting it up?** **[docs/api-keys.md](docs/api-keys.md)** lists every credential, where to get it, and what breaks without it. **Hosting it?** **[docs/hosting.md](docs/hosting.md)**, and read its first section before importing the repo into Vercel.
 
 ---
 
@@ -32,18 +32,101 @@ Three places in a criminal matter where the record is only as good as somebody's
 
 ## Repository layout
 
+Six deployable pieces and two folders that are not code. Each piece runs on its
+own and says so when a neighbour is missing, which is why you can start the API
+with no chain and no models and still get a working portal.
+
 ```
 nyaysetu/
-├── contracts/          Solidity + Hardhat. 53 tests.
-│   ├── contracts/      EvidenceChain, SummonsChain, BailChain, NyayRoles, GeoMath
-│   ├── scripts/        deploy, grantRoles, verify
-│   └── deployed/       addresses + ABIs the backend reads at boot
-├── database/           Postgres migrations: schema, RLS, audit triggers
-├── backend/            Node + Express + TypeScript. Ethers bridge, OTP seam, jobs.
-├── ai-service/         Python + scikit-learn + Flask. Three models.
-├── frontend/           React + Tailwind. Seven role portals, light and dark.
-└── mobile/             React Native (Expo). Field capture and bail check-in.
+│
+├── frontend/           ← THE WEBSITE. React + Vite + Tailwind.
+│   │                     This is the folder you deploy to Vercel or Netlify.
+│   ├── src/
+│   │   ├── pages/        one file per portal: police, forensic, prosecutor,
+│   │   │                 judge, defence, accused, admin, plus Landing, Login,
+│   │   │                 FirstRun and the public Handbook
+│   │   ├── components/   shared UI: ui.tsx is the whole design system,
+│   │   │                 trust.tsx renders hashes and transaction links
+│   │   ├── context/      auth, theme and toast providers
+│   │   ├── lib/          api.ts is the only place the app touches the network
+│   │   └── styles/       tokens.css holds every colour as a variable
+│   ├── public/           favicons, manifest, the logo the browser tab shows
+│   └── dist/             build output. Never committed.
+│
+├── backend/            ← THE API. Node + Express + TypeScript. Port 4000.
+│   └── src/
+│       ├── routes/       one file per area; auth.ts holds the two-step sign-in
+│       ├── middleware/   auth (sessions + RBAC), csrf, rate limits, validation
+│       ├── services/     the logic a route calls: evidence, summons, bail, audit
+│       ├── lib/          chain.ts (ethers bridge + nonce ledger), crypto.ts
+│       │                 (every primitive in one auditable file), mailer.ts,
+│       │                 supabase.ts, pii.ts (the only route to Aadhaar tokens)
+│       ├── otp/          the swappable identity seam: sandbox, email, UIDAI
+│       ├── jobs/         the sweeps that notice a summons nobody answered
+│       ├── indexer/      reads contract events back into Postgres
+│       └── scripts/      bootstrap (the first admin), chainCheck, authCheck
+│
+├── contracts/          ← THE CHAIN. Solidity 0.8.24 + Hardhat. 53 tests.
+│   ├── contracts/        EvidenceChain, SummonsChain, BailChain, NyayRoles,
+│   │                     GeoMath (integer-only geodesy, no floats on chain)
+│   ├── test/             the 53 tests, including tamper rejection
+│   ├── scripts/          deploy, grantRoles, verify
+│   └── deployed/         addresses + ABIs the backend reads at boot
+│
+├── database/           ← THE SCHEMA. Not a service; SQL you run once.
+│   ├── migrations/       001 schema · 002 RLS · 003 audit · 004 OTP channels
+│   │                     005 PII access · 006 invitations. Run in order, in the
+│   │                     Supabase SQL editor — Supabase blocks DDL over the API.
+│   └── seed/             reference.sql: role labels only, no accounts
+│
+├── ai-service/         ← THE MODELS. Python + scikit-learn + Flask. Port 5001.
+│   ├── src/              three models: anomaly screening, bail risk, delay
+│   └── models/           trained artefacts + metadata.json with the metrics
+│
+├── mobile/             ← THE FIELD APP. React Native (Expo). Optional.
+│                         Scene capture and bail check-in. Hashes on-device.
+│
+├── docs/               ← EVERY GUIDE. Start with docs/README.md.
+├── brand/              ← the source logo the favicons were generated from
+└── render.yaml           deploy blueprint for the API
 ```
+
+### Which folder is "the website"?
+
+**`frontend/`.** Set that as the Root Directory in Vercel or Netlify; the build
+command is `npm run build` and the output is `dist`. `frontend/vercel.json` and
+`frontend/netlify.toml` are already in place with SPA rewrites and security
+headers. The API is a **separate** deployment from `backend/` — see
+[docs/hosting.md](docs/hosting.md).
+
+---
+
+## The `.env` files, and why there are five
+
+One per deployable piece, because each one runs as its own process and they do
+not share a filesystem in production. Splitting them is not tidiness: it is what
+keeps the Supabase key out of the browser bundle. Every file is git-ignored, and
+each has a committed `.env.example` next to it.
+
+| File | Belongs to | Holds | Secret? |
+|---|---|---|---|
+| **`backend/.env`** | the API | Supabase service key, Aadhaar pepper, evidence AES key, SMTP password, the keeper wallet's private key | **Yes — all of it.** The only file that holds real secrets |
+| **`frontend/.env`** | the website | the API's URL and the hero video URL | **No, and it must never be.** Vite inlines every `VITE_` variable into the bundle, so anything here is readable by anyone who opens the site |
+| **`mobile/.env`** | the phone app | the API's URL as seen from the device | No, same reason — `EXPO_PUBLIC_` variables are compiled into the app |
+| **`ai-service/.env`** | the model service | its port and the shared secret the API calls it with | Mildly. It holds no user data and no keys |
+| **`contracts/.env`** | deploying to Sepolia | RPC URL, deployer key, Etherscan key | Yes, but only needed when deploying. Nothing at runtime reads it |
+
+The rule the split enforces: **`SUPABASE_SERVICE_ROLE_KEY` appears in exactly one
+file, and that file is never read by anything a user's browser can see.** It
+bypasses row level security by design, so a copy of it in a frontend bundle would
+hand every visitor the whole database.
+
+`contracts/.env` is only read by Hardhat at deploy time; the backend learns the
+contract addresses from `contracts/deployed/<network>.json` or from its own
+`EVIDENCE_CHAIN_ADDRESS` / `SUMMONS_CHAIN_ADDRESS` / `BAIL_CHAIN_ADDRESS`.
+
+Full list of what goes in each, where to get it, and what breaks without it:
+[docs/api-keys.md](docs/api-keys.md).
 
 ---
 
@@ -274,14 +357,18 @@ Read these before the viva; they are the questions an examiner will ask.
 
 **The Hardhat 2 toolchain carries open advisories.** `npm run audit` checks what ships and reports zero across contracts, backend and frontend. `npm run audit:all` includes dev dependencies and reports 25 findings in `contracts/`, every one of them inside Hardhat 2's own tree (adm-zip, undici, elliptic, tmp and friends). None of it is deployed: what reaches Sepolia is solc output, and the package is devDependencies only. The fix is Hardhat 3, which is a rewrite with a different config format and different plugin names, and would break a green 53-test suite. That trade is stated rather than hidden.
 
-**RLS does not constrain the API.** Supabase's service role bypasses row level security by design, so the policies in `002_rls.sql` do not police API traffic — the RBAC middleware does. RLS is the second wall, and it is what stands between a leaked anon key and the contents of these tables. Every table has it on; see `VIVA-NOTES.md`.
+**RLS does not constrain the API.** Supabase's service role bypasses row level security by design, so the policies in `002_rls.sql` do not police API traffic — the RBAC middleware does. RLS is the second wall, and it is what stands between a leaked anon key and the contents of these tables. Every table has it on; see `docs/design-decisions.md`.
 
 ---
 
 ## Where the reasoning is written down
 
-- **`VIVA-NOTES.md`** — the on-chain/off-chain split, why not just Postgres, and the design decisions worth defending
-- **`DEPLOYMENT.md`** — exact environment variables per service, and the order to deploy them in
+- **[`docs/`](docs/)** — all five guides, with an index that says which one you want
+- **`docs/api-keys.md`** — every credential, where to get it, what breaks without it
+- **`docs/hosting.md`** — Vercel and Render, and the four things that break if you skip it
+- **`docs/production.md`** — the six fallbacks a default deployment still uses, and the checklist before real data
+- **`docs/design-decisions.md`** — the on-chain/off-chain split, why not just Postgres, and the decisions worth defending
+- **`docs/deployment.md`** — exact environment variables per service, and the order to deploy them in
 - **`ai-service/src/datasets.py`** — every synthetic distribution, in full
 - **`backend/src/otp/UidaiOtpProvider.ts`** — the government-authorisation seam
 - **`database/migrations/002_rls.sql`** — the security model, with its own reasoning in the header

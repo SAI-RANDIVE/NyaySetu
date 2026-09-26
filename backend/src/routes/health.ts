@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { env, capabilities } from "../config/env";
+import { productionFindings } from "../config/posture";
 import { chain } from "../lib/chain";
 import { pingDatabase } from "../lib/supabase";
 import { health as aiHealth } from "../lib/ai";
@@ -93,6 +94,11 @@ router.get(
           ].join(" "),
         },
       },
+
+      // Every documented fallback still in use, each with the reason it matters.
+      // Named here as well as in the boot log, because a hosted instance's log is
+      // somewhere you have to go looking and this endpoint is not.
+      posture: productionFindings(),
     });
   })
 );

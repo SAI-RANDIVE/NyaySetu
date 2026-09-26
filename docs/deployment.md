@@ -348,7 +348,7 @@ curl https://nyaysetu-api.up.railway.app/api/health
 
 ## Hosting it on Vercel, Render or similar
 
-See **[HOSTING.md](HOSTING.md)**. Read it before importing the repo into Vercel:
+See **[hosting.md](hosting.md)**. Read it before importing the repo into Vercel:
 the frontend builds fine, and four things in the API break silently unless they
 are configured for it — the scheduler that closes the 72 hour summons window, the
 blob fallback with no writable disk, and the two `127.0.0.1` URLs for the chain

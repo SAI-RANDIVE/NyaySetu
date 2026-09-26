@@ -97,7 +97,7 @@ export class UidaiOtpProvider implements OtpProvider {
     // than stubbed.
     throw unavailable(
       "Live UIDAI OTP dispatch is not implemented: it needs an AUA licence key, an ASA route " +
-        "and the signing certificate described in UidaiOtpProvider. See VIVA-NOTES.md."
+        "and the signing certificate described in UidaiOtpProvider. See docs/design-decisions.md."
     );
 
     /* Reference implementation, for an authorised operator:
@@ -130,7 +130,7 @@ export class UidaiOtpProvider implements OtpProvider {
   async verifyOtp(_request: VerifyOtpRequest): Promise<VerifyOtpResult> {
     throw unavailable(
       "Live UIDAI OTP verification is not implemented: it needs the encrypted PID block and the " +
-        "digital signature described in UidaiOtpProvider. See VIVA-NOTES.md."
+        "digital signature described in UidaiOtpProvider. See docs/design-decisions.md."
     );
 
     /* Reference implementation:

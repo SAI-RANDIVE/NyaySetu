@@ -3,6 +3,7 @@ import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { env, capabilities } from "./config/env";
+import { reportPosture } from "./config/posture";
 import { logger } from "./lib/logger";
 import { initChain, chain } from "./lib/chain";
 import { pingDatabase } from "./lib/supabase";
@@ -123,6 +124,10 @@ async function start() {
 
   startIndexer();
   startScheduler();
+
+  // Last, so it is the final thing in the log rather than the first: whoever is
+  // reading a boot log is looking at the end of it.
+  reportPosture();
 
   const shutdown = (signal: string) => {
     logger.info("Shutting down", { signal });
