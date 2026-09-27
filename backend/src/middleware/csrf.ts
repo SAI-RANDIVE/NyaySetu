@@ -31,7 +31,9 @@ export function csrfProtection(req: Request, _res: Response, next: NextFunction)
       new AppError(
         403,
         "CSRF_MISSING",
-        "This request needs an X-CSRF-Token header. Read it from the nyaysetu_csrf cookie."
+        "This request needs an X-CSRF-Token header. Take it from the csrfToken field of " +
+          "GET /api/auth/me, not from the cookie: when the site and the API are on different " +
+          "domains, script on the site cannot read a cookie set by the API."
       )
     );
   }

@@ -89,6 +89,34 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+/**
+ * The CSRF token, held in memory.
+ *
+ * It used to be read from the nyaysetu_csrf cookie on every request, which works
+ * only while the site and the API share an origin. Deployed, they do not: the
+ * cookie is set by the API's domain, and script on the site's domain cannot read a
+ * cookie belonging to another one. document.cookie returned nothing, no header was
+ * sent, and every mutating request was refused with CSRF_MISSING — sign-in worked,
+ * because it is unauthenticated, and then nothing else did.
+ *
+ * The API returns the token in the body of /api/auth/me and of both sign-in steps,
+ * and compares the header against the token bound to the session row rather than
+ * against the cookie. So holding it here is not a workaround: it is the only source
+ * that works in both deployments, and the server's comparison is unaffected.
+ *
+ * In memory rather than in storage, deliberately. It dies with the tab, as a
+ * session token should, and there is no copy for a script to steal.
+ */
+let csrfToken: string | null = null;
+
+export function setCsrfToken(token: string | null | undefined): void {
+  if (token) csrfToken = token;
+}
+
+export function clearCsrfToken(): void {
+  csrfToken = null;
+}
+
 type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 interface Options {
@@ -126,7 +154,9 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
   const headers: Record<string, string> = {};
 
   if (method !== "GET") {
-    const csrf = readCookie(CSRF_COOKIE);
+    // Memory first. The cookie is a fallback for a same-origin deployment, where
+    // it is readable and may be fresher than a token from an earlier page load.
+    const csrf = csrfToken ?? readCookie(CSRF_COOKIE);
     if (csrf) headers["x-csrf-token"] = csrf;
   }
   if (options.body !== undefined && !options.form) {

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, ApiError, type User } from "../lib/api";
+import { api, ApiError, clearCsrfToken, setCsrfToken, type User } from "../lib/api";
 import { useTheme } from "./ThemeContext";
 
 interface AuthValue {
@@ -30,7 +30,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const load = useCallback(async () => {
     try {
-      const result = await api.get<{ user: User }>("/api/auth/me");
+      const result = await api.get<{ user: User; csrfToken?: string }>("/api/auth/me");
+      // Every mutating request needs this, and this response is the only place it
+      // can be read from once the site and the API are on different domains.
+      setCsrfToken(result.csrfToken);
       setUser(result.user);
       // The profile preference wins over the local one, so a theme follows the
       // user between the station terminal and their phone.
@@ -61,7 +64,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, password: string) => {
-      const result = await api.post<{ user: User }>("/api/auth/login", { email, password });
+      const result = await api.post<{ user: User; csrfToken?: string }>("/api/auth/login", {
+        email,
+        password,
+      });
+      setCsrfToken(result.csrfToken);
       setUser(result.user);
       if (result.user.theme) adopt(result.user.theme);
       setError(null);
@@ -77,7 +84,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await api.post("/api/auth/logout");
     } finally {
       // Clear locally whatever the server said: a failed sign-out must still end
-      // the session in this tab.
+      // the session in this tab. The token goes with it, so a later request cannot
+      // present a credential for a session that is over.
+      clearCsrfToken();
       setUser(null);
     }
   }, []);

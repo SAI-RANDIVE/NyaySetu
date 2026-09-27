@@ -11,7 +11,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { api, ApiError, type User } from "../lib/api";
+import { api, ApiError, setCsrfToken, type User } from "../lib/api";
 import { ROLE_HOME } from "../lib/format";
 import { useQuery } from "../lib/useApi";
 import { Button, Field, Input } from "../components/ui";
@@ -104,6 +104,9 @@ export default function Login() {
         password,
       });
 
+      // Present only on the one-factor path, where this response opened a session.
+      setCsrfToken(result.csrfToken);
+
       if (result.mfaRequired) {
         setChallenge(result);
         setStep("code");
@@ -130,7 +133,13 @@ export default function Login() {
     setPending(true);
     setError(null);
     try {
-      const result = await api.post<{ user: User }>("/api/auth/login/verify", { otp });
+      const result = await api.post<{ user: User; csrfToken?: string }>(
+        "/api/auth/login/verify",
+        { otp }
+      );
+      // The session this just opened has its own token; without it the first
+      // mutating request after sign-in would be refused.
+      setCsrfToken(result.csrfToken);
       await refresh();
       navigate(landingFor(result.user), { replace: true });
     } catch (caught) {
