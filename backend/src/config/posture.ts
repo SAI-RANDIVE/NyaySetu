@@ -55,18 +55,30 @@ export function productionFindings(): PostureFinding[] {
     });
   }
 
-  if (!capabilities.smtp) {
+  if (!capabilities.emailTransport) {
     findings.push({
-      key: "smtp",
-      what: "No mail server is configured.",
+      key: "email",
+      what: "No way to send email is configured.",
       why: "Sign-in falls back to one factor, invitations cannot be delivered, and a summons recipient is never notified.",
     });
-  } else if (!capabilities.loginOtp) {
-    findings.push({
-      key: "mfa",
-      what: "LOGIN_OTP_ENABLED is false while SMTP works.",
-      why: "Sign-in is a password alone. The second factor exists and has been switched off.",
-    });
+  } else {
+    if (capabilities.emailTransport === "smtp" && env.isProduction) {
+      findings.push({
+        key: "email.smtp",
+        what: "Sending over SMTP on a hosted instance.",
+        why:
+          "Most container hosts block outbound port 587 silently, which surfaces as a connection " +
+          "timeout and reads like a wrong password. If mail is not arriving, set BREVO_API_KEY or " +
+          "RESEND_API_KEY and it will go over HTTPS instead.",
+      });
+    }
+    if (!capabilities.loginOtp) {
+      findings.push({
+        key: "mfa",
+        what: "LOGIN_OTP_ENABLED is false while email works.",
+        why: "Sign-in is a password alone. The second factor exists and has been switched off.",
+      });
+    }
   }
 
   if (capabilities.otpProvider === "sandbox") {

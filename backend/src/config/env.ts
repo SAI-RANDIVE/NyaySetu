@@ -118,6 +118,17 @@ const schema = z.object({
   // which fails as ENETUNREACH and looks like a credentials problem.
   SMTP_IP_FAMILY: z.coerce.number().int().refine((v) => v === 4 || v === 6).default(4),
 
+  // ------------------------------------------------------- email over HTTPS
+  // Most container hosts block outbound SMTP silently, so the same messages can
+  // go out through a provider's HTTPS API instead. See lib/mail/httpTransport.ts.
+  //   auto   - use an HTTP provider if a key is present, otherwise SMTP
+  //   smtp   - force SMTP, even if an HTTP key exists
+  //   resend - force Resend
+  //   brevo  - force Brevo
+  EMAIL_TRANSPORT: z.enum(["auto", "smtp", "resend", "brevo"]).default("auto"),
+  RESEND_API_KEY: optionalString,
+  BREVO_API_KEY: optionalString,
+
   // Two-factor sign-in by email. Off unless SMTP is configured, because
   // switching it on without a working mailbox would lock everybody out.
   LOGIN_OTP_ENABLED: z
@@ -212,6 +223,32 @@ const corsOrigins = raw.CORS_ORIGINS.split(",").map(normaliseOrigin).filter(Bool
 // A sandbox OTP that prints itself is a demo convenience and a production hole.
 const otpEcho = raw.NODE_ENV === "production" ? false : raw.OTP_ECHO_IN_RESPONSE;
 
+const smtpConfigured = Boolean(raw.SMTP_HOST && raw.SMTP_USER && raw.SMTP_PASSWORD);
+
+/**
+ * Which way email leaves this process, decided once.
+ *
+ * An HTTP provider wins over SMTP when both are configured, because the only
+ * reason to configure one is that SMTP does not work here — every container host
+ * worth naming blocks outbound port 587.
+ */
+const httpMailProvider: "resend" | "brevo" | null =
+  raw.EMAIL_TRANSPORT === "smtp"
+    ? null
+    : raw.EMAIL_TRANSPORT === "resend"
+      ? (raw.RESEND_API_KEY ? "resend" : null)
+      : raw.EMAIL_TRANSPORT === "brevo"
+        ? (raw.BREVO_API_KEY ? "brevo" : null)
+        : raw.BREVO_API_KEY
+          ? "brevo"
+          : raw.RESEND_API_KEY
+            ? "resend"
+            : null;
+
+// A sender address is needed either way. SMTP can fall back to the account it
+// authenticates as; an HTTP provider cannot, so it has to be stated.
+const emailConfigured = Boolean(httpMailProvider ? raw.SMTP_FROM : smtpConfigured);
+
 export const env = {
   ...raw,
   corsOrigins,
@@ -244,24 +281,24 @@ export const env = {
   loginChallengeSecret: raw.LOGIN_CHALLENGE_SECRET ?? raw.AADHAAR_TOKEN_PEPPER,
   // Convenience mirror of capabilities.emailNotifications, so services can ask
   // env one question instead of importing two modules.
-  emailNotificationsEnabled:
-    Boolean(raw.SMTP_HOST && raw.SMTP_USER && raw.SMTP_PASSWORD) && raw.EMAIL_NOTIFICATIONS_ENABLED,
+  emailNotificationsEnabled: emailConfigured && raw.EMAIL_NOTIFICATIONS_ENABLED,
 };
 
 export type Env = typeof env;
 
 /** What is wired up, for /api/health and the admin dashboard. */
-const smtpConfigured = Boolean(raw.SMTP_HOST && raw.SMTP_USER && raw.SMTP_PASSWORD);
-
 export const capabilities = {
   cron: Boolean(raw.CRON_SECRET),
   chain: Boolean(raw.CHAIN_RPC_URL && raw.CHAIN_PRIVATE_KEY),
   ipfs: Boolean(raw.PINATA_JWT || (raw.PINATA_API_KEY && raw.PINATA_API_SECRET)),
   ai: Boolean(raw.AI_SERVICE_URL),
   smtp: smtpConfigured,
+  /** "resend", "brevo", or "smtp" when sending over SMTP, or null when it cannot send. */
+  emailTransport: emailConfigured ? (httpMailProvider ?? "smtp") : null,
+  httpMailProvider,
   otpProvider: raw.OTP_PROVIDER,
-  // Asking for email MFA without a mailbox to send from would lock every
-  // account out, so the requirement is the AND of the two.
-  loginOtp: smtpConfigured && raw.LOGIN_OTP_ENABLED,
-  emailNotifications: smtpConfigured && raw.EMAIL_NOTIFICATIONS_ENABLED,
+  // Asking for email MFA with no way to send would lock every account out, so
+  // the requirement is the AND of the two.
+  loginOtp: emailConfigured && raw.LOGIN_OTP_ENABLED,
+  emailNotifications: emailConfigured && raw.EMAIL_NOTIFICATIONS_ENABLED,
 };

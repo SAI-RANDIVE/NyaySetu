@@ -132,7 +132,7 @@ async function checkDatabase() {
 async function checkEmail() {
   console.log("\nSMTP");
 
-  if (!capabilities.smtp) {
+  if (!capabilities.emailTransport) {
     warn("not configured", "sign-in will be password-only, no notices sent");
     return true;
   }

@@ -92,6 +92,28 @@ services:
       # IPv6 route, so IPv6 fails as ENETUNREACH before Gmail is reached.
       - key: SMTP_IP_FAMILY
         value: "4"
+
+      # ------------------------------------------------- email over HTTPS
+      # Render blocks outbound SMTP. Ports 25, 465 and 587 are dropped silently,
+      # so nodemailer reports a connection timeout and it reads like a wrong
+      # password. It is not: SMTP simply cannot leave this container.
+      #
+      # So set ONE of these and mail goes out over port 443 instead. The app
+      # prefers an HTTP provider over SMTP whenever a key is present.
+      #
+      #   BREVO_API_KEY   brevo.com. Verifies a single SENDER ADDRESS, so a Gmail
+      #                   address can send to anyone after one confirmation click.
+      #                   300/day free. This is the one to use without a domain.
+      #   RESEND_API_KEY  resend.com. Cleaner API, but until a DOMAIN is verified
+      #                   it only delivers to the account owner's own address.
+      #
+      # SMTP_FROM must be the verified sender, exactly.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_TRANSPORT
+        value: auto
       - key: LOGIN_OTP_ENABLED
         value: "true"
       - key: EMAIL_NOTIFICATIONS_ENABLED

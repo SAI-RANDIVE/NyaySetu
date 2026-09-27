@@ -467,7 +467,11 @@ router.post(
 router.get("/config", (_req, res) => {
   res.json({
     emailOtpEnabled: Boolean(loginOtpProvider),
-    smtpConfigured: capabilities.smtp,
+    // Named "smtpConfigured" for the clients already reading it; what it now means
+    // is "there is some way to send email", which is the question the sign-in
+    // screen is actually asking.
+    smtpConfigured: Boolean(capabilities.emailTransport),
+    emailTransport: capabilities.emailTransport,
     aadhaarProvider: capabilities.otpProvider,
     aadhaarSimulated: capabilities.otpProvider === "sandbox",
     environment: env.NODE_ENV,

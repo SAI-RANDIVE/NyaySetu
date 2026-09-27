@@ -75,14 +75,17 @@ router.get(
         email: {
           configured: mail.configured,
           reachable: mail.reachable,
+          // "smtp", "brevo" or "resend". Worth publishing: a timeout on SMTP and a
+          // refused key on an HTTP provider need completely different fixes.
+          transport: mail.transport,
           host: mail.host,
           from: mail.from,
           error: mail.error,
-          note: !mail.configured
-            ? "SMTP is not configured. Sign-in is password-only and no notices are sent."
-            : mail.reachable
-              ? "SMTP verified. Sign-in codes and summons notices are live."
-              : "SMTP is configured but the server rejected the credentials. For Gmail, use a 16-character App Password.",
+          note:
+            mail.note ??
+            (mail.reachable
+              ? `Verified over ${mail.transport}. Sign-in codes and notices are live.`
+              : "Configured, but the provider refused. See error."),
         },
         identity: {
           // Citizen actions: acknowledging a summons, filing a bail check-in.

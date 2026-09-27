@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import nodemailer, { type Transporter } from "nodemailer";
 import { env, capabilities } from "../config/env";
+import { httpProvider, sendOverHttp, verifyHttpProvider } from "./mail/httpTransport";
 import { logger } from "./logger";
 import { db } from "./supabase";
 import {
@@ -143,15 +144,32 @@ function build(): Transporter | null {
  * Pass force to bypass the cache, which only the startup check should do.
  */
 export async function verifyTransport(force = false): Promise<{ ok: boolean; error?: string }> {
-  const transport = build();
-  if (!transport) return { ok: false, error: "SMTP is not configured." };
-
   if (!force && verifyCache) {
     const ttl = verifyCache.ok ? VERIFY_TTL_OK_MS : VERIFY_TTL_FAIL_MS;
     if (Date.now() - verifyCache.at < ttl) {
       return { ok: verifyCache.ok, error: verifyCache.error };
     }
   }
+
+  // An HTTP provider is checked against its own account endpoint. There is no
+  // handshake to verify, only a key to have accepted.
+  if (httpProvider()) {
+    const outcome = await verifyHttpProvider();
+    verifyCache = { ok: outcome.ok, error: outcome.error, at: Date.now() };
+    verified = outcome.ok;
+    if (outcome.ok) {
+      logger.info("Email provider verified", { transport: httpProvider() });
+    } else {
+      logger.error("Email provider verification failed", {
+        transport: httpProvider(),
+        error: outcome.error,
+      });
+    }
+    return outcome;
+  }
+
+  const transport = build();
+  if (!transport) return { ok: false, error: "No email transport is configured." };
 
   try {
     await transport.verify();
@@ -257,6 +275,10 @@ async function record(args: {
   }
 }
 
+function fromAddress(): string {
+  return env.SMTP_FROM ?? `NyaySetu <${env.SMTP_USER}>`;
+}
+
 async function send(args: {
   to: string;
   subject: string;
@@ -271,6 +293,64 @@ async function send(args: {
    */
   files?: { filename: string; content: Buffer; contentType?: string }[];
 }): Promise<SendResult> {
+  if (!capabilities.emailTransport) {
+    const result: SendResult = { status: "skipped", error: "No email transport is configured." };
+    await record({ ...args, result });
+    return result;
+  }
+
+  /**
+   * The HTTPS path, taken whenever a provider key is present.
+   *
+   * Same bodies, same attachments, same logging. The only difference a caller can
+   * observe is that Brevo has no field for an inline Content-ID, so the logo
+   * arrives as an attachment rather than in the header — noted in httpTransport.ts
+   * rather than worked around, because a message that sends with a plain header
+   * beats a message that does not send.
+   */
+  if (httpProvider()) {
+    const check = await verifyTransport();
+    if (!check.ok) {
+      const result: SendResult = { status: "failed", error: check.error };
+      await record({ ...args, result });
+      return result;
+    }
+
+    const outcome = await sendOverHttp({
+      to: args.to,
+      subject: args.subject,
+      text: args.text,
+      html: args.html,
+      from: fromAddress(),
+      attachments: [
+        ...(attachments() ?? []).map((file) => ({
+          filename: file.filename,
+          content: file.content,
+          cid: file.cid,
+        })),
+        ...(args.files ?? []).map((file) => ({
+          filename: file.filename,
+          content: file.content,
+          contentType: file.contentType ?? "application/pdf",
+        })),
+      ],
+    });
+
+    const result: SendResult = outcome.ok
+      ? { status: "sent", messageId: outcome.messageId }
+      : { status: "failed", error: outcome.error };
+    await record({ ...args, result });
+
+    if (outcome.ok) {
+      logger.info("Email sent", {
+        purpose: args.purpose,
+        to: maskEmail(args.to),
+        transport: httpProvider(),
+      });
+    }
+    return result;
+  }
+
   const transport = build();
 
   if (!transport) {
@@ -288,7 +368,7 @@ async function send(args: {
 
   try {
     const info = await transport.sendMail({
-      from: env.SMTP_FROM ?? `NyaySetu <${env.SMTP_USER}>`,
+      from: fromAddress(),
       to: args.to,
       subject: args.subject,
       text: args.text,
@@ -647,17 +727,35 @@ export async function sendNonDeliveryAlert(args: {
 export async function mailerHealth(): Promise<{
   configured: boolean;
   reachable: boolean;
+  transport?: string;
   host?: string;
   from?: string;
   error?: string;
+  note?: string;
 }> {
-  if (!capabilities.smtp) return { configured: false, reachable: false };
+  if (!capabilities.emailTransport) {
+    return {
+      configured: false,
+      reachable: false,
+      note:
+        "Set SMTP_HOST/SMTP_USER/SMTP_PASSWORD, or — on a host that blocks outbound SMTP — a " +
+        "BREVO_API_KEY or RESEND_API_KEY together with SMTP_FROM.",
+    };
+  }
+
   const check = await verifyTransport();
+  const provider = httpProvider();
+
   return {
     configured: true,
     reachable: check.ok,
-    host: `${env.SMTP_HOST}:${env.SMTP_PORT}`,
+    transport: provider ?? "smtp",
+    host: provider ? `https (${provider})` : `${env.SMTP_HOST}:${env.SMTP_PORT}`,
     from: env.SMTP_FROM ?? env.SMTP_USER,
     error: check.error,
+    note: provider
+      ? undefined
+      : "Sending over SMTP. Most container hosts block outbound port 587; if this reports a " +
+        "timeout, that is the cause and an HTTP provider is the fix.",
   };
 }

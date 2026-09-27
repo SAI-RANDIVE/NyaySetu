@@ -145,6 +145,55 @@ Because both services sit behind one domain, cookies stay same-origin, so keep
 
 ---
 
+## Email, hosted: SMTP will not work
+
+**Render, Fly, Vercel and most container platforms block outbound SMTP.** Ports
+25, 465 and 587 are dropped, and dropped silently — the connection is accepted
+and then nothing happens, so nodemailer reports
+
+```
+SMTP verification failed  error: "Connection timeout"  code: "ETIMEDOUT"
+```
+
+which is indistinguishable from a wrong App Password. It is not a credentials
+problem and no SMTP setting fixes it. SMTP simply cannot leave the container.
+
+Port 443 always can. So set one API key and the same messages — sign-in codes,
+invitations, summons notices, the Final Report — go out over HTTPS instead. The
+app prefers an HTTP provider over SMTP whenever a key is present, because the only
+reason to configure one is that SMTP does not work where it is running.
+
+| | Brevo | Resend |
+|---|---|---|
+| Verifies | a single **sender address** | a **domain** |
+| Without a domain | sends to **anyone** | only to the account owner's own address |
+| Free tier | 300/day | 3,000/month |
+| Use it when | you do not own a domain | you do |
+
+**With Brevo, which is the one to reach for first:**
+
+1. brevo.com → sign up.
+2. **Senders, Domains & Dedicated IPs → Senders → Add a sender.** Use the address
+   you want mail to come from. Click the confirmation email.
+3. **SMTP & API → API keys → Generate a new API key.** It is a v3 API key, not an
+   SMTP password.
+4. On the API host:
+   ```
+   BREVO_API_KEY=xkeysib-…
+   SMTP_FROM=NyaySetu <the-address-you-just-verified>
+   ```
+   Leave `EMAIL_TRANSPORT=auto`. Remove nothing: the SMTP variables stay for local
+   development, and are ignored while a key is present.
+
+Confirm it with `curl https://your-api-host/api/health` and read `subsystems.email`:
+`transport` should say `brevo` and `reachable` should be true. That check proves the
+key is accepted; it cannot prove the sender address is verified, so if sending
+still fails the error will say `sender` and step 2 is the answer.
+
+> **To get in right now, before any of this:** set `LOGIN_OTP_ENABLED=false` on the
+> API. Sign-in drops to password-only and the portal opens. Turn it back on once
+> codes are arriving — it is a real control and should not stay off.
+
 ## The chain, hosted
 
 Local Hardhat is not reachable from anywhere. To put the contracts online:
