@@ -2,7 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "//": "The SPA catch-all, with the build output carved out of it. Without the negative lookahead, a request for a hashed asset that no longer exists is answered with index.html, and the browser reports 'Refused to apply style ... MIME type text/html' instead of a 404 — which sends you looking for a CSS problem that does not exist. The real cause is a cached page referencing an older build, and an honest 404 says so.",
       "source": "/((?!assets/).*)",
       "destination": "/index.html"
     }
