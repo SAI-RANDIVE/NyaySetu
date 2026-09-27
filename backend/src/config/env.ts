@@ -161,6 +161,26 @@ const schema = z.object({
   // 72 hours, per the specification.
   SUMMONS_WINDOW_HOURS: z.coerce.number().int().positive().default(72),
   SWEEP_INTERVAL_MS: z.coerce.number().int().min(10_000).default(120_000),
+
+  /**
+   * How many blocks one eth_getLogs call may span.
+   *
+   * Ten, because that is what Alchemy's free tier permits, and asking for more
+   * gets the whole call rejected rather than truncated. A paid endpoint or a
+   * self-hosted node will take thousands, and raising this is the single biggest
+   * thing that speeds up a first index. The indexer halves it on a range refusal,
+   * so an over-optimistic value costs one wasted request rather than a stall.
+   */
+  INDEXER_MAX_RANGE: z.coerce.number().int().min(1).max(100_000).default(10),
+
+  /**
+   * How many of those windows to walk per poll.
+   *
+   * With the default range of ten this is 400 blocks a pass, against the roughly
+   * ten blocks Sepolia produces in two minutes — so a fresh index catches up
+   * rather than falling further behind, which it would at one window per pass.
+   */
+  INDEXER_CHUNKS_PER_PASS: z.coerce.number().int().min(1).max(500).default(40),
   INDEXER_ENABLED: z
     .string()
     .default("true")

@@ -29,6 +29,8 @@ interface Deployment {
   chainId: number;
   deployer: string;
   deployedAt?: string;
+  /** The block the contracts were deployed in. Written by scripts/deploy.ts. */
+  blockNumber?: number;
   contracts: Record<string, { address: string; abi: any[] }>;
 }
 
@@ -163,6 +165,16 @@ export const chain = {
     return state.deployment
       ? { name: state.deployment.network, chainId: state.deployment.chainId }
       : null;
+  },
+  /**
+   * The block these contracts were deployed in, and therefore the earliest one
+   * that can contain an event of theirs.
+   *
+   * The indexer needs it: on a public chain, starting a fresh index at genesis
+   * means walking eleven million empty blocks to reach the first one that matters.
+   */
+  get deploymentBlock(): number | null {
+    return typeof state.deployment?.blockNumber === "number" ? state.deployment.blockNumber : null;
   },
   get addresses() {
     return {

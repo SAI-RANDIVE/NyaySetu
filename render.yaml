@@ -196,22 +196,38 @@ services:
         value: "52428800"
 
   # ------------------------------------------------------------------------
-  # The model service. Uncomment to host it, then set AI_SERVICE_URL above to
-  # the URL Render gives it, and the same AI_SERVICE_KEY on both.
+  # The model service.
   #
-  # Nothing in a browser calls this service, so it needs no CORS headers at all;
-  # the shared secret is what stops anything else on the internet calling it.
+  # A separate service because it is Python and cannot share the Node runtime.
+  # Nothing in a browser calls it, so it needs no CORS headers at all; the shared
+  # secret is what stops anything else on the internet calling it.
+  #
+  # The models are trained at BUILD time rather than committed. They total nearly
+  # forty megabytes and are reproducible from train.py with a fixed seed, so the
+  # repository holds the recipe and the container holds the result.
   # ------------------------------------------------------------------------
-  # - type: web
-  #   name: nyaysetu-ai
-  #   runtime: python
-  #   plan: free
-  #   rootDir: ai-service
-  #   buildCommand: pip install -r requirements.txt && python train.py
-  #   startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
-  #   healthCheckPath: /health
-  #   envVars:
-  #     - key: AI_SERVICE_KEY
-  #       sync: false
-  #     - key: ANOMALY_SCORE_THRESHOLD
-  #       value: "0.62"
+  - type: web
+    name: nyaysetu-ai
+    runtime: python
+    plan: free
+    rootDir: ai-service
+    buildCommand: pip install -r requirements.txt && python train.py
+    # serve.py, not app.py: the latter starts Flask's single-threaded development
+    # server, which would queue two concurrent uploads behind each other.
+    startCommand: python serve.py
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+
+    envVars:
+      # Must match AI_SERVICE_KEY on the API service exactly. Without it, anything
+      # that can reach this URL can ask it for a risk score.
+      - key: AI_SERVICE_KEY
+        sync: false
+      # Minimum Isolation Forest score before an unexplained outlier is flagged.
+      # The rule-based findings flag regardless of this.
+      - key: ANOMALY_SCORE_THRESHOLD
+        value: "0.62"
+      # One process, four threads. The models are held in memory and a second
+      # process would be a second copy of forty megabytes in a 512MB container.
+      - key: WEB_THREADS
+        value: "4"

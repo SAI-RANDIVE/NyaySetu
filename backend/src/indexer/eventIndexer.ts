@@ -17,26 +17,81 @@ import { env } from "../config/env";
 
 const CONTRACTS: ContractName[] = ["EvidenceChain", "SummonsChain", "BailChain"];
 
-// Sepolia RPC providers cap eth_getLogs ranges; 2000 blocks is comfortably safe.
-const MAX_RANGE = 2000;
-
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 
+/**
+ * The window size actually in use, which may be smaller than configured.
+ *
+ * Halved whenever a provider refuses the range and restored on nothing, because a
+ * provider that rejected 2000 blocks once will reject it again. Alchemy's free
+ * tier permits ten; a paid endpoint takes thousands. INDEXER_MAX_RANGE is the
+ * opening bid and this is what the provider turned out to allow.
+ */
+let activeRange = env.INDEXER_MAX_RANGE;
+
+/** Whether an RPC error is "your block range is too wide" rather than a real fault. */
+function isRangeRefusal(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /block range|10 block|range should work|query returned more than|limit exceeded|too many results/i.test(
+    message
+  );
+}
+
+/**
+ * The cursor key.
+ *
+ * Includes the chain id, and that is the fix for a bug that stalled the indexer
+ * completely. indexer_state was keyed on the contract name alone, so switching the
+ * deployment from a local Hardhat chain to Sepolia left the cursor sitting at block
+ * 206 — a perfectly good position on a chain that had 2,206 blocks, and eleven
+ * million blocks behind one that has 11,793,000. The indexer then asked for a range
+ * starting at 207 and never reached anything that mattered.
+ *
+ * A cursor is only meaningful on the chain it was recorded against, so the chain is
+ * part of its identity. Existing rows keyed on the bare name are simply left alone.
+ */
+function cursorKey(contract: ContractName): string {
+  const chainId = chain.network?.chainId;
+  return chainId ? `${contract}@${chainId}` : contract;
+}
+
+/**
+ * Where to resume from, with a sanity check.
+ *
+ * A stored cursor ahead of the chain's own head cannot have come from this chain,
+ * and one that is impossibly far behind cannot be caught up with in any reasonable
+ * time. Both are treated the same way: start at the deployment block, which is the
+ * earliest block that can hold an event of ours.
+ */
 async function cursorFor(contract: ContractName, latest: number): Promise<number> {
+  const key = cursorKey(contract);
+  const deployed = chain.deploymentBlock;
+
+  // One block before the deployment, so the first window includes it. Falling back
+  // to a short window behind the head keeps a chain with no recorded deployment
+  // block from scanning its whole history.
+  const floor = deployed !== null ? Math.max(0, deployed - 1) : Math.max(0, latest - activeRange);
+
   const { data } = await db
     .from("indexer_state")
     .select("last_block")
-    .eq("contract", contract)
+    .eq("contract", key)
     .maybeSingle();
 
-  if (data?.last_block) return Number(data.last_block);
+  const stored = data?.last_block === undefined || data?.last_block === null ? null : Number(data.last_block);
 
-  // First run: start from the deployment block rather than genesis, so a fresh
-  // index of a Sepolia deployment does not walk millions of empty blocks.
-  const start = Math.max(0, latest - MAX_RANGE);
-  await db.from("indexer_state").upsert({ contract, last_block: start }, { onConflict: "contract" });
-  return start;
+  if (stored !== null && stored <= latest && stored >= floor) return stored;
+
+  if (stored !== null) {
+    logger.warn(
+      "Indexer cursor does not belong to this chain; restarting from the deployment block",
+      { contract, stored, latest, restartingAt: floor }
+    );
+  }
+
+  await db.from("indexer_state").upsert({ contract: key, last_block: floor }, { onConflict: "contract" });
+  return floor;
 }
 
 function serialiseArgs(parsed: { fragment: { inputs: { name: string }[] }; args: readonly unknown[] }) {
@@ -50,13 +105,41 @@ function serialiseArgs(parsed: { fragment: { inputs: { name: string }[] }; args:
   return out;
 }
 
-async function indexContract(name: ContractName, latest: number): Promise<number> {
+/**
+ * Indexes one window, and reports whether there is more to do.
+ *
+ * Windows rather than one sweep because a provider caps the span of a single
+ * eth_getLogs, and several small calls per pass is what lets a fresh index catch
+ * up with a chain that is producing blocks while it works.
+ */
+async function indexWindow(
+  name: ContractName,
+  latest: number
+): Promise<{ inserted: number; caughtUp: boolean }> {
   const contract = contractFor(name);
   const from = (await cursorFor(name, latest)) + 1;
-  if (from > latest) return 0;
+  if (from > latest) return { inserted: 0, caughtUp: true };
 
-  const to = Math.min(latest, from + MAX_RANGE - 1);
-  const logs = await contract.queryFilter("*", from, to);
+  const to = Math.min(latest, from + activeRange - 1);
+
+  let logs;
+  try {
+    logs = await contract.queryFilter("*", from, to);
+  } catch (error) {
+    if (isRangeRefusal(error) && activeRange > 1) {
+      activeRange = Math.max(1, Math.floor(activeRange / 2));
+      logger.warn("The provider refused that block range; narrowing it", {
+        contract: name,
+        attempted: to - from + 1,
+        nowUsing: activeRange,
+        hint:
+          "Alchemy's free tier permits ten blocks per eth_getLogs. Set INDEXER_MAX_RANGE to match " +
+          "your provider, or use a paid endpoint to index faster.",
+      });
+      return { inserted: 0, caughtUp: false };
+    }
+    throw error;
+  }
 
   let inserted = 0;
   const rows: any[] = [];
@@ -86,15 +169,35 @@ async function indexContract(name: ContractName, latest: number): Promise<number
       .from("chain_events")
       .upsert(rows, { onConflict: "tx_hash,log_index", ignoreDuplicates: true, count: "exact" });
     if (error) {
+      // The cursor is deliberately NOT advanced: a window whose events could not be
+      // stored must be retried, or the events are lost silently.
       logger.warn("Could not store chain events", { contract: name, error: error.message });
-      return 0;
+      return { inserted: 0, caughtUp: false };
     }
     inserted = count ?? rows.length;
   }
 
-  await db.from("indexer_state").upsert({ contract: name, last_block: to, updated_at: new Date().toISOString() }, { onConflict: "contract" });
+  await db
+    .from("indexer_state")
+    .upsert(
+      { contract: cursorKey(name), last_block: to, updated_at: new Date().toISOString() },
+      { onConflict: "contract" }
+    );
 
-  return inserted;
+  return { inserted, caughtUp: to >= latest };
+}
+
+/** Walks up to INDEXER_CHUNKS_PER_PASS windows, or until it catches up. */
+async function indexContract(name: ContractName, latest: number): Promise<number> {
+  let total = 0;
+
+  for (let pass = 0; pass < env.INDEXER_CHUNKS_PER_PASS; pass++) {
+    const { inserted, caughtUp } = await indexWindow(name, latest);
+    total += inserted;
+    if (caughtUp) break;
+  }
+
+  return total;
 }
 
 export async function runOnce(): Promise<{ indexed: number; upTo: number | null }> {
