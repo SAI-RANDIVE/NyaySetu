@@ -323,25 +323,50 @@ export function Modal({
 }) {
   const panel = useRef<HTMLDivElement>(null);
 
+  /**
+   * The latest onClose, without making the effects depend on it.
+   *
+   * This ref is the fix for a bug that made every form in a dialog unusable.
+   * Callers pass an inline arrow — `onClose={() => setOpen(false)}` — so its
+   * identity changes on every render. With onClose in the dependency array below,
+   * every keystroke in a field re-ran the effect, and the effect called
+   * panel.focus(): focus jumped out of the input after each character and had to be
+   * clicked back. Typing a name meant clicking eight times.
+   *
+   * A ref read inside the handler always sees the current function while never
+   * changing identity, so the effect can depend on `open` alone.
+   */
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closeRef.current();
     };
     document.addEventListener("keydown", onKey);
 
     // Stop the page behind from scrolling, and move focus into the dialog so a
-    // keyboard user is not left outside it.
+    // keyboard user is not left outside it. Once, on open — never again while the
+    // dialog is up, or it fights whatever the user is typing into.
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    panel.current?.focus();
+
+    // The first field, if the dialog has one, so a form can be typed into
+    // immediately. Focusing the panel instead satisfies the accessibility
+    // requirement and then makes everybody reach for the mouse, and it silently
+    // overrode any autoFocus a caller had set.
+    const firstField = panel.current?.querySelector<HTMLElement>(
+      "[autofocus], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])"
+    );
+    (firstField ?? panel.current)?.focus();
 
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
