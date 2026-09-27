@@ -108,6 +108,8 @@ const schema = z.object({
   // ---------------------------------------------------------------- SMTP
   // Outbound email: the login second factor, and summons notices.
   SMTP_HOST: optionalString,
+  // 587 (STARTTLS) or 465 (implicit TLS). If the configured one cannot be
+  // reached, the other is tried once automatically; see lib/mailer.ts.
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: optionalString,
   // For Gmail this is a 16-character App Password, not the account password.

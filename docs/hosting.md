@@ -145,7 +145,44 @@ Because both services sit behind one domain, cookies stay same-origin, so keep
 
 ---
 
-## Email, hosted: SMTP will not work
+## If you want to keep your own Gmail and app password
+
+Then the API cannot run on Render, and no setting changes that. Render drops
+outbound 25, 465 and 587 at the network level; the app password is never even
+offered. The API tries both ports automatically and, when neither connects, says
+so outright in the log rather than blaming the credentials.
+
+**Railway permits outbound SMTP**, so a Gmail app password works there unchanged.
+`backend/railway.json` is committed with the build, start command and health check
+already set.
+
+1. railway.com → **New Project → Deploy from GitHub repo** → this repository.
+2. Service **Settings → Root Directory → `backend`**. This is the step that matters
+   in a monorepo; without it Railway builds the repository root and finds nothing
+   to start.
+3. **Variables** → paste everything from the table below, exactly as on Render.
+   `PORT` is supplied by Railway; do not set it.
+4. **Settings → Networking → Generate Domain.** Note the URL.
+5. Back on **Vercel**, set `VITE_API_BASE` to that URL and redeploy. On Railway,
+   set `CORS_ORIGINS` and `PUBLIC_APP_URL` to the Vercel URL.
+
+Confirm with `curl https://your-railway-url/api/health` and read
+`subsystems.email`: `transport` should be `smtp` and `reachable` true. If it is,
+sign-in codes are going out through your own Gmail.
+
+Keep `SMTP_PORT=587`. If Railway ever objects, the fallback will find 465 and the
+log will tell you to pin it.
+
+> This is a real trade, not a formality. Gmail's own limits apply — roughly 500
+> messages a day, and Google may rate-limit a burst — and every message comes from
+> a personal address rather than the court's. For a project demonstration that is
+> exactly right. For anything resembling production it is not, and the HTTPS
+> providers below exist for that.
+
+## Email over HTTPS: when SMTP is not permitted
+
+Staying on Render, or on any host that blocks SMTP, means the credential cannot be
+an app password: app passwords only work over SMTP. It has to be an API key.
 
 **Render, Fly, Vercel and most container platforms block outbound SMTP.** Ports
 25, 465 and 587 are dropped, and dropped silently — the connection is accepted

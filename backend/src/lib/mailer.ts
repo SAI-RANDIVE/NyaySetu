@@ -95,16 +95,30 @@ function attachments() {
   ];
 }
 
-function build(): Transporter | null {
+/**
+ * The port SMTP is currently using.
+ *
+ * Starts at SMTP_PORT and may move to the fallback if the first one turns out to
+ * be blocked. Kept here rather than read from env each time so that once a working
+ * port is found, every later send uses it.
+ */
+let activePort: number = env.SMTP_PORT;
+
+/** 587 and 465 are the two Gmail listens on; whichever is not in use is the other. */
+function alternatePort(port: number): number {
+  return port === 465 ? 587 : 465;
+}
+
+function build(port: number = activePort): Transporter | null {
   if (!capabilities.smtp) return null;
-  if (transporter) return transporter;
+  if (transporter && port === activePort) return transporter;
 
   const options = {
     host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
+    port,
     // Port 465 is implicit TLS. 587 starts plaintext and upgrades with
     // STARTTLS, which nodemailer does automatically when secure is false.
-    secure: env.SMTP_PORT === 465,
+    secure: port === 465,
     auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD },
 
     /**
@@ -133,9 +147,24 @@ function build(): Transporter | null {
     socketTimeout: 20_000,
   } as unknown as Parameters<typeof nodemailer.createTransport>[0];
 
+  activePort = port;
   transporter = nodemailer.createTransport(options);
 
   return transporter;
+}
+
+/**
+ * True when the failure was the connection rather than the credentials.
+ *
+ * A refused password is a conversation that happened. A timeout is a conversation
+ * that never started, which is either a blocked port or an unroutable address —
+ * and those are the only cases where trying the other port is worth anything.
+ */
+function isConnectionFailure(code: string | undefined, message: string): boolean {
+  if (code && ["ETIMEDOUT", "ESOCKET", "ECONNREFUSED", "ENETUNREACH", "EHOSTUNREACH"].includes(code)) {
+    return true;
+  }
+  return /timeout|timed out|ENETUNREACH|ECONNREFUSED|EHOSTUNREACH/i.test(message);
 }
 
 /**
@@ -168,32 +197,96 @@ export async function verifyTransport(force = false): Promise<{ ok: boolean; err
     return outcome;
   }
 
-  const transport = build();
-  if (!transport) return { ok: false, error: "No email transport is configured." };
+  if (!build()) return { ok: false, error: "No email transport is configured." };
+
+  const firstAttempt = await attemptVerify(activePort);
+  if (firstAttempt.ok) {
+    verified = true;
+    verifyCache = { ok: true, at: Date.now() };
+    return { ok: true };
+  }
+
+  /**
+   * One retry on the other port.
+   *
+   * Only for a connection failure, and only once. Some networks permit 465 while
+   * dropping 587, or the reverse, and a deployment should not need somebody to
+   * discover which by editing an environment variable. A network that drops both
+   * is not permitting SMTP at all, and the second timeout is what establishes
+   * that — which is worth the ten seconds, because the alternative is an operator
+   * guessing at credentials that were never the problem.
+   */
+  if (isConnectionFailure(firstAttempt.code, firstAttempt.error ?? "")) {
+    const other = alternatePort(activePort);
+    logger.warn(`SMTP on port ${activePort} did not connect; trying ${other}`, {
+      firstError: firstAttempt.error,
+    });
+
+    transporter = null;
+    if (build(other)) {
+      const secondAttempt = await attemptVerify(other);
+      if (secondAttempt.ok) {
+        verified = true;
+        verifyCache = { ok: true, at: Date.now() };
+        logger.warn(
+          `SMTP works on port ${other} but not ${env.SMTP_PORT}. Set SMTP_PORT=${other} to skip ` +
+            "this probe on every restart.",
+          {}
+        );
+        return { ok: true };
+      }
+
+      // Neither port connected. That is the signature of a host that blocks SMTP,
+      // and it is worth saying outright rather than reporting the last error.
+      transporter = null;
+      activePort = env.SMTP_PORT;
+      const conclusion =
+        `Neither port ${env.SMTP_PORT} nor ${other} could be reached at ${env.SMTP_HOST}. ` +
+        "This host does not permit outbound SMTP — the credentials are not the problem. " +
+        "Either run the API somewhere that allows it, or set BREVO_API_KEY to send over HTTPS.";
+
+      verified = false;
+      verifyCache = { ok: false, error: conclusion, at: Date.now() };
+      logger.error("Outbound SMTP appears to be blocked on this host", {
+        host: env.SMTP_HOST,
+        triedPorts: [env.SMTP_PORT, other],
+        firstError: firstAttempt.error,
+        secondError: secondAttempt.error,
+      });
+      return { ok: false, error: conclusion };
+    }
+  }
+
+  verified = false;
+  verifyCache = { ok: false, error: firstAttempt.error, at: Date.now() };
+  return { ok: false, error: firstAttempt.error };
+}
+
+/** One verify against one port, with its diagnosis logged. */
+async function attemptVerify(
+  port: number
+): Promise<{ ok: boolean; error?: string; code?: string }> {
+  const transport = build(port);
+  if (!transport) return { ok: false, error: "SMTP is not configured." };
 
   try {
     await transport.verify();
-    verified = true;
-    verifyCache = { ok: true, at: Date.now() };
-    logger.info("SMTP transport verified", { host: env.SMTP_HOST, port: env.SMTP_PORT });
+    logger.info("SMTP transport verified", { host: env.SMTP_HOST, port });
     return { ok: true };
   } catch (error) {
-    verified = false;
     const message = error instanceof Error ? error.message : "unknown SMTP error";
     const code = (error as { code?: string })?.code;
-    verifyCache = { ok: false, error: message, at: Date.now() };
 
     logger.error("SMTP verification failed", {
       host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      // The message itself, which used to be dropped. Without it a hosted log
-      // said only that something had failed, which is the least useful thing a
-      // log can say.
+      port,
+      // The message itself, which used to be dropped. Without it a hosted log said
+      // only that something had failed, which is the least useful thing a log can say.
       error: message,
       code,
       hint: smtpHint(message, code),
     });
-    return { ok: false, error: message };
+    return { ok: false, error: message, code };
   }
 }
 
@@ -223,9 +316,9 @@ function smtpHint(message: string, code?: string): string | undefined {
   }
   if (code === "ETIMEDOUT" || code === "ESOCKET" || /timeout|timed out/i.test(message)) {
     return (
-      "The connection never completed, which usually means outbound SMTP is blocked by the host " +
-      "rather than that the credentials are wrong. Try port 465, and if that also hangs, the " +
-      "platform does not allow direct SMTP — use an HTTP email API instead."
+      "The connection never completed, which means outbound SMTP is blocked rather than that the " +
+      "credentials are wrong. The other port is tried automatically; if that also times out, this " +
+      "host does not permit SMTP at all. Run the API somewhere that does, or set BREVO_API_KEY."
     );
   }
   if (code === "EDNS" || /getaddrinfo|ENOTFOUND/i.test(message)) {
@@ -750,7 +843,7 @@ export async function mailerHealth(): Promise<{
     configured: true,
     reachable: check.ok,
     transport: provider ?? "smtp",
-    host: provider ? `https (${provider})` : `${env.SMTP_HOST}:${env.SMTP_PORT}`,
+    host: provider ? `https (${provider})` : `${env.SMTP_HOST}:${activePort}`,
     from: env.SMTP_FROM ?? env.SMTP_USER,
     error: check.error,
     note: provider
