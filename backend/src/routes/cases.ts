@@ -10,6 +10,7 @@ import { requireAuth, requireRole, assertCaseAccess } from "../middleware/auth";
 import { recordAction } from "../services/audit";
 import { listCaseEvidence } from "../services/evidence.service";
 import { listForCase as summonsForCase } from "../services/summons.service";
+import { listCaseParticipants } from "../services/assignments.service";
 
 const router = Router();
 router.use(requireAuth);
@@ -153,12 +154,10 @@ router.get(
     ) as any;
     if (!row) throw notFound("Case");
 
-    const assignments = unwrapList(
-      await db
-        .from("case_assignments")
-        .select("user_id, access, created_at, user_directory!inner(full_name, role, designation)")
-        .eq("case_id", row.id)
-    ) as any[];
+    // Two queries rather than an embed: case_assignments has two foreign keys to
+    // users, so PostgREST cannot tell which one an embed means and refuses the
+    // whole request with PGRST201. See assignments.service.ts.
+    const assignments = await listCaseParticipants(row.id);
 
     // What the code says about the sections cited, so a reader of the dossier does
     // not have to know the Sanhita by heart to know what was charged.

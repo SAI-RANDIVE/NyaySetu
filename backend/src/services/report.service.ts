@@ -3,6 +3,7 @@ import { describeSections, type StatuteSummary } from "../lib/statute";
 import { chain } from "../lib/chain";
 import { notFound } from "../lib/errors";
 import { env } from "../config/env";
+import { listCaseParticipants } from "./assignments.service";
 
 /**
  * Everything a document needs, gathered in one place.
@@ -243,11 +244,11 @@ export async function loadDossier(caseId: string): Promise<CaseDossier> {
         .eq("case_id", caseId)
         .order("detected_at", { ascending: true })
         .then((r) => (r.data ?? []) as ViolationRow[]),
-      db
-        .from("case_assignments")
-        .select("access, user_directory!inner(full_name, role, designation, station_or_court)")
-        .eq("case_id", caseId)
-        .then((r) => (r.data ?? []) as any[]),
+      // Was an embed, which PostgREST refused as ambiguous — and the refusal was
+      // swallowed by the `.then` below, so this list came back EMPTY and the Final
+      // Report's "persons having access" table printed nothing. A court document
+      // that lists nobody is worse than one that fails to render.
+      listCaseParticipants(caseId),
     ]);
 
   const custody: Record<string, CustodyRow[]> = {};
@@ -271,7 +272,7 @@ export async function loadDossier(caseId: string): Promise<CaseDossier> {
     summons,
     bail,
     violations,
-    participants: participants.map((p) => ({ ...p.user_directory, access: p.access })),
+    participants,
     network: chain.isReady ? chain.network : null,
     contracts: chain.isReady ? chain.addresses : null,
     generatedAt: new Date().toISOString(),

@@ -12,6 +12,7 @@ import { loadDossier } from "../services/report.service";
 import { buildFinalReport } from "../lib/pdf/finalReport";
 import { sendCaseDocument, maskEmail } from "../lib/mailer";
 import { capabilities } from "../config/env";
+import { listCaseRecipients } from "../services/assignments.service";
 
 /**
  * Court documents: produced here, and emailed from here.
@@ -31,47 +32,6 @@ import { capabilities } from "../config/env";
 
 const router = Router();
 router.use(requireAuth);
-
-/**
- * The addresses of everyone assigned to a case.
- *
- * Two queries rather than one embedded select, because case_assignments carries
- * two foreign keys to users — user_id and assigned_by — and PostgREST cannot tell
- * which one an embed means. It answers a 500 rather than guessing, correctly. The
- * disambiguating syntax exists, but it hardcodes a constraint name into the query,
- * and a constraint rename would break this silently; two explicit queries cannot.
- */
-async function assignedRecipients(
-  caseId: string
-): Promise<{ id: string; email: string; full_name: string; role: string; access: string }[]> {
-  const assignments = unwrapList(
-    await db.from("case_assignments").select("user_id, access").eq("case_id", caseId)
-  ) as { user_id: string; access: string }[];
-
-  if (assignments.length === 0) return [];
-
-  const accessById = new Map(assignments.map((a) => [a.user_id, a.access]));
-
-  const people = unwrapList(
-    await db
-      .from("users")
-      .select("id, email, full_name, role, is_active")
-      .in(
-        "id",
-        assignments.map((a) => a.user_id)
-      )
-  ) as { id: string; email: string; full_name: string; role: string; is_active: boolean }[];
-
-  return people
-    .filter((p) => p.is_active && p.email)
-    .map((p) => ({
-      id: p.id,
-      email: p.email,
-      full_name: p.full_name,
-      role: p.role,
-      access: accessById.get(p.id) ?? "read",
-    }));
-}
 
 function fileNameFor(firNumber: string, kind: string): string {
   const safe = firNumber.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -161,7 +121,7 @@ router.post(
 
     const dossier = await loadDossier(req.params.id);
 
-    const assigned = body.includeAssigned ? await assignedRecipients(req.params.id) : [];
+    const assigned = body.includeAssigned ? await listCaseRecipients(req.params.id) : [];
 
     const explicit = (body.recipients ?? []).map((email) => ({
       id: null as string | null,
@@ -249,7 +209,7 @@ router.get(
   asyncRoute(async (req, res) => {
     await assertCaseAccess(req, req.params.id);
 
-    const rows = await assignedRecipients(req.params.id);
+    const rows = await listCaseRecipients(req.params.id);
 
     res.json({
       emailConfigured: capabilities.emailNotifications,
