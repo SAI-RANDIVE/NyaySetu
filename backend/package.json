@@ -18,7 +18,8 @@
     "flow:check": "tsx src/scripts/flowCheck.ts",
     "sweep": "tsx src/scripts/sweep.ts",
     "chain:check": "tsx src/scripts/chainCheck.ts",
-    "check": "tsx src/scripts/connectionCheck.ts"
+    "check": "tsx src/scripts/connectionCheck.ts",
+    "mail:probe": "tsx src/scripts/mailProbe.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

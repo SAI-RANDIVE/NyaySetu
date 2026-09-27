@@ -104,9 +104,24 @@ function attachments() {
  */
 let activePort: number = env.SMTP_PORT;
 
-/** 587 and 465 are the two Gmail listens on; whichever is not in use is the other. */
-function alternatePort(port: number): number {
-  return port === 465 ? 587 : 465;
+/**
+ * The ports worth trying, in the order worth trying them.
+ *
+ * 2525 is the interesting one. It is not a registered SMTP port, which is exactly
+ * why it is useful: hosts that block SMTP block the three ports a spammer would
+ * reach for — 25, 465 and 587 — and a good number of them leave 2525 open. Brevo,
+ * Mailgun and SendGrid all listen on it for that reason. So a relay that is
+ * unreachable on 587 is often reachable on 2525 from the same container, and that
+ * is the difference between sending mail and not.
+ *
+ * 465 is last because implicit TLS is the most likely of the three to be filtered
+ * by something doing protocol inspection.
+ */
+const PORT_CANDIDATES = [587, 2525, 465] as const;
+
+/** The configured port first, then the rest, without repeating it. */
+function portsToTry(): number[] {
+  return [env.SMTP_PORT, ...PORT_CANDIDATES.filter((p) => p !== env.SMTP_PORT)];
 }
 
 function build(port: number = activePort): Transporter | null {
@@ -199,67 +214,69 @@ export async function verifyTransport(force = false): Promise<{ ok: boolean; err
 
   if (!build()) return { ok: false, error: "No email transport is configured." };
 
-  const firstAttempt = await attemptVerify(activePort);
-  if (firstAttempt.ok) {
-    verified = true;
-    verifyCache = { ok: true, at: Date.now() };
-    return { ok: true };
-  }
-
   /**
-   * One retry on the other port.
+   * Walk the candidate ports until one connects.
    *
-   * Only for a connection failure, and only once. Some networks permit 465 while
-   * dropping 587, or the reverse, and a deployment should not need somebody to
-   * discover which by editing an environment variable. A network that drops both
-   * is not permitting SMTP at all, and the second timeout is what establishes
-   * that — which is worth the ten seconds, because the alternative is an operator
-   * guessing at credentials that were never the problem.
+   * Only a CONNECTION failure moves on to the next port. A refused password is a
+   * conversation that happened, and retrying it on another port would just refuse
+   * it again more slowly — worse, on Gmail it would count as several failed
+   * authentications rather than one.
    */
-  if (isConnectionFailure(firstAttempt.code, firstAttempt.error ?? "")) {
-    const other = alternatePort(activePort);
-    logger.warn(`SMTP on port ${activePort} did not connect; trying ${other}`, {
-      firstError: firstAttempt.error,
-    });
+  const candidates = portsToTry();
+  const attempts: { port: number; error?: string }[] = [];
 
-    transporter = null;
-    if (build(other)) {
-      const secondAttempt = await attemptVerify(other);
-      if (secondAttempt.ok) {
-        verified = true;
-        verifyCache = { ok: true, at: Date.now() };
-        logger.warn(
-          `SMTP works on port ${other} but not ${env.SMTP_PORT}. Set SMTP_PORT=${other} to skip ` +
-            "this probe on every restart.",
-          {}
-        );
-        return { ok: true };
-      }
-
-      // Neither port connected. That is the signature of a host that blocks SMTP,
-      // and it is worth saying outright rather than reporting the last error.
-      transporter = null;
-      activePort = env.SMTP_PORT;
-      const conclusion =
-        `Neither port ${env.SMTP_PORT} nor ${other} could be reached at ${env.SMTP_HOST}. ` +
-        "This host does not permit outbound SMTP — the credentials are not the problem. " +
-        "Either run the API somewhere that allows it, or set BREVO_API_KEY to send over HTTPS.";
-
-      verified = false;
-      verifyCache = { ok: false, error: conclusion, at: Date.now() };
-      logger.error("Outbound SMTP appears to be blocked on this host", {
-        host: env.SMTP_HOST,
-        triedPorts: [env.SMTP_PORT, other],
-        firstError: firstAttempt.error,
-        secondError: secondAttempt.error,
+  for (const [index, port] of candidates.entries()) {
+    if (index > 0) {
+      logger.warn(`SMTP on port ${candidates[index - 1]} did not connect; trying ${port}`, {
+        previousError: attempts[attempts.length - 1]?.error,
       });
-      return { ok: false, error: conclusion };
+      transporter = null;
+    }
+
+    if (!build(port)) break;
+    const attempt = await attemptVerify(port);
+
+    if (attempt.ok) {
+      verified = true;
+      verifyCache = { ok: true, at: Date.now() };
+      if (port !== env.SMTP_PORT) {
+        logger.warn(
+          `SMTP works on port ${port} but not ${env.SMTP_PORT}. Set SMTP_PORT=${port} so this ` +
+            "probe does not run on every restart.",
+          { triedFirst: candidates.slice(0, index) }
+        );
+      }
+      return { ok: true };
+    }
+
+    attempts.push({ port, error: attempt.error });
+
+    // A credential refusal is final. Stop, and report it as itself.
+    if (!isConnectionFailure(attempt.code, attempt.error ?? "")) {
+      verified = false;
+      verifyCache = { ok: false, error: attempt.error, at: Date.now() };
+      return { ok: false, error: attempt.error };
     }
   }
 
+  // Every port timed out. That is the signature of a host that does not permit
+  // outbound SMTP at all, and saying so is worth more than repeating the last
+  // socket error — which sends an operator back to a password that was never wrong.
+  transporter = null;
+  activePort = env.SMTP_PORT;
+
+  const conclusion =
+    `None of ports ${candidates.join(", ")} could be reached at ${env.SMTP_HOST}. This host does ` +
+    "not permit outbound SMTP, and the credentials are not the problem. Run the API somewhere " +
+    "that allows SMTP, or set BREVO_API_KEY to an API key (xkeysib-…) and send over HTTPS.";
+
   verified = false;
-  verifyCache = { ok: false, error: firstAttempt.error, at: Date.now() };
-  return { ok: false, error: firstAttempt.error };
+  verifyCache = { ok: false, error: conclusion, at: Date.now() };
+  logger.error("Outbound SMTP appears to be blocked on this host", {
+    host: env.SMTP_HOST,
+    attempts,
+  });
+  return { ok: false, error: conclusion };
 }
 
 /** One verify against one port, with its diagnosis logged. */
@@ -297,6 +314,16 @@ async function attemptVerify(
  * whoever is reading this is trying to get unblocked.
  */
 function smtpHint(message: string, code?: string): string | undefined {
+  // Brevo issues two credentials that are easy to mix up, and one of them cannot
+  // be used here. Named explicitly because the failure is otherwise just "535".
+  if (/535|authentication failed/i.test(message) && /brevo|sendinblue/i.test(env.SMTP_HOST ?? "")) {
+    return (
+      "Brevo refused the login. SMTP_USER must be the Brevo account's login email, not the sender " +
+      "address, and SMTP_PASSWORD must be the SMTP key beginning xsmtpsib- from SMTP & API → SMTP. " +
+      "An API key beginning xkeysib- will not authenticate over SMTP; that one belongs in " +
+      "BREVO_API_KEY instead."
+    );
+  }
   if (/username and password not accepted|invalid login|535|534/i.test(message)) {
     return (
       "Authentication was refused. For Gmail, SMTP_PASSWORD must be the 16-character App Password " +

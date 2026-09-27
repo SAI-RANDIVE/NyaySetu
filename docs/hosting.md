@@ -145,6 +145,64 @@ Because both services sit behind one domain, cookies stay same-origin, so keep
 
 ---
 
+## Is it the network or the password?
+
+Every SMTP misconfiguration produces the same shrug. A blocked port, an
+unroutable address, a wrong username and a wrong password all surface as "it did
+not work", and the two halves of that have nothing in common as fixes — one is a
+hosting decision, the other is a credential. Hours go into re-pasting a password
+that was always correct.
+
+```bash
+cd backend && npm run mail:probe
+```
+
+It tries every port a relay listens on and says, for each, which of the two
+happened:
+
+```
+  587    reachable  303ms    credential refused — 535 Authentication failed
+  2525   reachable  312ms    credential refused — 535 Authentication failed
+  465    reachable  318ms    credential refused — 535 Authentication failed
+  25     blocked    8008ms   unreachable — ETIMEDOUT
+
+  The network is fine — ports 587, 2525, 465 answered.
+  The username or password is wrong. Nothing about hosting will change that.
+```
+
+`blocked` means the packets never arrived and no credential will ever fix it.
+`reachable` means the server answered and said no, so the network is fine and the
+answer is in the provider's dashboard. Run it before changing anything.
+
+### Brevo over SMTP: the login is not your email
+
+This is the one that catches everyone. Brevo issues two credentials and shows a
+third value that is neither:
+
+| | Where | Looks like | Used for |
+|---|---|---|---|
+| SMTP login | SMTP & API → SMTP → **Login** | `9a1b2c001@smtp-brevo.com` | `SMTP_USER` |
+| SMTP key | SMTP & API → SMTP → **SMTP key** | `xsmtpsib-…` | `SMTP_PASSWORD` |
+| API key | SMTP & API → **API keys** | `xkeysib-…` | `BREVO_API_KEY` |
+
+Your account email is **not** the SMTP login, and an `xkeysib-` API key will never
+authenticate over SMTP. So:
+
+```
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=2525
+SMTP_USER=9a1b2c001@smtp-brevo.com        # the Login field, not your email
+SMTP_PASSWORD=xsmtpsib-…                  # the SMTP key
+SMTP_FROM=NyaySetu <your-verified-sender>
+```
+
+Port 2525 because it is not a registered SMTP port, so hosts that block 25, 465
+and 587 frequently leave it open. The API tries all three regardless and logs which
+one worked.
+
+The sender in `SMTP_FROM` must be verified under **Senders, Domains & Dedicated
+IPs → Senders** first, or Brevo accepts the login and then refuses the message.
+
 ## If you want to keep your own Gmail and app password
 
 Then the API cannot run on Render, and no setting changes that. Render drops
