@@ -188,6 +188,45 @@ interface Overview {
 }
 
 /**
+ * Acknowledging a breach.
+ *
+ * The contract detected it and the record holds it; this is the court saying it has
+ * been seen and dealt with. It is a one-way action — there is no un-acknowledge,
+ * because a judicial act that can be quietly reversed is not much of a record.
+ */
+function AcknowledgeViolation({
+  violationId,
+  onDone,
+}: {
+  violationId: string;
+  onDone: () => void;
+}) {
+  const toast = useToast();
+  const acknowledge = useMutation(async () =>
+    api.post(`/api/bail/violations/${violationId}/acknowledge`)
+  );
+
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      loading={acknowledge.pending}
+      onClick={async () => {
+        const outcome = await acknowledge.run(undefined as never);
+        if (outcome) {
+          toast.success("Breach acknowledged", "Recorded against this case.");
+          onDone();
+        } else if (acknowledge.error) {
+          toast.error("Could not acknowledge it", acknowledge.error.message);
+        }
+      }}
+    >
+      Acknowledge
+    </Button>
+  );
+}
+
+/**
  * The case dossier. Role-aware by construction: the API redacts the summary and
  * the summons list for defence counsel, so this component renders whatever it
  * was given rather than deciding entitlements itself.
@@ -384,11 +423,27 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
                             : "border-danger-soft bg-danger-soft"
                         }`}
                       >
-                        <p className="font-ui text-xs font-semibold text-text">{violation.reason}</p>
-                        <p className="mt-0.5 font-ui text-2xs text-muted">
-                          {formatDateTime(violation.detected_at)}
-                          {violation.acknowledged_at ? " · acknowledged" : " · unacknowledged"}
-                        </p>
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-ui text-xs font-semibold text-text">{violation.reason}</p>
+                            <p className="mt-0.5 font-ui text-2xs text-muted">
+                              {formatDateTime(violation.detected_at)}
+                              {violation.acknowledged_at ? " · acknowledged" : " · outstanding"}
+                            </p>
+                          </div>
+                          {/*
+                            Only a judge, and only once. A breach the contract found
+                            is a fact; acknowledging it is a judicial act, which is
+                            why it is recorded rather than merely dismissed — and why
+                            an acknowledged violation cannot be un-acknowledged here.
+                          */}
+                          {!violation.acknowledged_at && user?.role === "judge" && (
+                            <AcknowledgeViolation
+                              violationId={violation.id}
+                              onDone={() => state.refetch()}
+                            />
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>

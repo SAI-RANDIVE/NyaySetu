@@ -10,6 +10,7 @@ import {
   HardDrive,
   KeyRound,
   Link2Off,
+  Mail,
   MailWarning,
   Plus,
   RefreshCw,
@@ -1319,13 +1320,27 @@ function AadhaarField({
 /* ======================================================= AdminAudit ====== */
 
 export function AdminAudit() {
-  const [tab, setTab] = useState<"actions" | "rows">("actions");
+  const [tab, setTab] = useState<"actions" | "rows" | "email">("actions");
   const actions = useQuery<{ entries: any[] }>("/api/admin/audit/actions?limit=100", [], {
     enabled: tab === "actions",
   });
   const rows = useQuery<{ entries: any[] }>("/api/admin/audit/rows?limit=100", [], {
     enabled: tab === "rows",
   });
+  /**
+   * Outbound email attempts.
+   *
+   * Worth a screen of its own: "I never received the code" is the single most
+   * common support question a system like this generates, and it is unanswerable
+   * without a record of whether the message was even accepted for delivery.
+   * Addresses are masked and no body is ever stored, so the log answers that
+   * question without becoming a directory of who is on bail.
+   */
+  const email = useQuery<{ entries: any[]; counts: Record<string, number> }>(
+    "/api/admin/email-log?limit=100",
+    [],
+    { enabled: tab === "email" }
+  );
 
   return (
     <>
@@ -1336,7 +1351,7 @@ export function AdminAudit() {
       />
 
       <div className="mb-5 inline-flex rounded-full border border-border bg-surface-2 p-1">
-        {(["actions", "rows"] as const).map((value) => (
+        {(["actions", "rows", "email"] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -1345,12 +1360,96 @@ export function AdminAudit() {
               tab === value ? "bg-primary text-on-primary" : "text-muted hover:text-text"
             }`}
           >
-            {value === "actions" ? "API actions" : "Row changes"}
+            {value === "actions" ? "API actions" : value === "rows" ? "Row changes" : "Email log"}
           </button>
         ))}
       </div>
 
-      {tab === "actions" ? (
+      {tab === "email" ? (
+        <Card
+          title="Outbound email"
+          subtitle="Every attempt, with the address masked and no body stored. This is what answers 'I never received the code'."
+          actions={
+            email.data ? (
+              <div className="flex items-center gap-1.5">
+                <StatusChip tone="success" label={`${email.data.counts.sent} sent`} />
+                {email.data.counts.failed > 0 && (
+                  <StatusChip tone="danger" label={`${email.data.counts.failed} failed`} />
+                )}
+                {email.data.counts.skipped > 0 && (
+                  <StatusChip tone="neutral" label={`${email.data.counts.skipped} skipped`} />
+                )}
+              </div>
+            ) : undefined
+          }
+        >
+          <AsyncView
+            state={email}
+            onRetry={email.refetch}
+            context="the email log"
+            isEmpty={(data) => data.entries.length === 0}
+            empty={
+              <EmptyState
+                title="Nothing sent yet"
+                description="Sign-in codes, invitations and summons notices appear here as they go out."
+                icon={<Mail size={19} />}
+              />
+            }
+          >
+            {(data) => (
+              <div className="-mx-5 overflow-x-auto">
+                <table className="w-full min-w-[760px] border-collapse">
+                  <thead>
+                    <tr className="border-b border-border">
+                      {["When", "Purpose", "To", "Subject", "Status"].map((heading) => (
+                        <th
+                          key={heading}
+                          className="px-5 py-2.5 text-left font-ui text-2xs font-semibold uppercase tracking-wider text-faint"
+                        >
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.entries.map((entry) => (
+                      <tr key={entry.id} className="border-b border-border last:border-0">
+                        <td className="px-5 py-2.5 font-ui text-2xs text-muted">
+                          {formatDateTime(entry.occurred_at)}
+                        </td>
+                        <td className="px-5 py-2.5 font-mono text-2xs text-text">{entry.purpose}</td>
+                        <td className="px-5 py-2.5 font-mono text-2xs text-muted">{entry.masked_to}</td>
+                        <td className="max-w-[240px] px-5 py-2.5">
+                          <span className="block truncate font-ui text-2xs text-muted">
+                            {entry.subject}
+                          </span>
+                        </td>
+                        <td className="px-5 py-2.5">
+                          <StatusChip
+                            tone={
+                              entry.status === "sent"
+                                ? "success"
+                                : entry.status === "failed"
+                                  ? "danger"
+                                  : "neutral"
+                            }
+                            label={entry.status}
+                          />
+                          {entry.error && (
+                            <p className="mt-1 max-w-[260px] font-ui text-3xs leading-relaxed text-danger">
+                              {entry.error}
+                            </p>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </AsyncView>
+        </Card>
+      ) : tab === "actions" ? (
         <Card title="API actions" subtitle="What was attempted, by whom, and whether it succeeded.">
           <AsyncView
             state={actions}

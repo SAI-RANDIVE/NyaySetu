@@ -18,6 +18,7 @@ import {
   Stat,
   Textarea,
 } from "../components/ui";
+import { SectionPicker } from "../components/SectionPicker";
 import { FileHashPicker, GpsCapture, type HashedFile } from "../components/capture";
 import { IntegrityBadge, StageChip, StatusChip } from "../components/trust";
 import type { Fix } from "../lib/geo";
@@ -160,11 +161,12 @@ function RegisterFirModal({
   onCreated: (caseId: string) => void;
 }) {
   const toast = useToast();
+  // Kept out of `form` because it is a list the picker owns, not a text field.
+  const [sections, setSections] = useState<string[]>([]);
   const [form, setForm] = useState({
     firNumber: "",
     title: "",
     offenceType: "",
-    sections: "",
     policeStation: "",
     courtName: "",
     summary: "",
@@ -175,10 +177,7 @@ function RegisterFirModal({
       firNumber: form.firNumber.trim(),
       title: form.title.trim(),
       offenceType: form.offenceType.trim(),
-      sections: form.sections
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      sections,
       policeStation: form.policeStation.trim(),
       courtName: form.courtName.trim() || undefined,
       summary: form.summary.trim() || undefined,
@@ -248,14 +247,9 @@ function RegisterFirModal({
               placeholder="Aggravated burglary"
             />
           </Field>
-          <Field label="Sections" hint="Comma separated">
-            <Input
-              value={form.sections}
-              onChange={(event) => setForm({ ...form, sections: event.target.value })}
-              placeholder="BNS 331(4), BNS 117(2)"
-            />
-          </Field>
         </div>
+
+        <SectionPicker value={sections} onChange={setSections} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Police station" required>
