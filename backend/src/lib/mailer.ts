@@ -47,6 +47,23 @@ let transporter: Transporter | null = null;
 let verified: boolean | null = null;
 
 /**
+ * The last verification result, and when it was taken.
+ *
+ * This cache is not an optimisation. /api/health reports the mailer, and a
+ * platform health check calls /api/health every few seconds, so an uncached
+ * verify meant a fresh SMTP handshake against Gmail roughly six times a minute,
+ * for as long as the service was up. Repeated failed authentications at that rate
+ * are how an account gets locked, so the failure is remembered too, not just the
+ * success.
+ *
+ * A failure is held for a minute rather than forever, because the usual cause is
+ * a wrong environment variable and somebody is probably fixing it right now.
+ */
+let verifyCache: { ok: boolean; error?: string; at: number } | null = null;
+const VERIFY_TTL_OK_MS = 10 * 60_000;
+const VERIFY_TTL_FAIL_MS = 60_000;
+
+/**
  * The logo, attached inline rather than hotlinked.
  *
  * Most clients block remote images by default, and the project has no public
@@ -97,32 +114,76 @@ function build(): Transporter | null {
   return transporter;
 }
 
-/** Confirms the credentials work. Called once, on the first send. */
-export async function verifyTransport(): Promise<{ ok: boolean; error?: string }> {
+/**
+ * Confirms the credentials work, at most once per TTL.
+ *
+ * Pass force to bypass the cache, which only the startup check should do.
+ */
+export async function verifyTransport(force = false): Promise<{ ok: boolean; error?: string }> {
   const transport = build();
   if (!transport) return { ok: false, error: "SMTP is not configured." };
-  if (verified === true) return { ok: true };
+
+  if (!force && verifyCache) {
+    const ttl = verifyCache.ok ? VERIFY_TTL_OK_MS : VERIFY_TTL_FAIL_MS;
+    if (Date.now() - verifyCache.at < ttl) {
+      return { ok: verifyCache.ok, error: verifyCache.error };
+    }
+  }
 
   try {
     await transport.verify();
     verified = true;
+    verifyCache = { ok: true, at: Date.now() };
     logger.info("SMTP transport verified", { host: env.SMTP_HOST, port: env.SMTP_PORT });
     return { ok: true };
   } catch (error) {
     verified = false;
     const message = error instanceof Error ? error.message : "unknown SMTP error";
+    const code = (error as { code?: string })?.code;
+    verifyCache = { ok: false, error: message, at: Date.now() };
+
     logger.error("SMTP verification failed", {
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
-      // Gmail returns "Username and Password not accepted" for a normal
-      // password used where an App Password is required, which is the single
-      // most common cause of this.
-      hint: /username and password not accepted|invalid login|535/i.test(message)
-        ? "For Gmail, SMTP_PASSWORD must be a 16-character App Password, not the account password, and 2-Step Verification must be on."
-        : undefined,
+      // The message itself, which used to be dropped. Without it a hosted log
+      // said only that something had failed, which is the least useful thing a
+      // log can say.
+      error: message,
+      code,
+      hint: smtpHint(message, code),
     });
     return { ok: false, error: message };
   }
+}
+
+/**
+ * What to check, for the failures that actually happen.
+ *
+ * Ordered by how often each one is the answer rather than by severity, because
+ * whoever is reading this is trying to get unblocked.
+ */
+function smtpHint(message: string, code?: string): string | undefined {
+  if (/username and password not accepted|invalid login|535|534/i.test(message)) {
+    return (
+      "Authentication was refused. For Gmail, SMTP_PASSWORD must be the 16-character App Password " +
+      "with the spaces removed — a hosted environment variable pasted straight from Google keeps " +
+      "them, and Gmail rejects it. 2-Step Verification must also be on."
+    );
+  }
+  if (code === "ETIMEDOUT" || code === "ESOCKET" || /timeout|timed out/i.test(message)) {
+    return (
+      "The connection never completed, which usually means outbound SMTP is blocked by the host " +
+      "rather than that the credentials are wrong. Try port 465, and if that also hangs, the " +
+      "platform does not allow direct SMTP — use an HTTP email API instead."
+    );
+  }
+  if (code === "EDNS" || /getaddrinfo|ENOTFOUND/i.test(message)) {
+    return "SMTP_HOST did not resolve. Check it for a typo.";
+  }
+  if (/certificate|self signed|tls/i.test(message)) {
+    return "TLS negotiation failed. Port 465 is implicit TLS; 587 upgrades with STARTTLS.";
+  }
+  return undefined;
 }
 
 /**

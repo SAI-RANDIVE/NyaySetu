@@ -22,7 +22,22 @@ const CSRF_COOKIE = "nyaysetu_csrf";
  */
 export const apiOrigin = BASE || window.location.origin;
 export const apiBaseConfigured = BASE !== "";
-export const isDeployedBuild = import.meta.env.PROD;
+
+/**
+ * Whether this page is being served from somewhere other than a developer's
+ * machine.
+ *
+ * Read from the hostname at runtime, not from import.meta.env.PROD. That flag is
+ * decided by the build's mode, and a hosting dashboard with NODE_ENV=development
+ * set on it produces a deployed bundle that believes it is running locally — which
+ * is exactly how this came to be written, after a live site told somebody to check
+ * that the backend was running on port 4000.
+ *
+ * The hostname cannot be misconfigured into lying about this.
+ */
+export const isDeployedBuild = !/^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/.test(
+  window.location.hostname
+);
 
 export class ApiError extends Error {
   readonly status: number;

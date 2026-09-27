@@ -139,7 +139,9 @@ async function checkEmail() {
 
   console.log(`  host: ${env.SMTP_HOST}:${env.SMTP_PORT}   user: ${maskEmail(env.SMTP_USER ?? "")}`);
 
-  const result = await verifyTransport();
+  // force: this script exists to test the credentials, so a cached answer from a
+  // minute ago is not what anyone running it wants.
+  const result = await verifyTransport(true);
   if (!result.ok) {
     fail("the server rejected these credentials", result.error?.slice(0, 160));
     if (/username and password not accepted|invalid login|535|BadCredentials/i.test(result.error ?? "")) {
