@@ -194,6 +194,25 @@ export async function sendOverHttp(message: HttpMailMessage): Promise<HttpMailRe
 
 /** The refusals that actually happen, and what to do about each. */
 function httpHint(provider: HttpProviderName, error: string): string | undefined {
+  /**
+   * Brevo's IP allow-list, which is on by default for new accounts.
+   *
+   * It rejects a perfectly valid key from an address it has not seen, and the
+   * message it returns says "unauthorized" — so it reads as a bad key and sends
+   * you to regenerate one that was never the problem. It matters more than it
+   * looks on a container host: Railway, Render and Fly all have egress addresses
+   * that change, so allow-listing one is not a fix, and the restriction has to
+   * come off.
+   */
+  const unrecognisedIp = /unrecognised IP address\s+([0-9a-f.:]+)/i.exec(error);
+  if (unrecognisedIp) {
+    return (
+      `Brevo refused the key because it has not seen the address ${unrecognisedIp[1]} before. ` +
+      "The key is valid. Turn the IP restriction off at app.brevo.com/security/authorised_ips — " +
+      "allow-listing is not workable on a container host, whose egress address changes between " +
+      "deploys."
+    );
+  }
   if (/unauthor|invalid api|401|403/i.test(error)) {
     return provider === "resend"
       ? "RESEND_API_KEY was rejected. Keys begin with re_ and are shown once when created."
@@ -237,7 +256,28 @@ export async function verifyHttpProvider(): Promise<{ ok: boolean; error?: strin
           });
 
     if (response.ok) return { ok: true };
-    return { ok: false, error: `${provider} rejected the API key (${response.status}).` };
+
+    // The body is read even on failure: Brevo's IP allow-list refusal is a 401
+    // whose only distinguishing feature is the message, and reporting the status
+    // alone would lose the one piece of information that identifies it.
+    const body = await response.text().catch(() => "");
+    const detail = (() => {
+      try {
+        const parsed = JSON.parse(body);
+        return parsed?.message ?? parsed?.error?.message ?? "";
+      } catch {
+        return body.slice(0, 200);
+      }
+    })();
+
+    const error = `${provider} rejected the API key (${response.status})${detail ? `: ${detail}` : ""}`;
+    logger.error("Email provider rejected the API key", {
+      provider,
+      status: response.status,
+      detail,
+      hint: httpHint(provider, detail || error),
+    });
+    return { ok: false, error };
   } catch (error) {
     return {
       ok: false,
