@@ -23,6 +23,8 @@ import summonsRoutes from "./routes/summons";
 import bailRoutes from "./routes/bail";
 import aiRoutes from "./routes/ai";
 import adminRoutes from "./routes/admin";
+import referenceRoutes from "./routes/reference";
+import reportRoutes from "./routes/reports";
 
 const app = express();
 
@@ -84,6 +86,12 @@ app.use("/api/auth", authRoutes);
 
 // Everything that does real work waits until an invited account has replaced the
 // temporary password it was emailed.
+// Reference data, read-only. Behind the password gate like everything else: an
+// invited account has nothing to look up until it can act.
+app.use("/api/reference", requirePasswordSettled, referenceRoutes);
+// Documents. Mounted at /api/reports so a PDF route cannot be mistaken for a
+// JSON one by a client that only looks at the prefix.
+app.use("/api/reports", requirePasswordSettled, reportRoutes);
 app.use("/api/cases", requirePasswordSettled, caseRoutes);
 app.use("/api/evidence", requirePasswordSettled, evidenceRoutes);
 app.use("/api/summons", requirePasswordSettled, summonsRoutes);

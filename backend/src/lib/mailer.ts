@@ -231,6 +231,12 @@ async function send(args: {
   html: string;
   purpose: string;
   userId?: string | null;
+  /**
+   * Files to attach beyond the inline logo. A court document goes out this way:
+   * as an attachment the recipient can save and hash, not as HTML in a body that
+   * every client renders differently.
+   */
+  files?: { filename: string; content: Buffer; contentType?: string }[];
 }): Promise<SendResult> {
   const transport = build();
 
@@ -254,7 +260,15 @@ async function send(args: {
       subject: args.subject,
       text: args.text,
       html: args.html,
-      attachments: attachments(),
+      attachments: [
+        ...(attachments() ?? []),
+        ...(args.files ?? []).map((file) => ({
+          filename: file.filename,
+          content: file.content,
+          contentType: file.contentType ?? "application/pdf",
+          contentDisposition: "attachment" as const,
+        })),
+      ],
       // Marks the message as automatic so replies and vacation responders do
       // not bounce back into the mailbox.
       headers: { "Auto-Submitted": "auto-generated", "X-NyaySetu-Purpose": args.purpose },
@@ -411,6 +425,81 @@ export async function sendInvitation(args: {
         button(args.portalUrl, "Sign in", "green"),
       footnote:
         "If you were not expecting this, tell the court administrator and do not sign in.",
+    }),
+  });
+}
+
+/**
+ * Sends a court document as an attachment, with a covering note.
+ *
+ * The document is attached rather than rendered into the body, for two reasons.
+ * A recipient has to be able to save the exact bytes and compute their digest —
+ * an HTML body reflowed by a mail client is not a document anybody can verify.
+ * And the covering note deliberately says almost nothing: the file is the
+ * communication, and duplicating its contents in an email body creates a second
+ * version that can disagree with the first.
+ */
+export async function sendCaseDocument(args: {
+  to: string;
+  userId?: string | null;
+  recipientName?: string | null;
+  documentTitle: string;
+  fileName: string;
+  pdf: Buffer;
+  caseReference: string;
+  caseTitle: string;
+  sentByName: string;
+  digest: string;
+  note?: string | null;
+}): Promise<SendResult> {
+  const greeting = args.recipientName?.split(" ")[0] || "Sir/Madam";
+
+  const text = [
+    `${greeting},`,
+    "",
+    `${args.documentTitle} in ${args.caseReference} is attached.`,
+    "",
+    `Case      : ${args.caseTitle}`,
+    `Reference : ${args.caseReference}`,
+    `Sent by   : ${args.sentByName}`,
+    "",
+    "SHA-256 of the attached file:",
+    args.digest,
+    "",
+    ...(args.note ? ["Note:", args.note, ""] : []),
+    "Compute the digest of the file you received and compare it with the line above.",
+    "If they differ, the file has been altered in transit and should not be relied on.",
+    "",
+    "Sent automatically by NyaySetu. Do not reply to this address.",
+  ].join("\n");
+
+  return send({
+    to: args.to,
+    userId: args.userId ?? null,
+    purpose: "case_document",
+    subject: `${args.documentTitle} — ${args.caseReference}`,
+    text,
+    files: [{ filename: args.fileName, content: args.pdf, contentType: "application/pdf" }],
+    html: shell({
+      title: args.documentTitle,
+      kicker: args.caseReference,
+      tone: "green",
+      body:
+        paragraph(
+          `${escapeHtml(greeting)}, the document named above is attached to this message as a PDF.`
+        ) +
+        credentialRow("Case", `${args.caseReference} — ${args.caseTitle}`) +
+        credentialRow("SHA-256 of the attachment", args.digest) +
+        (args.note ? callout(escapeHtml(args.note), "green") : "") +
+        paragraph(
+          "Compute the digest of the file you received and compare it with the value above. If the " +
+            "two differ, the file was altered after it was sent and should not be relied upon. The " +
+            "document itself explains how to check the evidence it schedules against the blockchain."
+        ) +
+        paragraph(`Sent by ${strong(args.sentByName)}.`),
+      footnote:
+        "The attachment is the communication. Nothing in this email restates its contents, so the " +
+        "two cannot disagree.",
     }),
   });
 }

@@ -70,7 +70,17 @@ export class ApiError extends Error {
    * every component.
    */
   get isUnreachable() {
-    return this.status === 0 || this.code === "NETWORK" || this.code === "BAD_RESPONSE";
+    return (
+      this.status === 0 ||
+      this.code === "NETWORK" ||
+      this.code === "TIMEOUT" ||
+      this.code === "BAD_RESPONSE"
+    );
+  }
+
+  /** True when the API accepted the connection and then said nothing. */
+  get isTimeout() {
+    return this.code === "TIMEOUT";
   }
 }
 
@@ -89,7 +99,27 @@ interface Options {
   signal?: AbortSignal;
   /** Set for endpoints that stream a file rather than JSON. */
   raw?: boolean;
+  /** Overrides the default deadline. Uploads and PDFs need longer. */
+  timeoutMs?: number;
 }
+
+/**
+ * How long to wait before deciding the API is not going to answer.
+ *
+ * fetch has no timeout of its own: a request to a host that accepts the
+ * connection and then says nothing waits until the browser gives up, which can be
+ * minutes. That is how "Restoring your session…" became a screen somebody sat in
+ * front of indefinitely — a free-tier API asleep behind a cold start accepts the
+ * connection and takes half a minute to wake, and the SPA had nothing to show but
+ * the spinner it started with.
+ *
+ * Twenty seconds is chosen against that cold start: long enough that a waking
+ * instance usually answers inside it, short enough that a genuinely dead API is
+ * reported rather than waited on. A file upload gets longer, because the deadline
+ * is for a silent server and not for a slow one.
+ */
+const DEFAULT_TIMEOUT_MS = 20_000;
+const UPLOAD_TIMEOUT_MS = 120_000;
 
 async function request<T>(path: string, options: Options = {}): Promise<T> {
   const method = options.method ?? "GET";
@@ -103,22 +133,41 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
     headers["content-type"] = "application/json";
   }
 
+  // The caller's own signal still aborts, and so does the deadline. Whichever
+  // fires first wins, and the deadline is always cleared so a slow-but-successful
+  // response does not leave a timer running.
+  const controller = new AbortController();
+  const deadline = options.timeoutMs ?? (options.form ? UPLOAD_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
+  const timer = window.setTimeout(() => controller.abort(new DOMException("timeout", "TimeoutError")), deadline);
+
+  const onCallerAbort = () => controller.abort(options.signal?.reason);
+  options.signal?.addEventListener("abort", onCallerAbort, { once: true });
+
   let response: Response;
   try {
     response = await fetch(`${BASE}${path}`, {
       method,
       headers,
       credentials: "include",
-      signal: options.signal,
+      signal: controller.signal,
       body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
     });
   } catch (caught) {
+    // A deadline that fired is not the same as a caller who navigated away. The
+    // first is worth reporting; the second must stay an AbortError so the
+    // component that cancelled it can ignore it.
+    if (controller.signal.aborted && !options.signal?.aborted) {
+      throw new ApiError(0, "TIMEOUT", timeoutMessage(deadline));
+    }
     // fetch rejects for a blocked CORS response, a DNS failure, a refused
     // connection and an offline browser, and gives the same opaque TypeError for
     // all of them by design. So the message says what to check rather than
     // pretending to know which one it was.
     if (caught instanceof DOMException && caught.name === "AbortError") throw caught;
     throw new ApiError(0, "NETWORK", networkFailureMessage());
+  } finally {
+    window.clearTimeout(timer);
+    options.signal?.removeEventListener("abort", onCallerAbort);
   }
 
   if (options.raw) {
@@ -157,6 +206,28 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
   }
 
   return payload as T;
+}
+
+/**
+ * Why nothing came back within the deadline.
+ *
+ * Distinguished from a refused connection on purpose: a silent server is nearly
+ * always a cold start or a stalled instance, and telling somebody to check their
+ * CORS settings when the API is merely asleep wastes their time.
+ */
+function timeoutMessage(deadline: number): string {
+  const seconds = Math.round(deadline / 1000);
+  if (isDeployedBuild) {
+    return (
+      `${apiOrigin} accepted the connection but sent nothing back within ${seconds} seconds. ` +
+      "On a free hosting tier the API sleeps when idle and can take up to a minute to wake, so " +
+      "this often clears on a second attempt. If it does not, the instance is stalled."
+    );
+  }
+  return (
+    `The API did not respond within ${seconds} seconds. It is running but not answering — check ` +
+    "its log for a request that never finished."
+  );
 }
 
 /** Why a request never reached the API, in the order worth checking. */
@@ -235,6 +306,36 @@ export interface User {
    * sends these users to /first-run and nowhere else.
    */
   mustChangePassword?: boolean;
+}
+
+/**
+ * One citation on an FIR, as the API reads it against the criminal code.
+ *
+ * `recognised` false is not an error: a real charge sheet cites the Sanhita and
+ * special legislation together, and the NDPS or POCSO sections are kept exactly as
+ * written rather than refused.
+ */
+export interface ParsedSection {
+  raw: string;
+  canonical: string;
+  act: string | null;
+  section: number | null;
+  subsection: string | null;
+  title: string | null;
+  chapter: string | null;
+  severity: number | null;
+  maxPunishment: string | null;
+  recognised: boolean;
+}
+
+export interface StatuteSummary {
+  references: ParsedSection[];
+  recognised: number;
+  unrecognised: string[];
+  /** Gravest punishment any cited section states, 1-10. Null means unknown, not mild. */
+  severity: number | null;
+  severityFrom: string | null;
+  caveat: string | null;
 }
 
 export type Stage = "SCENE" | "FORENSIC_LAB" | "PROSECUTOR" | "COURT";

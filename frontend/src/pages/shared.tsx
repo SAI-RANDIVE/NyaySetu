@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import type {
+  StatuteSummary,
   BailRow,
   CaseRow,
   CustodyEventRow,
@@ -52,6 +53,7 @@ import {
   TxLink,
 } from "../components/trust";
 import { FileHashPicker, type HashedFile } from "../components/capture";
+import { CaseReportPanel } from "../components/CaseReport";
 
 /* ==================================================== CasesPage ========== */
 
@@ -173,6 +175,11 @@ export function CasesPage({ basePath }: { basePath: string }) {
 
 interface Overview {
   case: CaseRow;
+  /**
+   * What the Bharatiya Nyaya Sanhita says about the sections cited. Optional
+   * because the reference is a build artefact the API degrades without.
+   */
+  statute?: StatuteSummary;
   evidence: EvidenceRow[];
   summons: SummonsRow[];
   bail: BailRow | null;
@@ -201,6 +208,14 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
               <>
                 {data.case.offence_type}
                 {data.case.sections.length > 0 && ` · ${data.case.sections.join(", ")}`}
+                {data.statute?.severity !== null && data.statute?.severity !== undefined && (
+                  <>
+                    {" · "}
+                    <span title="The gravest punishment any cited section states. A lower bound, not a finding.">
+                      gravest stated punishment from {data.statute.severityFrom}
+                    </span>
+                  </>
+                )}
                 <br />
                 {data.case.police_station}
                 {data.case.court_name && ` · ${data.case.court_name}`}
@@ -233,6 +248,11 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
 
           <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
             <div className="space-y-5">
+              {/* ---------------------------------------- final report */}
+              {caseId && (
+                <CaseReportPanel caseId={caseId} firNumber={data.case.fir_number} />
+              )}
+
               {/* -------------------------------------------- evidence */}
               <Card
                 title="Evidence"

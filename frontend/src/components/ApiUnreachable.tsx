@@ -91,9 +91,9 @@ export function ApiUnreachable({ message, onRetry }: { message: string; onRetry:
 }
 
 const DEPLOYED_STEPS = [
+  "If the API is on a free tier it sleeps when idle. Open its /api/health once in another tab, wait for it to answer, then try again — a cold start can take a minute.",
   "VITE_API_BASE on the site's host must be the API's full HTTPS URL. It is baked in at build time, so changing it needs a redeploy, not just a save.",
-  "CORS_ORIGINS on the API must list this site's exact origin. No wildcard: credentials are cookies, and a browser rejects a wildcard with credentials anyway.",
-  "On a free tier the API sleeps when idle and takes up to a minute to wake. Open its /api/health once and try again.",
+  "CORS_ORIGINS on the API must list this site's exact origin. No wildcard: credentials are cookies, and a browser rejects a wildcard with credentials anyway. GET /api/health returns allowedOrigins, so you can see what it actually loaded.",
   "COOKIE_SAMESITE must be none when the site and the API are on different domains, and none requires HTTPS on both.",
 ];
 

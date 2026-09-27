@@ -12,14 +12,19 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const from = join(root, "src", "assets");
-const to = join(root, "dist", "assets");
 
-if (!existsSync(from)) {
-  console.log("no src/assets to copy");
-  process.exit(0);
+// assets  : the inline email logo
+// reference: the BNS section reference the FIR form and the API validate against
+for (const folder of ["assets", "reference"]) {
+  const from = join(root, "src", folder);
+  const to = join(root, "dist", folder);
+
+  if (!existsSync(from)) {
+    console.log(`no src/${folder} to copy`);
+    continue;
+  }
+
+  await mkdir(to, { recursive: true });
+  await cp(from, to, { recursive: true });
+  console.log(`copied ${from} -> ${to}`);
 }
-
-await mkdir(to, { recursive: true });
-await cp(from, to, { recursive: true });
-console.log(`copied ${from} -> ${to}`);

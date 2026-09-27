@@ -68,3 +68,8 @@ web-build/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Reference material, not project assets. The example charge sheet in brand/ came
+# from a mock trial competition and belongs to whoever wrote it; the format it
+# demonstrates is reproduced in code, the document itself is not redistributed.
+brand/*.pdf

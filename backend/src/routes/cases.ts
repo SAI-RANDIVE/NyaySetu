@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { db, unwrap, unwrapList, unwrapMaybe } from "../lib/supabase";
 import { caseIdHash } from "../lib/crypto";
+import { describeSections, parseReference } from "../lib/statute";
 import { conflict, notFound } from "../lib/errors";
 import { asyncRoute } from "../middleware/error";
 import { validate, safeText, firNumber, uuid } from "../middleware/validate";
@@ -80,6 +81,14 @@ router.post(
     ) as { id: string } | null;
     if (existing) throw conflict("A case with that FIR number already exists.");
 
+    // Citations are normalised on the way in, so the column holds "BNS 305" rather
+    // than whichever of "305", "s.305" or "bns305" this station happens to type.
+    // Anything the code does not recognise — an NDPS or POCSO section — is kept
+    // exactly as written, because refusing it would refuse a real charge sheet.
+    const normalisedSections: string[] = (body.sections ?? []).map(
+      (raw: string) => parseReference(raw).canonical
+    );
+
     const created = unwrap(
       await db
         .from("cases")
@@ -88,7 +97,7 @@ router.post(
           case_id_hash: hash,
           title: body.title,
           offence_type: body.offenceType,
-          sections: body.sections,
+          sections: normalisedSections,
           police_station: body.policeStation,
           court_name: body.courtName ?? null,
           summary: body.summary ?? null,
@@ -108,14 +117,24 @@ router.post(
       assigned_by: user.id,
     });
 
+    const statute = describeSections(normalisedSections);
+
     await recordAction(req, {
       action: "case.register",
       subject: created.id,
       caseId: created.id,
-      detail: { firNumber: created.fir_number, caseIdHash: hash },
+      detail: {
+        firNumber: created.fir_number,
+        caseIdHash: hash,
+        // Recorded so a later question about the gravity of a charge can be
+        // answered from the trail rather than re-derived from whatever the
+        // reference file says at that point.
+        sectionsRecognised: statute.recognised,
+        statutorySeverity: statute.severity,
+      },
     });
 
-    res.status(201).json({ case: created });
+    res.status(201).json({ case: created, statute });
   })
 );
 
@@ -141,7 +160,9 @@ router.get(
         .eq("case_id", row.id)
     ) as any[];
 
-    res.json({ case: row, assignments });
+    // What the code says about the sections cited, so a reader of the dossier does
+    // not have to know the Sanhita by heart to know what was charged.
+    res.json({ case: row, assignments, statute: describeSections(row.sections ?? []) });
   })
 );
 
@@ -182,6 +203,7 @@ router.get(
 
     res.json({
       case: redactPrivileged ? { ...row, summary: null } : row,
+      statute: describeSections(row.sections ?? []),
       evidence,
       summons: redactPrivileged ? [] : summons,
       bail,

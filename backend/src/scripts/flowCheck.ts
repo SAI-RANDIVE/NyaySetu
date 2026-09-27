@@ -383,7 +383,10 @@ async function main(): Promise<void> {
       firNumber,
       title: "Theft of laboratory equipment from a government facility",
       offenceType: "Theft",
-      sections: ["BNS 303(2)", "BNS 305"],
+      // Deliberately written three different ways, as three different stations
+      // would: the API normalises all of them. The NDPS citation is not in the
+      // Sanhita and must survive untouched.
+      sections: ["bns303(2)", "S. 305", "NDPS 21"],
       policeStation: "Shivajinagar Police Station",
       courtName: "Sessions Court, Pune",
       summary: "Equipment removed overnight. CCTV still recovered from the corridor camera.",
@@ -393,6 +396,35 @@ async function main(): Promise<void> {
     check(
       "its case id is keccak256 of the FIR number",
       /^0x[0-9a-f]{64}$/.test(created.case.case_id_hash)
+    );
+    check(
+      "citations are normalised however they were typed",
+      created.case.sections.includes("BNS 303(2)") && created.case.sections.includes("BNS 305"),
+      created.case.sections.join(" · ")
+    );
+    check(
+      "a section outside the Sanhita is kept as written",
+      created.case.sections.includes("NDPS 21") &&
+        created.statute.unrecognised.includes("NDPS 21")
+    );
+    check(
+      "the gravest stated punishment is read off the code",
+      created.statute.severity === 7 && created.statute.severityFrom === "BNS 305",
+      `severity ${created.statute.severity} from ${created.statute.severityFrom}`
+    );
+
+    const statuteMeta = await police.session.expect("GET", "/api/reference/statute", 200);
+    check(
+      "the whole Sanhita is available to look up",
+      statuteMeta.statute.sections === 358,
+      `${statuteMeta.statute.actTitle}, ${statuteMeta.statute.sections} sections`
+    );
+
+    const found = await police.session.expect("GET", "/api/reference/sections?q=murder", 200);
+    check(
+      "and searchable by name",
+      found.sections.some((x: any) => x.section === 103),
+      found.sections.slice(0, 2).map((x: any) => `s${x.section} ${x.title}`).join(" · ")
     );
 
     step("5 · The registry grants each participant access to it");
@@ -700,8 +732,107 @@ async function main(): Promise<void> {
       `${(board.orders ?? board.bails ?? []).length} order(s) monitored`
     );
 
-    /* ================================================= 12. the dossier */
-    step("12 · The dossier, and what the registry can see");
+    /* ============================================== 11b. the document */
+    step("12 · The Final Report as a court document");
+    const reportResponse = await fetch(
+      `${BASE}/api/reports/cases/${caseId}/final-report.pdf`,
+      {
+        headers: {
+          cookie: [...judge.session.cookies.entries()].map(([k, v]) => `${k}=${v}`).join("; "),
+        },
+      }
+    );
+    const pdf = Buffer.from(await reportResponse.arrayBuffer());
+    check(
+      "the API renders it",
+      reportResponse.status === 200 && reportResponse.headers.get("content-type") === "application/pdf",
+      `${reportResponse.status} · ${(pdf.length / 1024).toFixed(0)} KB`
+    );
+    check(
+      "it really is a PDF",
+      pdf.subarray(0, 5).toString("latin1") === "%PDF-",
+      pdf.subarray(0, 8).toString("latin1")
+    );
+    check(
+      "and it names its own digest in a header, so the bytes can be checked",
+      reportResponse.headers.get("x-nyaysetu-sha256") === sha256Hex(pdf),
+      String(reportResponse.headers.get("x-nyaysetu-sha256")).slice(0, 20) + "…"
+    );
+
+    // The page text is inside FlateDecode streams, so it cannot be grepped from
+    // the raw bytes without a PDF parser. What IS readable uncompressed is the
+    // document information dictionary and the page tree, so the assertions are
+    // made against those: the right document, of the right length.
+    const raw = pdf.toString("latin1");
+    // The Title contains an em-dash, which forces the whole string into UTF-16BE
+    // in the info dictionary, so it is not findable as plain bytes. Checked in both
+    // encodings rather than removing the dash from the title to suit the test.
+    const utf16 = Buffer.from(firNumber, "utf16le").swap16().toString("latin1");
+    check(
+      "it names the case it belongs to",
+      raw.includes(firNumber) || raw.includes(utf16),
+      firNumber
+    );
+    check(
+      "and states the provision it is filed under",
+      raw.includes("Bharatiya Nagarik Suraksha Sanhita")
+    );
+    const pageCount = Number(/\/Count\s+(\d+)/.exec(raw)?.[1] ?? 0);
+    check(
+      "it runs to the form plus its three annexures",
+      pageCount >= 5,
+      `${pageCount} pages`
+    );
+    check("every page is accounted for", (raw.match(/\/Type \/Page[^s]/g) ?? []).length === pageCount);
+
+    const who = await judge.session.expect(
+      "GET",
+      `/api/reports/cases/${caseId}/final-report/recipients`,
+      200
+    );
+    check(
+      "the recipient list is everyone on the case",
+      who.recipients.length >= 6,
+      `${who.recipients.length} recipient(s), email ${who.emailConfigured ? "configured" : "not configured"}`
+    );
+
+    const mailed = await judge.session.expect(
+      "POST",
+      `/api/reports/cases/${caseId}/final-report/email`,
+      200,
+      { includeAssigned: false, recipients: [address("report")], note: "Filed for verification." }
+    );
+    // Deliberately not asserting that this digest equals the downloaded one. Each
+    // rendering states the time it was prepared, so two renderings are two
+    // different documents and hash differently — which is correct: they were
+    // prepared at different moments. What must be stable is the EVIDENCE digests
+    // inside, and those come from the record, not from the render.
+    check(
+      "it can be emailed to an address typed in",
+      mailed.results.length === 1 &&
+        mailed.sent === 1 &&
+        /^0x[0-9a-f]{64}$/.test(mailed.digest),
+      `${mailed.sent} sent, ${mailed.failed} failed, digest ${String(mailed.digest).slice(0, 14)}…`
+    );
+    check(
+      "and the covering email quotes the digest of what it attached",
+      mailed.digest !== sha256Hex(pdf),
+      "differs from the earlier download, because each rendering is timestamped"
+    );
+
+    const accusedTriesToMail = await accused.session.call(
+      "POST",
+      `/api/reports/cases/${caseId}/final-report/email`,
+      { recipients: ["somebody@example.com"] }
+    );
+    check(
+      "an accused person cannot post it to arbitrary addresses",
+      accusedTriesToMail.status === 403,
+      `${accusedTriesToMail.status}`
+    );
+
+    /* ================================================= 13. the dossier */
+    step("13 · The dossier, and what the registry can see");
     const overview = await judge.session.expect("GET", `/api/cases/${caseId}/overview`, 200);
     check(
       "one call fills the case dossier",
@@ -730,8 +861,8 @@ async function main(): Promise<void> {
       `${actions.entries.length} actions recorded`
     );
 
-    /* ============================================= 13. access is real */
-    step("13 · Access is per case, not per role");
+    /* ============================================= 14. access is real */
+    step("14 · Access is per case, not per role");
     const outsider = new Session("outsider");
     const outsiderEmail = address("outsider");
     const stranger = await invite(admin, {
@@ -762,8 +893,8 @@ async function main(): Promise<void> {
       `${peek.status} ${peek.json?.error?.message?.slice(0, 60) ?? ""}`
     );
 
-    /* =================================================== 14. cleanup */
-    step("14 · Cleaning up after itself");
+    /* =================================================== 15. cleanup */
+    step("15 · Cleaning up after itself");
     // The case goes, and cascades away its evidence, custody, summons, bail,
     // check-ins and violations with it. The accounts stay, because the record
     // still names them; they are stood down instead, and re-invited next run.
