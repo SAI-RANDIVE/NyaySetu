@@ -38,6 +38,7 @@ import {
   Stat,
 } from "../components/ui";
 import { StatusChip, TxLink } from "../components/trust";
+import { checkAadhaar, formatAadhaar } from "../lib/aadhaar";
 
 /* ==================================================== AdminOverview ====== */
 
@@ -589,8 +590,6 @@ function AadhaarModal({
     })
   );
 
-  const digits = value.replace(/[^0-9]/g, "");
-
   const close = () => {
     setValue("");
     onClose();
@@ -609,7 +608,7 @@ function AadhaarModal({
             Cancel
           </Button>
           <Button
-            disabled={digits.length !== 12}
+            disabled={checkAadhaar(value).state !== "valid"}
             loading={save.pending}
             onClick={async () => {
               if (!target) return;
@@ -633,17 +632,7 @@ function AadhaarModal({
         <p className="font-ui text-xs leading-relaxed text-muted">
           {target?.full_name} · {target ? ROLE_LABEL[target.role] : ""}
         </p>
-        <Field label="Aadhaar number" required hint="Twelve digits. Its check digit is validated.">
-          <Input
-            inputMode="numeric"
-            maxLength={14}
-            autoFocus
-            value={value}
-            onChange={(event) => setValue(event.target.value.replace(/[^0-9 ]/g, ""))}
-            className="font-mono"
-            placeholder="2233 4455 6676"
-          />
-        </Field>
+        <AadhaarField required value={value} onChange={setValue} />
         {save.error && (
           <p role="alert" className="font-ui text-xs text-danger">
             {save.error.message}
@@ -855,9 +844,11 @@ function CreateUserModal({
   );
 
   const valid = /\S+@\S+\.\S+/.test(form.email) && form.fullName.trim().length >= 3;
-  // Twelve digits or nothing. A half-typed number is a typo, not a decision.
-  const aadhaarDigits = form.aadhaarNumber.replace(/[^0-9]/g, "");
-  const aadhaarUsable = aadhaarDigits.length === 0 || aadhaarDigits.length === 12;
+  // A complete, checksum-valid number or none at all. A half-typed one is a typo
+  // rather than a decision, and a twelve-digit number that fails its check digit is
+  // a number the API will refuse anyway — better to say so before the round trip.
+  const aadhaarVerdict = checkAadhaar(form.aadhaarNumber);
+  const aadhaarUsable = aadhaarVerdict.state === "empty" || aadhaarVerdict.state === "valid";
 
   const close = () => {
     setResult(null);
@@ -971,32 +962,17 @@ function CreateUserModal({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Aadhaar number"
+          <AadhaarField
             required
-            hint="Validated against its Verhoeff check digit, converted to a one-way token, and discarded."
-          >
-            <Input
-              inputMode="numeric"
-              maxLength={14}
-              value={form.aadhaarNumber}
-              onChange={(event) => setForm({ ...form, aadhaarNumber: event.target.value.replace(/[^0-9 ]/g, "") })}
-              className="font-mono"
-              placeholder="2233 4455 6676"
-            />
-          </Field>
+            value={form.aadhaarNumber}
+            onChange={(next) => setForm({ ...form, aadhaarNumber: next })}
+          />
           <Field label="Phone" hint="Encrypted at rest.">
             <Input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
           </Field>
         </div>
 
-        {!aadhaarUsable && (
-          <p role="alert" className="font-ui text-xs text-danger">
-            An Aadhaar number is twelve digits. Enter all of it, or leave the field empty.
-          </p>
-        )}
-
-        {aadhaarDigits.length === 0 && (
+        {aadhaarVerdict.state === "empty" && (
           <p className="font-ui text-xs leading-relaxed text-warning">
             Inviting without an Aadhaar number. They will be able to sign in and read, and every
             action that writes to the chain will be refused until you add one.
@@ -1274,6 +1250,69 @@ function CaseAccessPanel({
         )}
       </Card>
     </div>
+  );
+}
+
+/**
+ * The Aadhaar field, with its verdict under it.
+ *
+ * One component for both the invite form and the completion dialog, because the
+ * rules are the same and two copies would drift. It reports as the officer types:
+ * a half-entered number says how many digits are left, and only a finished number
+ * that fails is called an error.
+ *
+ * The number is never stored. What the API keeps is an HMAC of it and the last four
+ * digits, so the reassurance shown on success is the last four — the most anybody,
+ * including this screen, will see again.
+ */
+function AadhaarField({
+  value,
+  onChange,
+  label = "Aadhaar number",
+  required,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  label?: string;
+  required?: boolean;
+}) {
+  const verdict = checkAadhaar(value);
+
+  return (
+    <Field
+      label={label}
+      required={required}
+      hint={
+        verdict.state === "valid"
+          ? `Valid. Stored as a one-way token and ${verdict.masked}.`
+          : verdict.state === "incomplete"
+            ? `${verdict.problem} to go.`
+            : verdict.state === "invalid"
+              ? undefined
+              : "12 digits from the card. Spaces are fine."
+      }
+    >
+      <Input
+        inputMode="numeric"
+        maxLength={14}
+        value={formatAadhaar(value)}
+        onChange={(event) => onChange(event.target.value)}
+        className={`font-mono ${
+          verdict.state === "invalid"
+            ? "border-danger"
+            : verdict.state === "valid"
+              ? "border-primary"
+              : ""
+        }`}
+        placeholder="2665 8452 7491"
+        aria-invalid={verdict.state === "invalid"}
+      />
+      {verdict.state === "invalid" && (
+        <p role="alert" className="mt-1.5 font-ui text-2xs leading-relaxed text-danger">
+          {verdict.problem}
+        </p>
+      )}
+    </Field>
   );
 }
 

@@ -62,11 +62,21 @@ export function caseIdHash(firNumber: string): string {
  */
 export function aadhaarToken(aadhaarNumber: string): string {
   const digits = aadhaarNumber.replace(/[^0-9]/g, "");
+
+  // Separate messages, because the three failures have three different causes and
+  // "invalid Aadhaar number" tells somebody holding a card nothing about which
+  // digit they mistyped.
   if (digits.length !== 12) {
-    throw badRequest("Aadhaar number must be 12 digits.");
+    throw badRequest("An Aadhaar number is exactly 12 digits.");
   }
-  if (!verhoeffValid(digits)) {
-    throw badRequest("That Aadhaar number fails its checksum.");
+  if (/^[01]/.test(digits)) {
+    throw badRequest("An Aadhaar number never begins with 0 or 1.");
+  }
+  if (!isPlausibleAadhaar(digits)) {
+    throw badRequest(
+      "That number fails its check digit, so it is not a valid Aadhaar number. Check it against " +
+        "the card — a single transposed pair is the usual cause."
+    );
   }
   const mac = crypto.createHmac("sha256", env.AADHAAR_TOKEN_PEPPER).update(digits).digest("hex");
   return "0x" + mac;
@@ -114,9 +124,38 @@ function verhoeffChecksum(digits: string): number {
 }
 
 /**
- * UIDAI numbers carry a Verhoeff check digit. Validating it locally rejects
- * typos before they reach an OTP provider, and makes the sandbox behave like
- * the real thing.
+ * Whether these twelve digits could be an Aadhaar number at all.
+ *
+ * Three rules, and all three matter:
+ *
+ *   1. exactly twelve digits
+ *   2. the first is 2 to 9. UIDAI never issues a number beginning 0 or 1, which
+ *      keeps Aadhaar numbers distinguishable from the older schemes whose
+ *      identifiers did.
+ *   3. the twelfth digit is the Verhoeff check digit of the first eleven
+ *
+ * The third is what makes this worth doing. A format check alone accepts
+ * 222222222222 and every other invented string of the right shape; the checksum
+ * rejects all but one in ten of them, and catches the transposition errors that
+ * are the commonest way a number is mistyped from a card.
+ *
+ * WHAT THIS DOES NOT DO
+ *   It cannot tell you the number belongs to a living person, or to the person in
+ *   front of you. Only UIDAI's own authentication can, and that needs an AUA
+ *   licence. So this is a plausibility test, and everything downstream treats it
+ *   as one: the token it produces identifies a claim, not a verified identity.
+ */
+export function isPlausibleAadhaar(digits: string): boolean {
+  if (!/^[2-9][0-9]{11}$/.test(digits)) return false;
+  return verhoeffChecksum(digits) === 0;
+}
+
+/**
+ * The Verhoeff check digit alone, without the first-digit rule.
+ *
+ * Kept separate from isPlausibleAadhaar because the two answer different
+ * questions, and a caller that wants to know only whether the checksum resolves
+ * should not have the leading-digit convention applied to it as well.
  */
 export function verhoeffValid(digits: string): boolean {
   if (!/^[0-9]{12}$/.test(digits)) return false;
