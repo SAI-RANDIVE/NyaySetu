@@ -1,14 +1,171 @@
-# NyaySetu · न्यायसेतु
+<div align="center">
 
-**Bridge of Justice.** Evidence digests, summons acknowledgements and bail conditions anchored to a public blockchain, so integrity is something anyone can check rather than something a party asserts.
+<img src="brand/nyaysetu-logo.png" width="130" alt="NyaySetu" />
+
+# NyaySetu &nbsp;·&nbsp; न्यायसेतु
+
+### The Bridge of Justice
+
+**Evidence digests, summons acknowledgements and bail conditions anchored to a public blockchain — so integrity is something anyone can check, not something a party asserts.**
+
+<br>
+
+[![Live](https://img.shields.io/badge/demo-live-00C853?style=for-the-badge&logo=vercel&logoColor=white)](https://nyaysetu-eta.vercel.app)
+[![Contracts](https://img.shields.io/badge/contracts-on%20Sepolia-627EEA?style=for-the-badge&logo=ethereum&logoColor=white)](https://sepolia.etherscan.io/address/0x39026c8E689a16EfC17561e030c59a5CB78c7133)
+[![Tests](https://img.shields.io/badge/tests-53%20unit%20%2B%2096%20integration-brightgreen?style=for-the-badge)](#-what-is-verified-and-how)
+[![Licence](https://img.shields.io/badge/licence-MIT-blue?style=for-the-badge)](#-licence)
+
+<br>
+
+<img src="https://img.shields.io/badge/Solidity-0.8.24-363636?style=flat-square&logo=solidity&logoColor=white" />
+<img src="https://img.shields.io/badge/Hardhat-2.x-FFF100?style=flat-square&logo=hardhat&logoColor=black" />
+<img src="https://img.shields.io/badge/OpenZeppelin-5-4E5EE4?style=flat-square&logo=openzeppelin&logoColor=white" />
+<img src="https://img.shields.io/badge/Ethers.js-6-2535A0?style=flat-square&logo=ethers&logoColor=white" />
+<img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+<img src="https://img.shields.io/badge/Node.js-22-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" />
+<img src="https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express&logoColor=white" />
+<br>
+<img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" />
+<img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" />
+<img src="https://img.shields.io/badge/Tailwind-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" />
+<img src="https://img.shields.io/badge/PostgreSQL-RLS%20on%20every%20table-4169E1?style=flat-square&logo=postgresql&logoColor=white" />
+<img src="https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white" />
+<img src="https://img.shields.io/badge/Python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" />
+<img src="https://img.shields.io/badge/scikit--learn-1.5-F7931E?style=flat-square&logo=scikitlearn&logoColor=white" />
+<img src="https://img.shields.io/badge/Flask-3-000000?style=flat-square&logo=flask&logoColor=white" />
+<br>
+<img src="https://img.shields.io/badge/IPFS-Pinata-65C2CB?style=flat-square&logo=ipfs&logoColor=white" />
+<img src="https://img.shields.io/badge/AES--256--GCM-encrypted%20at%20rest-7B1FA2?style=flat-square&logo=letsencrypt&logoColor=white" />
+<img src="https://img.shields.io/badge/SHA--256-computed%20on%20device-455A64?style=flat-square" />
+<img src="https://img.shields.io/badge/React%20Native-Expo-000020?style=flat-square&logo=expo&logoColor=white" />
+<img src="https://img.shields.io/badge/PDFKit-court%20documents-D32F2F?style=flat-square&logo=adobeacrobatreader&logoColor=white" />
+<img src="https://img.shields.io/badge/BNS%202023-358%20sections-FF6F00?style=flat-square" />
+
+<br>
 
 Final year project · Vishwakarma Institute of Technology, Pune · AI & Data Science · 2026
 
-**New here?** Read the in-app **[Handbook](#the-handbook)** — it explains the one technical idea and then walks through what each of the seven roles actually does. **Setting it up?** **[docs/api-keys.md](docs/api-keys.md)** lists every credential, where to get it, and what breaks without it. **Hosting it?** **[docs/hosting.md](docs/hosting.md)**, and read its first section before importing the repo into Vercel.
+</div>
 
 ---
 
-## What problem this actually solves
+## Contents
+
+| | | |
+|---|---|---|
+| [🔗 See it running](#-see-it-running) | [📐 How it fits together](#-how-it-fits-together) | [🧰 Tech stack](#-tech-stack-by-layer) |
+| [⚖️ The problem](#️-what-problem-this-actually-solves) | [🏛️ The three modules](#️-the-three-modules) | [📁 Repository layout](#-repository-layout) |
+| [🔑 The five `.env` files](#-the-env-files-and-why-there-are-five) | [🚀 Running it locally](#-running-it-locally) | [🎬 Walkthrough](#-the-nine-step-walkthrough) |
+| [📖 The handbook](#-the-handbook) | [🔐 The two OTP channels](#-two-one-time-codes-and-only-one-of-them-is-simulated) | [✅ What is verified](#-what-is-verified-and-how) |
+| [⚠️ Honest limitations](#️-honest-limitations) | [📚 The reasoning](#-where-the-reasoning-is-written-down) | [📄 Licence](#-licence) |
+
+---
+
+## 🔗 See it running
+
+| | Where | What to look at |
+|---|---|---|
+| **Web application** | [nyaysetu-eta.vercel.app](https://nyaysetu-eta.vercel.app) | The landing page and the public handbook need no account |
+| **API health** | [`/api/health`](https://nyaysetu-api.onrender.com/api/health) | Every subsystem reports itself separately, including what is still a fallback |
+| **EvidenceChain** | [`0x39026c8E…7133`](https://sepolia.etherscan.io/address/0x39026c8E689a16EfC17561e030c59a5CB78c7133) | Live on Sepolia. Every digest below is verifiable here |
+| **SummonsChain** | [`0xCb998874…5154`](https://sepolia.etherscan.io/address/0xCb998874921Ccae2Db0F82c787fE3f0e2C4F5154) | Acknowledgements, with time and coordinates |
+| **BailChain** | [`0x1AA6c427…65AB`](https://sepolia.etherscan.io/address/0x1AA6c42796eCeA533C35480fEd1901D9087d65AB) | Conditions, check-ins, and violations the contract found itself |
+
+> There is **no sign-up**. A court is a closed institution, so an account exists because a court administrator created it and emailed its holder a one-time password. `/handbook` is public and explains the whole system without one.
+
+---
+
+## 📐 How it fits together
+
+```
+                          ┌──────────────────────────────┐
+   officer's device       │   BROWSER / PHONE            │   SHA-256 is computed HERE,
+   ───────────────────────│   React · Vite · Tailwind    │   before a byte is uploaded.
+                          │   React Native (Expo)        │   That is what makes the
+                          └──────────────┬───────────────┘   digest mean anything.
+                                         │  HTTPS, session cookie + CSRF
+                                         ▼
+   ┌─────────────────────────────────────────────────────────────────────────┐
+   │  API   Node · Express · TypeScript (strict)                             │
+   │                                                                         │
+   │  RBAC + per-case access      opaque server-side sessions, revocable     │
+   │  Aadhaar → HMAC token        the number itself is never stored          │
+   │  AES-256-GCM                 encrypts a file before it leaves           │
+   │  nonce ledger                serialises every chain write               │
+   │  sweep jobs                  notice what did NOT happen                 │
+   └───┬──────────────┬───────────────────┬──────────────────┬───────────────┘
+       │              │                   │                  │
+       ▼              ▼                   ▼                  ▼
+ ┌───────────┐  ┌───────────┐     ┌──────────────┐   ┌──────────────┐
+ │ Postgres  │  │  IPFS     │     │ Flask +      │   │  Ethereum    │
+ │ Supabase  │  │  Pinata   │     │ scikit-learn │   │  Sepolia     │
+ │           │  │           │     │              │   │              │
+ │ RLS on    │  │ ciphertext│     │ anomaly ·    │   │ Evidence ·   │
+ │ every     │  │ only      │     │ bail risk ·  │   │ Summons ·    │
+ │ table     │  │           │     │ delay        │   │ Bail         │
+ └───────────┘  └───────────┘     └──────────────┘   └──────────────┘
+   readable        durable            advisory          AUTHORITATIVE
+   record          storage            only              and immutable
+```
+
+**The chain holds only what must be impossible to revise** — a digest, an acknowledgement, a condition. Everything readable lives in Postgres, and the two are reconciled by an indexer. If they ever disagree, the chain is right.
+
+---
+
+## 🧰 Tech stack, by layer
+
+### Blockchain
+
+| | Why this one |
+|---|---|
+| **Solidity 0.8.24** | Built-in overflow checks, so the geo-fence arithmetic needs no SafeMath |
+| **Hardhat 2** | 53 tests run against a real EVM, not a mock |
+| **OpenZeppelin 5** | `AccessControl` for the eight roles, `ReentrancyGuard` on every state-changing entry |
+| **Ethers v6** | One bridge module owns every call; nothing else touches a provider |
+| **Integer-only geodesy** | Micro-degrees and a cosine lookup table. No floats on chain — a float cannot be relied on to give the same answer twice |
+
+### Backend
+
+| | Why this one |
+|---|---|
+| **Node 22 · Express 5 · TypeScript** | `strict` everywhere, and the build fails on an error rather than warning |
+| **Zod** | Every route body is parsed, not cast |
+| **Server-side sessions** | Not JWTs. A suspended officer's session dies the instant it is revoked; a signed token cannot be withdrawn |
+| **bcrypt, 12 rounds** | Passwords. Invited ones are single-use |
+| **express-rate-limit** | Per-route budgets, keyed on the session rather than the IP where one exists |
+| **Nodemailer + HTTPS providers** | SMTP locally; Brevo or Resend over port 443 where a host blocks SMTP |
+| **PDFKit** | Court documents in Times, no headless browser on the critical path |
+
+### Data
+
+| | Why this one |
+|---|---|
+| **PostgreSQL via Supabase** | Row level security on **every** table, default-deny |
+| **`SECURITY DEFINER` functions** | The four routes to an Aadhaar token. The table holding them is unreachable over the API |
+| **Audit in two layers** | Triggers record row changes; `action_log` records attempts, including refusals that left no row |
+| **IPFS via Pinata** | Ciphertext only. The digest is computed before encryption, so the store is never trusted |
+
+### Intelligence
+
+| | Model | Honest about |
+|---|---|---|
+| **Evidence screening** | Isolation Forest + an explainable rule layer | Rules always flag; the forest only adds unexplained outliers |
+| **Bail risk** | RandomForest, percentile-cut bands | Decision support, never a finding |
+| **Case delay** | GradientBoosting with a residual-derived interval | Trained on declared distributions, written out in full |
+| **Statute reference** | All **358 sections** of the Bharatiya Nyaya Sanhita, 2023 | Severity is a **lower bound**; the source omits some punishment sub-sections |
+
+### Frontend
+
+| | Why this one |
+|---|---|
+| **React 19 · Vite 8** | Seven role portals from one bundle, ~70 KB gzipped |
+| **Tailwind 4** | Every colour a CSS variable, so light and dark are one token swap |
+| **WebCrypto** | `SHA-256` in the browser, before upload. The whole trust model starts here |
+| **React Native (Expo)** | Field capture and bail check-in. `expo-crypto` hashes on device |
+
+---
+
+## ⚖️ What problem this actually solves
 
 Three places in a criminal matter where the record is only as good as somebody's word:
 
@@ -20,7 +177,7 @@ Three places in a criminal matter where the record is only as good as somebody's
 
 ---
 
-## The three modules
+## 🏛️ The three modules
 
 **SaakshyaSetu** (`EvidenceChain.sol`) — evidence registration, chain of custody, tamper rejection, independent defence verification.
 
@@ -30,7 +187,7 @@ Three places in a criminal matter where the record is only as good as somebody's
 
 ---
 
-## Repository layout
+## 📁 Repository layout
 
 Six deployable pieces and two folders that are not code. Each piece runs on its
 own and says so when a neighbour is missing, which is why you can start the API
@@ -102,7 +259,7 @@ headers. The API is a **separate** deployment from `backend/` — see
 
 ---
 
-## The `.env` files, and why there are five
+## 🔑 The `.env` files, and why there are five
 
 One per deployable piece, because each one runs as its own process and they do
 not share a filesystem in production. Splitting them is not tidiness: it is what
@@ -131,7 +288,7 @@ Full list of what goes in each, where to get it, and what breaks without it:
 
 ---
 
-## Running it
+## 🚀 Running it locally
 
 ### 0 · What you need
 
@@ -179,6 +336,12 @@ It reports Supabase, SMTP and the chain separately, and names the fix for
 whatever is wrong rather than leaving you to infer it.
 
 ### 3 · Contracts
+
+> **Already deployed to Sepolia.** The addresses are in the table at the top and in
+> `contracts/deployed/sepolia.json`. You only need the steps below to run a local
+> chain, or to deploy a fresh set of your own — and note that redeploying orphans
+> every anchor already written, because the artefact carries the deployment block
+> the indexer starts from.
 
 ```bash
 npm run contracts:test          # 53 tests, all should pass
@@ -279,7 +442,7 @@ An Android emulator reaches your laptop at `10.0.2.2`, not `localhost`. A physic
 
 ---
 
-## The nine-step walkthrough
+## 🎬 The nine-step walkthrough
 
 Drive it yourself from the portals; there is no scripted cast to stand in for
 real accounts. Invite one account per role from `/admin`, assign them all to one
@@ -299,7 +462,7 @@ Steps 3 and 9 are the ones worth watching. Step 3 shows that a rejected tamper a
 
 ---
 
-## The handbook
+## 📖 The handbook
 
 There is a full walkthrough built into the app at **`/handbook`**, public and readable without an account. It covers:
 
@@ -314,7 +477,7 @@ It is linked from the landing page, the sign-in screen and every portal header. 
 
 ---
 
-## Two one-time codes, and only one of them is simulated
+## 🔐 Two one-time codes, and only one of them is simulated
 
 This distinction matters more than anything else in the honesty of the project.
 
@@ -329,12 +492,12 @@ This distinction matters more than anything else in the honesty of the project.
 
 ---
 
-## What is verified, and how
+## ✅ What is verified, and how
 
 | Layer | Check | How to run it |
 |---|---|---|
 | Contracts | 53 unit tests: tamper rejection, unauthorised transfer, expired summons, missed check-in, geo-fence breach | `npm run contracts:test` |
-| Backend ↔ contracts | 24 integration checks against a live chain, no database needed | `npm run chain:check` |
+| Backend ↔ contracts | 24 integration checks — **run against live Sepolia**, not a mock: a refused tamper, a re-acknowledgement rejected, a 5.5 km geo-fence breach the contract found unprompted | `npm run chain:check` |
 | Sign-in and invitations | 21 assertions over real HTTP: two-step sign-in, single-use invitation, the gate that refuses every other route, credential rotation, the last-admin guard | `cd backend && npm run auth:check -- <admin-email> <password> <you+check@your-mail>` |
 | Every feature, end to end | 51 assertions: it invites one account per role, registers an FIR, captures evidence, refuses a tampered file, moves custody, verifies from the defence side, issues and acknowledges a summons, grants bail, and breaches a geo-fence — then cleans up | `cd backend && npm run flow:check -- <admin-email> <password>` |
 | Types | Strict TypeScript across backend and frontend | `npm run typecheck` |
@@ -345,7 +508,7 @@ This distinction matters more than anything else in the honesty of the project.
 
 ---
 
-## Honest limitations
+## ⚠️ Honest limitations
 
 Read these before the viva; they are the questions an examiner will ask.
 
@@ -363,7 +526,7 @@ Read these before the viva; they are the questions an examiner will ask.
 
 ---
 
-## Where the reasoning is written down
+## 📚 Where the reasoning is written down
 
 - **[`docs/`](docs/)** — all five guides, with an index that says which one you want
 - **`docs/api-keys.md`** — every credential, where to get it, what breaks without it
@@ -377,6 +540,6 @@ Read these before the viva; they are the questions an examiner will ask.
 
 ---
 
-## Licence
+## 📄 Licence
 
 MIT. See the limitations above before deploying any of this near a real proceeding.
