@@ -88,6 +88,10 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
+      # Leave at 4. smtp.gmail.com has an AAAA record and this container has no
+      # IPv6 route, so IPv6 fails as ENETUNREACH before Gmail is reached.
+      - key: SMTP_IP_FAMILY
+        value: "4"
       - key: LOGIN_OTP_ENABLED
         value: "true"
       - key: EMAIL_NOTIFICATIONS_ENABLED

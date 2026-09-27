@@ -98,18 +98,41 @@ function build(): Transporter | null {
   if (!capabilities.smtp) return null;
   if (transporter) return transporter;
 
-  transporter = nodemailer.createTransport({
+  const options = {
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     // Port 465 is implicit TLS. 587 starts plaintext and upgrades with
     // STARTTLS, which nodemailer does automatically when secure is false.
     secure: env.SMTP_PORT === 465,
     auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD },
+
+    /**
+     * IPv4, deliberately.
+     *
+     * Node 17 changed DNS resolution to return addresses in the order the resolver
+     * gave them rather than IPv4 first, and smtp.gmail.com answers with an AAAA
+     * record. Most container platforms — Render, Fly, a good deal of Kubernetes —
+     * give a container no IPv6 route at all, so the connection fails with
+     * ENETUNREACH against an address like 2607:f8b0:400e:c17::6d before Gmail is
+     * ever reached. It reads exactly like a blocked SMTP port or a wrong App
+     * Password, and is neither.
+     *
+     * Pinned rather than probed, because SMTP over IPv4 works everywhere this
+     * runs. SMTP_IP_FAMILY=6 exists for a network that is genuinely IPv6-only.
+     *
+     * Cast because nodemailer's published types omit `family` while its SMTP
+     * transport passes it straight to net.connect, which does honour it. The cast
+     * is narrow and the reason is here rather than in a commit message.
+     */
+    family: env.SMTP_IP_FAMILY,
+
     // A hung SMTP handshake must not hold an HTTP request open indefinitely.
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 20_000,
-  });
+  } as unknown as Parameters<typeof nodemailer.createTransport>[0];
+
+  transporter = nodemailer.createTransport(options);
 
   return transporter;
 }
@@ -168,6 +191,16 @@ function smtpHint(message: string, code?: string): string | undefined {
       "Authentication was refused. For Gmail, SMTP_PASSWORD must be the 16-character App Password " +
       "with the spaces removed — a hosted environment variable pasted straight from Google keeps " +
       "them, and Gmail rejects it. 2-Step Verification must also be on."
+    );
+  }
+  if (code === "ENETUNREACH" || /ENETUNREACH/i.test(message)) {
+    const ipv6 = /[0-9a-f]{0,4}:[0-9a-f]{0,4}:[0-9a-f:]+/i.test(message);
+    return (
+      "The network had no route to the mail server" +
+      (ipv6 ? " at an IPv6 address" : "") +
+      ". This is almost always a host with no IPv6 route resolving smtp.gmail.com to its AAAA " +
+      "record. SMTP_IP_FAMILY defaults to 4 to prevent it; if you have overridden it to 6, set it " +
+      "back."
     );
   }
   if (code === "ETIMEDOUT" || code === "ESOCKET" || /timeout|timed out/i.test(message)) {

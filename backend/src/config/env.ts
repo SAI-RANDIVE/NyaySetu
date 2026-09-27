@@ -113,6 +113,10 @@ const schema = z.object({
   // For Gmail this is a 16-character App Password, not the account password.
   SMTP_PASSWORD: optionalString,
   SMTP_FROM: optionalString,
+  // 4 unless the host is genuinely IPv6-only. See the note in lib/mailer.ts:
+  // smtp.gmail.com has an AAAA record and most containers have no IPv6 route,
+  // which fails as ENETUNREACH and looks like a credentials problem.
+  SMTP_IP_FAMILY: z.coerce.number().int().refine((v) => v === 4 || v === 6).default(4),
 
   // Two-factor sign-in by email. Off unless SMTP is configured, because
   // switching it on without a working mailbox would lock everybody out.
