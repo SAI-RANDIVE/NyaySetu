@@ -218,11 +218,28 @@ async function main(): Promise<void> {
   });
   check("the password it replaced stops working", afterRotation.status === 401);
 
-  // ------------------------------------- 6. no demo credentials anywhere
+  // ---------------------------------------------- 6. the OTP limiter holds
+  //
+  // /login/resend with no pending sign-in is the right endpoint to prove this on:
+  // it refuses every call anyway, so nothing is consumed, no account is locked and
+  // no challenge is invalidated. Only the limiter's counter moves.
+  const limiterJar = newJar();
+  const codes: number[] = [];
+  for (let attempt = 0; attempt < 7; attempt++) {
+    const result = await call(limiterJar, "POST", "/api/auth/login/resend");
+    codes.push(result.status);
+  }
+  check(
+    "the OTP limiter refuses a burst",
+    codes.includes(429),
+    `statuses: ${codes.join(", ")}`
+  );
+
+  // ------------------------------------- 7. no demo credentials anywhere
   const config = await call(newJar(), "GET", "/api/auth/config");
   check("the sign-in screen is offered no demo accounts", !("showDemoAccounts" in config.json));
 
-  // ----------------------------------------- 7. the last admin is protected
+  // ----------------------------------------- 8. the last admin is protected
   const adminRow = (await db.from("users").select("id").ilike("email", adminEmail).single()).data as any;
   const selfOff = await call(admin, "PATCH", `/api/admin/users/${adminRow.id}`, { isActive: false });
   check("an admin cannot deactivate itself", selfOff.status === 409, selfOff.json?.error?.message);

@@ -17,6 +17,7 @@ import { useQuery } from "../lib/useApi";
 import { Button, Field, Input } from "../components/ui";
 import { HeroBackdrop } from "../components/landing";
 import { LogoMark } from "../components/Logo";
+import { ApiUnreachable } from "../components/ApiUnreachable";
 
 /**
  * Sign in, in one or two steps depending on how the deployment is configured.
@@ -50,7 +51,7 @@ interface Step1Response {
 }
 
 export default function Login() {
-  const { user, loading: sessionLoading, refresh } = useAuth();
+  const { user, loading: sessionLoading, refresh, unreachable } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -80,6 +81,12 @@ export default function Login() {
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
   }, [step, challenge?.expiresAt]);
+
+  // Same reasoning as the router's: a sign-in form that cannot reach its API is
+  // worse than useless, because it invites the conclusion that the password is wrong.
+  if (!sessionLoading && unreachable) {
+    return <ApiUnreachable message={unreachable} onRetry={() => void refresh()} />;
+  }
 
   if (!sessionLoading && user) {
     if (user.mustChangePassword) return <Navigate to="/first-run" replace />;

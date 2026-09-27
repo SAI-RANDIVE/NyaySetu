@@ -7,6 +7,13 @@ interface AuthValue {
   /** True until the first /me call settles, so routes do not redirect early. */
   loading: boolean;
   error: string | null;
+  /**
+   * Set when the API could not be reached at all, as opposed to reaching it and
+   * being told there is no session. The two are indistinguishable to a user and
+   * have nothing in common as causes, so the router treats them differently:
+   * no session means sign in, unreachable means say so.
+   */
+  unreachable: string | null;
   signIn: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -18,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unreachable, setUnreachable] = useState<string | null>(null);
   const { adopt } = useTheme();
 
   const load = useCallback(async () => {
@@ -28,14 +36,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // user between the station terminal and their phone.
       if (result.user.theme) adopt(result.user.theme);
       setError(null);
+      setUnreachable(null);
     } catch (caught) {
       // A 401 here is the normal "not signed in" case, not a failure.
-      if (!(caught instanceof ApiError && caught.isAuth)) {
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : "Could not reach the NyaySetu API. Is the backend running?"
-        );
+      if (caught instanceof ApiError && caught.isAuth) {
+        setError(null);
+        setUnreachable(null);
+      } else if (caught instanceof ApiError && caught.isUnreachable) {
+        setUnreachable(caught.message);
+        setError(caught.message);
+      } else {
+        setError(caught instanceof Error ? caught.message : "Could not load your session.");
+        setUnreachable(null);
       }
       setUser(null);
     } finally {
@@ -71,8 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, error, signIn, signOut, refresh: load }),
-    [user, loading, error, signIn, signOut, load]
+    () => ({ user, loading, error, unreachable, signIn, signOut, refresh: load }),
+    [user, loading, error, unreachable, signIn, signOut, load]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

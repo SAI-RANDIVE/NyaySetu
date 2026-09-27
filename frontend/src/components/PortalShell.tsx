@@ -12,6 +12,7 @@ import {
   Moon,
   ScrollText,
   Scale,
+  ShieldAlert,
   ShieldCheck,
   Sun,
   Users,
@@ -69,6 +70,41 @@ const NAV: Record<Role, NavItem[]> = {
     { to: "/admin/cases", label: "Cases", icon: ClipboardList },
   ],
 };
+
+/**
+ * Shown to anyone whose record has no Aadhaar token yet.
+ *
+ * This exists because of a failure that was correct and unhelpful. Every anchored
+ * action writes the acting person's Aadhaar token as their on-chain identity —
+ * registerEvidence the collecting officer's, transferCustody the receiving party's,
+ * acknowledgeSummons the recipient's. Without one the API refuses, with an
+ * accurate message, at the end of a form somebody has just filled in.
+ *
+ * Saying it up front costs one strip of colour and saves that. Reading works
+ * meanwhile, which is why this is a notice and not a lock.
+ */
+function IncompleteRecordNotice() {
+  const { user } = useAuth();
+  if (!user || user.hasAadhaarToken !== false) return null;
+
+  return (
+    <div
+      role="status"
+      className="mb-6 flex items-start gap-3 rounded-card border border-warning-soft bg-warning-soft px-4 py-3.5"
+    >
+      <ShieldAlert size={17} className="mt-0.5 shrink-0 text-warning" />
+      <div className="min-w-0">
+        <p className="font-ui text-sm font-semibold text-text">Your record is incomplete</p>
+        <p className="mt-1 font-ui text-xs leading-relaxed text-muted">
+          No Aadhaar number is on file for this account. You can read everything you have access to,
+          but anything that writes to the blockchain will be refused: the token derived from that
+          number is the identity the contracts record against your actions. Ask the court registry to
+          add it — they can do it from the participants screen without you being present.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -240,7 +276,10 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-7 sm:px-6 sm:py-9">{children}</main>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-7 sm:px-6 sm:py-9">
+        <IncompleteRecordNotice />
+        {children}
+      </main>
 
       <footer className="border-t border-border px-4 py-5 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">

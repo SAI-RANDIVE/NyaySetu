@@ -305,6 +305,8 @@ export function AdminUsers() {
   const users = useQuery<{ users: UserRow[] }>("/api/admin/users?limit=200");
   const [createOpen, setCreateOpen] = useState(false);
   const [inviting, setInviting] = useState<UserRow | null>(null);
+  const [aadhaarFor, setAadhaarFor] = useState<UserRow | null>(null);
+  const [removing, setRemoving] = useState<UserRow | null>(null);
 
   const toggle = useMutation(async (args: { id: string; isActive: boolean }) =>
     api.patch(`/api/admin/users/${args.id}`, { isActive: args.isActive })
@@ -369,7 +371,14 @@ export function AdminUsers() {
                         {row.aadhaarOnFile ? (
                           <span className="font-mono text-2xs text-muted">•••• {row.aadhaarLast4}</span>
                         ) : (
-                          <StatusChip tone="warning" label="Missing" />
+                          <button
+                            type="button"
+                            onClick={() => setAadhaarFor(row)}
+                            className="rounded-full border border-warning-soft bg-warning-soft px-2.5 py-1 font-ui text-2xs font-semibold text-warning transition hover:border-warning"
+                            title="Without this, every action that writes to the chain is refused"
+                          >
+                            Missing — add
+                          </button>
                         )}
                       </td>
                       <td className="px-5 py-3">
@@ -399,6 +408,14 @@ export function AdminUsers() {
                             onClick={() => setInviting(row)}
                           >
                             {row.must_change_password ? "Resend" : "Reset"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon={<Trash2 size={12} />}
+                            onClick={() => setRemoving(row)}
+                          >
+                            Remove
                           </Button>
                           <Button
                             size="sm"
@@ -443,7 +460,197 @@ export function AdminUsers() {
         onClose={() => setInviting(null)}
         onSent={() => users.refetch()}
       />
+
+      <AadhaarModal
+        target={aadhaarFor}
+        onClose={() => setAadhaarFor(null)}
+        onSaved={() => users.refetch()}
+      />
+
+      <RemoveUserModal
+        target={removing}
+        onClose={() => setRemoving(null)}
+        onDone={() => users.refetch()}
+      />
     </>
+  );
+}
+
+/**
+ * Deleting an account, and the more common case of being told not to.
+ *
+ * Most accounts cannot be deleted, and that is the feature rather than the
+ * limitation: once somebody has collected an exhibit or issued a summons, the
+ * record names them and the database refuses to erase them. So this dialog puts
+ * the alternative in front of the administrator before they click, and when the
+ * refusal comes it shows the server's own explanation rather than "delete failed".
+ */
+function RemoveUserModal({
+  target,
+  onClose,
+  onDone,
+}: {
+  target: UserRow | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const toast = useToast();
+  const remove = useMutation(async (id: string) => api.del<{ deleted: string }>(`/api/admin/users/${id}`));
+
+  const close = () => {
+    remove.reset();
+    onClose();
+  };
+
+  return (
+    <Modal
+      open={Boolean(target)}
+      onClose={close}
+      title="Remove this account"
+      description="Only possible while nothing in the case record names them. This cannot be undone."
+      width="max-w-md"
+      footer={
+        <>
+          <Button variant="ghost" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            loading={remove.pending}
+            icon={<Trash2 size={13} />}
+            onClick={async () => {
+              if (!target) return;
+              const outcome = await remove.run(target.id);
+              if (outcome) {
+                toast.success("Account removed", `${target.full_name} no longer exists.`);
+                onDone();
+                close();
+              } else {
+                // The refusal is the interesting case, so the dialog stays open
+                // with the reason on it rather than closing on an error toast.
+                onDone();
+              }
+            }}
+          >
+            Remove permanently
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="rounded-card border border-border bg-surface-raised px-4 py-3">
+          <p className="font-ui text-sm font-medium text-text">{target?.full_name}</p>
+          <p className="font-mono text-2xs text-muted">{target?.email}</p>
+          <p className="mt-1 font-ui text-2xs text-muted">
+            {target ? ROLE_LABEL[target.role] : ""}
+            {target?.last_login_at ? " · has signed in" : " · never signed in"}
+          </p>
+        </div>
+
+        <p className="font-ui text-xs leading-relaxed text-muted">
+          If this person has collected evidence, taken custody, issued a summons or granted bail, the
+          database will refuse — they are part of that record's provenance. Disabling instead keeps
+          the history and stops them signing in, and can be reversed.
+        </p>
+
+        {remove.error && (
+          <p
+            role="alert"
+            className="rounded-card border border-warning-soft bg-warning-soft px-3.5 py-3 font-ui text-xs leading-relaxed text-text"
+          >
+            {remove.error.message}
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Completes a record after the fact.
+ *
+ * The number is sent once and never stored: the server validates its check digit,
+ * HMACs it with a server-side pepper and keeps the token and the last four digits.
+ * There is no screen anywhere that can show it back, which is the point.
+ */
+function AadhaarModal({
+  target,
+  onClose,
+  onSaved,
+}: {
+  target: UserRow | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const [value, setValue] = useState("");
+  const save = useMutation(async (id: string) =>
+    api.put<{ aadhaarLast4: string }>(`/api/admin/users/${id}/aadhaar`, {
+      aadhaarNumber: value.replace(/[^0-9]/g, ""),
+    })
+  );
+
+  const digits = value.replace(/[^0-9]/g, "");
+
+  const close = () => {
+    setValue("");
+    onClose();
+  };
+
+  return (
+    <Modal
+      open={Boolean(target)}
+      onClose={close}
+      title="Complete this record"
+      description="The number is converted to a one-way token and discarded. Only the token and the last four digits are kept, and nothing can show the number again."
+      width="max-w-md"
+      footer={
+        <>
+          <Button variant="ghost" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            disabled={digits.length !== 12}
+            loading={save.pending}
+            onClick={async () => {
+              if (!target) return;
+              const outcome = await save.run(target.id);
+              if (outcome) {
+                toast.success(
+                  "Record completed",
+                  `${target.full_name} can now act on the chain.`
+                );
+                onSaved();
+                close();
+              }
+            }}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <p className="font-ui text-xs leading-relaxed text-muted">
+          {target?.full_name} · {target ? ROLE_LABEL[target.role] : ""}
+        </p>
+        <Field label="Aadhaar number" required hint="Twelve digits. Its check digit is validated.">
+          <Input
+            inputMode="numeric"
+            maxLength={14}
+            autoFocus
+            value={value}
+            onChange={(event) => setValue(event.target.value.replace(/[^0-9 ]/g, ""))}
+            className="font-mono"
+            placeholder="2233 4455 6676"
+          />
+        </Field>
+        {save.error && (
+          <p role="alert" className="font-ui text-xs text-danger">
+            {save.error.message}
+          </p>
+        )}
+      </div>
+    </Modal>
   );
 }
 
@@ -648,6 +855,9 @@ function CreateUserModal({
   );
 
   const valid = /\S+@\S+\.\S+/.test(form.email) && form.fullName.trim().length >= 3;
+  // Twelve digits or nothing. A half-typed number is a typo, not a decision.
+  const aadhaarDigits = form.aadhaarNumber.replace(/[^0-9]/g, "");
+  const aadhaarUsable = aadhaarDigits.length === 0 || aadhaarDigits.length === 12;
 
   const close = () => {
     setResult(null);
@@ -683,7 +893,7 @@ function CreateUserModal({
               Cancel
             </Button>
             <Button
-              disabled={!valid}
+              disabled={!valid || !aadhaarUsable}
               loading={create.pending}
               icon={<Send size={13} />}
               onClick={async () => {
@@ -747,10 +957,24 @@ function CreateUserModal({
           </Field>
         </div>
 
+        <div className="rounded-card border border-border bg-surface-raised px-4 py-3">
+          <p className="font-ui text-xs font-semibold text-text">
+            Why the Aadhaar number is not optional
+          </p>
+          <p className="mt-1 font-ui text-2xs leading-relaxed text-muted">
+            The token derived from it is the identity the contracts record against every action this
+            person takes — the officer who collected an exhibit, the lab that received it, the judge
+            who issued a summons. Without it they can sign in and read, and everything that writes to
+            the chain is refused. You can add it later from the participants screen, but they cannot
+            do their job until you do.
+          </p>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label="Aadhaar number"
-            hint="Needed for OTP flows. Validated against its Verhoeff check digit."
+            required
+            hint="Validated against its Verhoeff check digit, converted to a one-way token, and discarded."
           >
             <Input
               inputMode="numeric"
@@ -765,6 +989,19 @@ function CreateUserModal({
             <Input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
           </Field>
         </div>
+
+        {!aadhaarUsable && (
+          <p role="alert" className="font-ui text-xs text-danger">
+            An Aadhaar number is twelve digits. Enter all of it, or leave the field empty.
+          </p>
+        )}
+
+        {aadhaarDigits.length === 0 && (
+          <p className="font-ui text-xs leading-relaxed text-warning">
+            Inviting without an Aadhaar number. They will be able to sign in and read, and every
+            action that writes to the chain will be refused until you add one.
+          </p>
+        )}
 
         {create.error && (
           <p role="alert" className="font-ui text-xs text-danger">

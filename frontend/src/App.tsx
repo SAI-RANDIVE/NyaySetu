@@ -3,6 +3,7 @@ import { useAuth } from "./context/AuthContext";
 import { ROLE_HOME } from "./lib/format";
 import type { Role } from "./lib/api";
 import { PortalShell } from "./components/PortalShell";
+import { ApiUnreachable } from "./components/ApiUnreachable";
 import { LinkButton, Spinner } from "./components/ui";
 import { LogoMark } from "./components/Logo";
 
@@ -42,10 +43,17 @@ function FullPageSpinner() {
 
 /** Requires a session, and optionally a specific set of roles. */
 function Guard({ roles, children }: { roles?: Role[]; children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, unreachable, refresh } = useAuth();
   const location = useLocation();
 
   if (loading) return <FullPageSpinner />;
+
+  // Before deciding there is no session: there may be no API. Redirecting to
+  // sign-in here would send somebody to a form that cannot work either, and the
+  // reason would only be visible in a browser console.
+  if (unreachable) {
+    return <ApiUnreachable message={unreachable} onRetry={() => void refresh()} />;
+  }
 
   if (!user) {
     // Remember where they were headed so sign-in can return them there.

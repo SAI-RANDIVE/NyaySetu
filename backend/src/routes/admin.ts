@@ -12,7 +12,7 @@ import { invitationsReady } from "../lib/schema";
 import { sendInvitation } from "../lib/mailer";
 import { env } from "../config/env";
 import { chain } from "../lib/chain";
-import { conflict, notFound } from "../lib/errors";
+import { conflict, fromSupabase, notFound } from "../lib/errors";
 import { asyncRoute } from "../middleware/error";
 import { validate, uuid, safeText, aadhaarNumber, pagination } from "../middleware/validate";
 import { requireAuth, requireRole } from "../middleware/auth";
@@ -395,6 +395,72 @@ router.put(
 
     await recordAction(req, { action: "admin.set_aadhaar", subject: req.params.id });
     res.json({ ok: true, aadhaarLast4: aadhaarLast4(req.body.aadhaarNumber) });
+  })
+);
+
+/**
+ * Remove an account entirely.
+ *
+ * Only for a record nothing evidentiary depends on: an address typed wrong, a
+ * duplicate, somebody invited who never should have been. The moment an account
+ * has collected an exhibit, taken custody, issued a summons or granted bail, the
+ * database refuses, and it is right to — that officer is part of the exhibit's
+ * provenance. This route does not try to talk it round; it reports the refusal and
+ * says what to do instead.
+ *
+ * Deactivating is the usual answer and is not the same thing. A deactivated
+ * account cannot sign in, keeps its history, and can be brought back. A deleted
+ * one is gone.
+ */
+router.delete(
+  "/users/:id",
+  validate(z.object({ id: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    if (req.params.id === req.user!.id) {
+      throw conflict("You cannot delete the account you are signed in with.");
+    }
+
+    const target = unwrapMaybe(
+      await db.from("users").select("id, email, full_name, role").eq("id", req.params.id).maybeSingle()
+    ) as { id: string; email: string; full_name: string; role: string } | null;
+    if (!target) throw notFound("User");
+
+    // End its sessions first: if the delete succeeds they are gone anyway, and if
+    // it fails the account is one an administrator has just tried to remove, so
+    // signing it out is the safer state to leave behind either way.
+    await db
+      .from("sessions")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("user_id", target.id)
+      .is("revoked_at", null);
+
+    const { error } = await db.from("users").delete().eq("id", target.id);
+
+    if (error) {
+      // 23503 is a foreign key violation: something in the record names them.
+      if (error.code === "23503") {
+        await recordAction(req, {
+          action: "admin.delete_user",
+          subject: target.id,
+          outcome: "refused",
+          detail: { reason: "referenced by the record" },
+        });
+        throw conflict(
+          `${target.full_name} is named in the case record — as a collecting officer, a ` +
+            "custodian, an issuing judge or similar — so the account cannot be deleted. Its " +
+            "sessions have been revoked; deactivate it instead to keep the history intact."
+        );
+      }
+      throw fromSupabase(error);
+    }
+
+    await recordAction(req, {
+      action: "admin.delete_user",
+      subject: target.id,
+      detail: { role: target.role },
+    });
+
+    res.json({ ok: true, deleted: target.email });
   })
 );
 

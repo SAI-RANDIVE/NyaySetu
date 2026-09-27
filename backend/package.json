@@ -15,6 +15,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "bootstrap": "tsx src/scripts/bootstrapAdmin.ts",
     "auth:check": "tsx src/scripts/authCheck.ts",
+    "flow:check": "tsx src/scripts/flowCheck.ts",
     "sweep": "tsx src/scripts/sweep.ts",
     "chain:check": "tsx src/scripts/chainCheck.ts",
     "check": "tsx src/scripts/connectionCheck.ts"

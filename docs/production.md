@@ -140,7 +140,7 @@ Worth knowing so you do not spend time on it:
 
 **Database**
 
-- [ ] All six migrations applied, in order.
+- [ ] All seven migrations applied, in order.
 - [ ] Point-in-time recovery on. The chain proves a record was not altered; it
       does not bring back a dropped table.
 - [ ] Confirm RLS really is on: `select tablename, rowsecurity from pg_tables
@@ -181,7 +181,8 @@ decides whether this is usable:
 |---|---|---|
 | Contracts | 53 unit tests: tamper rejection, unauthorised transfer, expired summons, missed check-in, geo-fence breach | `npm run contracts:test` |
 | Backend ↔ contracts | 24 integration checks against a live chain | `npm run chain:check` |
-| Sign-in and invitations | 21 assertions over real HTTP | `cd backend && npm run auth:check -- <admin-email> <password> <you+check@your-mail>` |
+| Sign-in and invitations | 22 assertions over real HTTP | `cd backend && npm run auth:check -- <admin-email> <password> <you+check@your-mail>` |
+| Every feature, end to end | 51 assertions covering all three modules, driven through the invite flow | `cd backend && npm run flow:check -- <admin-email> <password>` |
 | Types | Strict TypeScript, backend and frontend | `npm run typecheck` |
 | Dependencies | 0 vulnerabilities, Node and Python | `npm run audit && npm run audit:python` |
 | Models | Metrics at train time, written to `models/metadata.json` | `npm run ai:train` |

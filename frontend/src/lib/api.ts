@@ -12,6 +12,18 @@
 const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
 const CSRF_COOKIE = "nyaysetu_csrf";
 
+/**
+ * Where requests are actually going, for the diagnostics below.
+ *
+ * Blank BASE is correct in development, where Vite proxies /api to the API, and
+ * is almost always a mistake in a deployed build: the request then goes to the
+ * static host, which answers a rewrite rule with index.html, and the app gets
+ * HTML where it expected JSON.
+ */
+export const apiOrigin = BASE || window.location.origin;
+export const apiBaseConfigured = BASE !== "";
+export const isDeployedBuild = import.meta.env.PROD;
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -34,6 +46,16 @@ export class ApiError extends Error {
   /** True when the blockchain, IPFS or the model service is not configured. */
   get isUnavailable() {
     return this.status === 503;
+  }
+
+  /**
+   * True when the API was not reachable at all, as opposed to reaching it and
+   * being refused. These are the two cases that look identical to a user and
+   * have completely different causes, so they are separated here rather than in
+   * every component.
+   */
+  get isUnreachable() {
+    return this.status === 0 || this.code === "NETWORK" || this.code === "BAD_RESPONSE";
   }
 }
 
@@ -66,13 +88,23 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
     headers["content-type"] = "application/json";
   }
 
-  const response = await fetch(`${BASE}${path}`, {
-    method,
-    headers,
-    credentials: "include",
-    signal: options.signal,
-    body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${BASE}${path}`, {
+      method,
+      headers,
+      credentials: "include",
+      signal: options.signal,
+      body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
+    });
+  } catch (caught) {
+    // fetch rejects for a blocked CORS response, a DNS failure, a refused
+    // connection and an offline browser, and gives the same opaque TypeError for
+    // all of them by design. So the message says what to check rather than
+    // pretending to know which one it was.
+    if (caught instanceof DOMException && caught.name === "AbortError") throw caught;
+    throw new ApiError(0, "NETWORK", networkFailureMessage());
+  }
 
   if (options.raw) {
     if (!response.ok) throw await toError(response);
@@ -86,7 +118,17 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
   try {
     payload = text ? JSON.parse(text) : null;
   } catch {
-    payload = { error: { code: "BAD_RESPONSE", message: text.slice(0, 200) } };
+    // HTML where JSON was expected has one overwhelmingly likely cause: the
+    // request went to the static host instead of the API, and a catch-all rewrite
+    // answered it with index.html. Saying so is worth more than the first 200
+    // characters of a document.
+    const looksLikeHtml = /^\s*<(!doctype|html)/i.test(text);
+    payload = {
+      error: {
+        code: "BAD_RESPONSE",
+        message: looksLikeHtml ? htmlInsteadOfJsonMessage() : text.slice(0, 200),
+      },
+    };
   }
 
   if (!response.ok) {
@@ -100,6 +142,31 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
   }
 
   return payload as T;
+}
+
+/** Why a request never reached the API, in the order worth checking. */
+function networkFailureMessage(): string {
+  if (isDeployedBuild && !apiBaseConfigured) {
+    return (
+      "This build has no API address, so requests are going to the site itself. " +
+      "Set VITE_API_BASE to the API's URL in the hosting dashboard and redeploy."
+    );
+  }
+  if (isDeployedBuild) {
+    return (
+      `Could not reach the NyaySetu API at ${apiOrigin}. Either it is asleep or down, ` +
+      "or its CORS_ORIGINS does not list this site's address — a cross-origin " +
+      "request is blocked before it reaches a route, which looks identical to the " +
+      "API being offline."
+    );
+  }
+  return "Could not reach the NyaySetu API. Check that the backend is running on port 4000.";
+}
+
+function htmlInsteadOfJsonMessage(): string {
+  return apiBaseConfigured
+    ? `${apiOrigin} answered with a web page instead of data. That address is serving a site, not the NyaySetu API.`
+    : "The API address is not set, so requests are hitting this site and getting its HTML back. Set VITE_API_BASE to the API's URL and redeploy.";
 }
 
 async function toError(response: Response): Promise<ApiError> {

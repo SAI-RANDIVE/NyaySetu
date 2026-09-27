@@ -199,7 +199,8 @@ readable by anyone who opens the site. The Supabase key belongs to the API only.
 ```bash
 # 1. Migrations. Supabase blocks DDL over the API, so paste each file into
 #    the SQL editor at supabase.com/dashboard → SQL Editor, in order:
-#    001_schema, 002_rls, 003_audit, 004_otp_channels, 005_pii_access, 006_invitations
+#    001_schema, 002_rls, 003_audit, 004_otp_channels, 005_pii_access,
+#    006_invitations, 007_account_removal
 
 # 2. The one account the system cannot create for itself.
 #    Run it against the hosted database, from your machine, with

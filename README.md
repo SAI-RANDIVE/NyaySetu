@@ -75,7 +75,8 @@ nyaysetu/
 │
 ├── database/           ← THE SCHEMA. Not a service; SQL you run once.
 │   ├── migrations/       001 schema · 002 RLS · 003 audit · 004 OTP channels
-│   │                     005 PII access · 006 invitations. Run in order, in the
+│   │                     005 PII access · 006 invitations · 007 account removal
+│   │                     Run in order, in the
 │   │                     Supabase SQL editor — Supabase blocks DDL over the API.
 │   └── seed/             reference.sql: role labels only, no accounts
 │
@@ -335,6 +336,7 @@ This distinction matters more than anything else in the honesty of the project.
 | Contracts | 53 unit tests: tamper rejection, unauthorised transfer, expired summons, missed check-in, geo-fence breach | `npm run contracts:test` |
 | Backend ↔ contracts | 24 integration checks against a live chain, no database needed | `npm run chain:check` |
 | Sign-in and invitations | 21 assertions over real HTTP: two-step sign-in, single-use invitation, the gate that refuses every other route, credential rotation, the last-admin guard | `cd backend && npm run auth:check -- <admin-email> <password> <you+check@your-mail>` |
+| Every feature, end to end | 51 assertions: it invites one account per role, registers an FIR, captures evidence, refuses a tampered file, moves custody, verifies from the defence side, issues and acknowledges a summons, grants bail, and breaches a geo-fence — then cleans up | `cd backend && npm run flow:check -- <admin-email> <password>` |
 | Types | Strict TypeScript across backend and frontend | `npm run typecheck` |
 | Models | Metrics printed at train time, written to `models/metadata.json` | `npm run ai:train` |
 | Dependencies (shipped) | 0 vulnerabilities across all three Node packages | `npm run audit` |
