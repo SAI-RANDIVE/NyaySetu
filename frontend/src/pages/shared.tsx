@@ -54,6 +54,8 @@ import {
 } from "../components/trust";
 import { FileHashPicker, type HashedFile } from "../components/capture";
 import { CaseReportPanel } from "../components/CaseReport";
+import { CaseProgress } from "../components/CaseProgress";
+import { CasePredictions } from "../components/CasePredictions";
 
 /* ==================================================== CasesPage ========== */
 
@@ -458,6 +460,15 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
                 </Card>
               )}
 
+              <CasePredictions caseId={data.case.id} />
+
+              <CaseProgress
+                caseId={data.case.id}
+                status={data.case.status}
+                access={data.case.access}
+                onChanged={() => state.refetch()}
+              />
+
               <Card title="On-chain case id">
                 <HashBadge hash={data.case.case_id_hash} label="keccak256(FIR number)" full />
                 <p className="mt-2.5 font-ui text-2xs leading-relaxed text-faint">
@@ -524,6 +535,18 @@ export function EvidenceDetailPage() {
   const state = useQuery<CustodyResponse>(evidenceId ? `/api/evidence/${evidenceId}/custody` : null);
   const checks = useQuery<{ checks: any[] }>(
     evidenceId ? `/api/evidence/${evidenceId}/integrity-checks` : null
+  );
+  /**
+   * Every forensic report on this exhibit, not only the latest.
+   *
+   * The digests panel shows one hash, which is the most recent. A laboratory can
+   * file more than one — a preliminary opinion and a final one, or a second
+   * examination on a different question — and each is separately anchored. Showing
+   * only the last makes the earlier ones invisible, which is the opposite of what an
+   * evidentiary record is for.
+   */
+  const reports = useQuery<{ reports: any[] }>(
+    evidenceId ? `/api/evidence/${evidenceId}/forensic-reports` : null
   );
 
   const [verifyOpen, setVerifyOpen] = useState(false);
@@ -781,7 +804,7 @@ export function EvidenceDetailPage() {
                 <div className="space-y-2.5">
                   <HashBadge hash={data.evidence.file_hash} label="Registered file digest" full />
                   {data.evidence.forensic_report_hash && (
-                    <HashBadge hash={data.evidence.forensic_report_hash} label="Forensic report" full />
+                    <HashBadge hash={data.evidence.forensic_report_hash} label="Forensic report (latest)" full />
                   )}
                   {data.evidence.anomaly_flag_hash && (
                     <HashBadge hash={data.evidence.anomaly_flag_hash} label="AI verdict (write-once)" full />
@@ -801,9 +824,40 @@ export function EvidenceDetailPage() {
                 </dl>
               </Card>
 
+              {(reports.data?.reports?.length ?? 0) > 0 && (
+                <Card
+                  title="Forensic reports"
+                  subtitle="Each conclusion is anchored by its own digest. A report altered afterwards would not reproduce it."
+                >
+                  <ul className="space-y-2.5">
+                    {reports.data!.reports.map((report: any) => (
+                      <li key={report.id} className="rounded-card border border-border bg-surface-2 p-3.5">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="font-ui text-2xs uppercase tracking-wider text-faint">
+                            {formatDateTime(report.created_at)}
+                          </span>
+                          <TxLink txHash={report.tx_hash} />
+                        </div>
+                        <p className="mt-1.5 font-ui text-sm leading-relaxed text-text">
+                          {report.conclusion}
+                        </p>
+                        {report.detail && (
+                          <p className="mt-1 whitespace-pre-line font-ui text-xs leading-relaxed text-muted">
+                            {report.detail}
+                          </p>
+                        )}
+                        <div className="mt-2 border-t border-border pt-2">
+                          <HashBadge hash={report.report_hash} label="Report digest" full />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+
               {canReport && (
                 <Card
-                  title="Forensic report"
+                  title="Anchor a forensic report"
                   subtitle="The report hash is anchored write-once. Only the lab can do this, and only while the item is in its custody."
                 >
                   <Button full variant="secondary" icon={<FlaskConical size={14} />} onClick={() => setReportOpen(true)}>

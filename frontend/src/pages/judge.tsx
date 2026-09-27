@@ -589,9 +589,98 @@ export function BailBoard() {
   );
 }
 
+/**
+ * Discharging a bail order.
+ *
+ * A reason is required, not optional. An order that simply stops being active
+ * leaves no answer to "why was the monitoring lifted", and that is precisely the
+ * question asked if the accused later absconds. The reason is recorded in the
+ * action log alongside who closed it.
+ *
+ * Closing does not erase anything: the check-ins, the violations and every anchored
+ * transaction stay readable. It stops the contract expecting further check-ins.
+ */
+function CloseBailModal({
+  open,
+  onClose,
+  caseId,
+  accusedName,
+  onClosed,
+}: {
+  open: boolean;
+  onClose: () => void;
+  caseId: string;
+  accusedName: string;
+  onClosed: () => void;
+}) {
+  const toast = useToast();
+  const [reason, setReason] = useState("");
+  const close = useMutation(async () =>
+    api.post(`/api/bail/case/${caseId}/close`, { reason: reason.trim() })
+  );
+
+  const dismiss = () => {
+    close.reset();
+    setReason("");
+    onClose();
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={dismiss}
+      title="Close the bail order"
+      description="Monitoring stops and no further check-ins are expected. Nothing already recorded is removed."
+      footer={
+        <>
+          <Button variant="ghost" onClick={dismiss}>
+            Cancel
+          </Button>
+          <Button
+            disabled={reason.trim().length < 4}
+            loading={close.pending}
+            onClick={async () => {
+              const outcome = await close.run(undefined as never);
+              if (outcome) {
+                toast.success("Bail order closed", `Monitoring for ${accusedName} has ended.`);
+                onClosed();
+                dismiss();
+              }
+            }}
+          >
+            Close the order
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <p className="font-ui text-sm text-text">{accusedName}</p>
+        <Field
+          label="Reason"
+          required
+          hint="Recorded against the case. This is the answer to 'why was monitoring lifted'."
+        >
+          <Textarea
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Discharged on conclusion of trial; bail bond cancelled."
+          />
+        </Field>
+        {close.error && (
+          <p role="alert" className="font-ui text-xs text-danger">
+            {close.error.message}
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 function BailCard({ order, onChanged }: { order: BailRow; onChanged: () => void }) {
   const toast = useToast();
   const [reportOpen, setReportOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
   const [reason, setReason] = useState("NO_CONTACT_BREACH");
 
   const report = useMutation(async () =>
@@ -643,7 +732,20 @@ function BailCard({ order, onChanged }: { order: BailRow; onChanged: () => void 
         <Button variant="ghost" size="sm" onClick={() => setReportOpen(true)}>
           Report breach
         </Button>
+        {order.active && (
+          <Button variant="ghost" size="sm" onClick={() => setCloseOpen(true)}>
+            Close order
+          </Button>
+        )}
       </div>
+
+      <CloseBailModal
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
+        caseId={order.case_id}
+        accusedName={order.accused_name}
+        onClosed={onChanged}
+      />
 
       <Modal
         open={reportOpen}
