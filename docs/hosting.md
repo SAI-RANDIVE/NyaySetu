@@ -71,8 +71,32 @@ NODE_ENV=production
 ```
 
 `SameSite=none` requires `Secure`, which requires HTTPS — both platforms give you
-that, and `NODE_ENV=production` turns it on. Get `CORS_ORIGINS` wrong and every
-request fails before it reaches a route, which looks like the API being down.
+that, and `NODE_ENV=production` turns it on.
+
+**Get `CORS_ORIGINS` wrong and every request fails before it reaches a route**,
+which in a browser reads as `No 'Access-Control-Allow-Origin' header is present`
+and is indistinguishable from the API being offline. Two things make it settleable:
+
+- `GET /api/health` returns `allowedOrigins`, so you can see what the running
+  process actually loaded rather than what the dashboard says. If your site's
+  origin is not in that array, nothing else you try will work.
+- The API logs a refused origin at error level with both values side by side.
+
+A trailing slash, a capital letter or a space after a comma are all absorbed. The
+scheme and the host are not: `http://` and `https://` are different origins and
+must be listed separately.
+
+For Vercel preview deployments, which get a fresh URL per commit, one entry may
+carry a single wildcard subdomain:
+
+```
+CORS_ORIGINS=https://nyaysetu-eta.vercel.app,https://*.vercel.app
+```
+
+The wildcard matches one label and never a dot, so `https://you.vercel.app.evil.com`
+is still refused. It is opt-in and logged as a warning at boot, because it does
+widen the set of sites that may send credentialed requests to everything on that
+domain — fine for a project, not for real evidence.
 
 > Want one origin and no cross-site cookies at all? Put both behind one domain:
 > point `nyaysetu.example.in` at Vercel and `api.nyaysetu.example.in` at Render,

@@ -38,6 +38,16 @@ router.get(
       status: healthy ? "ok" : "degraded",
       version: "1.0.0",
       environment: env.NODE_ENV,
+      /**
+       * The origins this instance will accept credentialed requests from.
+       *
+       * Published deliberately. It is not a secret — every preflight response
+       * discloses it — and it is the fastest way to settle the question a CORS
+       * failure actually raises, which is not "is the API up" but "did the
+       * environment variable I just set reach the running process". Curl this
+       * and you can see, rather than infer, what it loaded.
+       */
+      allowedOrigins: env.corsOrigins,
       subsystems: {
         database: { configured: true, reachable: database },
         blockchain: {

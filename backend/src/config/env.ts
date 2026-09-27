@@ -186,9 +186,24 @@ if (!parsed.success) {
 
 const raw = parsed.data;
 
-const corsOrigins = raw.CORS_ORIGINS.split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+/**
+ * The origins allowed to send credentialed requests.
+ *
+ * Normalised rather than compared raw, because an Origin header is an exact
+ * string and the ways of getting it slightly wrong all look identical in a
+ * dashboard: a trailing slash, a capital letter, a stray space after a comma.
+ * Any of them produces "No Access-Control-Allow-Origin" in a browser and no clue
+ * as to why, so they are absorbed here instead of being enforced pedantically.
+ *
+ * What is NOT absorbed is the scheme or the host. http://example.com and
+ * https://example.com are different origins and must be listed separately; a
+ * cookie sent to the wrong one is a cookie sent in the clear.
+ */
+function normaliseOrigin(value: string): string {
+  return value.trim().replace(/\/+$/, "").toLowerCase();
+}
+
+const corsOrigins = raw.CORS_ORIGINS.split(",").map(normaliseOrigin).filter(Boolean);
 
 // A sandbox OTP that prints itself is a demo convenience and a production hole.
 const otpEcho = raw.NODE_ENV === "production" ? false : raw.OTP_ECHO_IN_RESPONSE;
@@ -196,6 +211,27 @@ const otpEcho = raw.NODE_ENV === "production" ? false : raw.OTP_ECHO_IN_RESPONSE
 export const env = {
   ...raw,
   corsOrigins,
+  normaliseOrigin,
+  /**
+   * Whether this origin may send credentialed requests.
+   *
+   * Exact match after normalisation, with one opt-in exception: a configured
+   * entry may name a single wildcard subdomain, as in https://*.vercel.app, which
+   * is how a preview deployment gets in without relisting every generated URL.
+   * It is deliberately opt-in and warned about at boot, because it widens the set
+   * of sites that may make credentialed requests to everything on that domain.
+   */
+  isOriginAllowed(origin: string): boolean {
+    const candidate = normaliseOrigin(origin);
+    return corsOrigins.some((allowed) => {
+      if (allowed === candidate) return true;
+      if (!allowed.includes("*")) return false;
+      const pattern = new RegExp(
+        "^" + allowed.split("*").map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[^.]+") + "$"
+      );
+      return pattern.test(candidate);
+    });
+  },
   otpEcho,
   isProduction: raw.NODE_ENV === "production",
   cookieSecure: raw.NODE_ENV === "production" || raw.COOKIE_SAMESITE === "none",

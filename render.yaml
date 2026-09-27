@@ -48,9 +48,12 @@ services:
         value: v1
 
       # ------------------------------------------------- site and cookies
-      # Both must be the SPA's HTTPS origin. CORS_ORIGINS wrong means every
-      # request is refused before it reaches a route, which looks like the API
-      # being down rather than a configuration error.
+      # Both must be the SPA's HTTPS origin, e.g. https://yourapp.vercel.app,
+      # with no trailing slash. CORS_ORIGINS wrong means every request is refused
+      # before it reaches a route, which in a browser looks exactly like the API
+      # being down. Check what the running process loaded with:
+      #   curl https://<this-service>/api/health   -> "allowedOrigins"
+      # For Vercel preview URLs, add a second entry: https://*.vercel.app
       - key: CORS_ORIGINS
         sync: false
       - key: PUBLIC_APP_URL

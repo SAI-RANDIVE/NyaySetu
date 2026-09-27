@@ -47,8 +47,17 @@ app.use(
     // would be rejected by the browser anyway, and would be wrong if it were not.
     origin(origin, callback) {
       if (!origin) return callback(null, true); // curl, mobile app, server-to-server
-      if (env.corsOrigins.includes(origin)) return callback(null, true);
-      logger.warn("Blocked a cross-origin request", { origin });
+      if (env.isOriginAllowed(origin)) return callback(null, true);
+
+      // Error, not warn. A browser shows this as "No Access-Control-Allow-Origin"
+      // with no hint that a list exists anywhere, so the log has to name both
+      // sides of the comparison or the operator has nothing to go on. This is the
+      // single most common reason a working API looks like a dead one.
+      logger.error(
+        "Refused a cross-origin request: this origin is not in CORS_ORIGINS. " +
+          "Add it on the API host, exactly, and redeploy.",
+        { refused: origin, configured: env.corsOrigins }
+      );
       return callback(new Error("Origin not allowed by CORS."));
     },
     credentials: true,
@@ -120,6 +129,24 @@ async function start() {
       otpProvider: `${otpProvider.name}${otpProvider.isAuthorisedForProduction ? "" : " (simulated)"}`,
       corsOrigins: env.corsOrigins,
     });
+
+    // Said separately, and loudly, because getting this wrong is invisible from
+    // the API side: every route works, every health check passes, and the only
+    // symptom is a browser on another origin being refused before it arrives.
+    if (env.isProduction && env.corsOrigins.every((o) => o.startsWith("http://localhost"))) {
+      logger.error(
+        "CORS_ORIGINS still lists only localhost while NODE_ENV=production. " +
+          "No deployed site will be able to reach this API.",
+        { configured: env.corsOrigins }
+      );
+    }
+    if (env.corsOrigins.some((o) => o.includes("*"))) {
+      logger.warn(
+        "CORS_ORIGINS contains a wildcard. Every site matching it may send " +
+          "credentialed requests to this API.",
+        { configured: env.corsOrigins.filter((o) => o.includes("*")) }
+      );
+    }
   });
 
   startIndexer();
