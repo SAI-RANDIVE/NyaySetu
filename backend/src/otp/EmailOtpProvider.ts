@@ -29,7 +29,15 @@ import { scopeFor, verifyChallenge } from "./SandboxAadhaarProvider";
  * `isAuthorisedForProduction` is true: nothing about it is simulated.
  */
 export class EmailOtpProvider implements OtpProvider {
-  readonly name = "smtp-email";
+  /**
+   * Named after what it is, not how it travels.
+   *
+   * This was "smtp-email", which became a lie the moment the mailer learned to
+   * send over an HTTPS API: /api/health reported "smtp-email" while the same
+   * response said transport "brevo" two lines above. The channel is email; which
+   * wire carries it is the mailer's business and is reported separately.
+   */
+  readonly name = "email";
   readonly channel: OtpChannel = "email";
   readonly isAuthorisedForProduction = true;
 
