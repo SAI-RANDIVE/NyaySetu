@@ -1090,10 +1090,12 @@ export function AdminAccess() {
 }
 
 interface Assignment {
-  user_id: string;
+  id: string;
+  full_name: string;
+  role: Role;
+  designation: string | null;
+  station_or_court: string | null;
   access: "read" | "write";
-  created_at: string;
-  user_directory: { full_name: string; role: Role; designation: string | null };
 }
 
 function CaseAccessPanel({
@@ -1123,7 +1125,7 @@ function CaseAccessPanel({
 
   // The registry already sees everything, and an account that cannot sign in
   // cannot use an assignment, so neither is worth offering.
-  const assigned = new Set((detail.data?.assignments ?? []).map((a) => a.user_id));
+  const assigned = new Set((detail.data?.assignments ?? []).map((a) => a.id));
   const candidates = users.filter(
     (user) => user.is_active && user.role !== "court_admin" && !assigned.has(user.id)
   );
@@ -1151,14 +1153,14 @@ function CaseAccessPanel({
           {(data) => (
             <ul className="divide-y divide-border">
               {data.assignments.map((row) => (
-                <li key={row.user_id} className="flex items-center gap-3 px-5 py-3">
+                <li key={row.id} className="flex items-center gap-3 px-5 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-ui text-sm font-medium text-text">
-                      {row.user_directory.full_name}
+                      {row.full_name ?? "Unknown"}
                     </p>
                     <p className="font-ui text-2xs text-muted">
-                      {ROLE_LABEL[row.user_directory.role]}
-                      {row.user_directory.designation ? ` · ${row.user_directory.designation}` : ""}
+                      {ROLE_LABEL[row.role] ?? row.role}
+                      {row.designation ? ` · ${row.designation}` : ""}
                     </p>
                   </div>
                   <StatusChip
@@ -1171,11 +1173,11 @@ function CaseAccessPanel({
                     icon={<Trash2 size={12} />}
                     loading={revoke.pending}
                     onClick={async () => {
-                      const outcome = await revoke.run(row.user_id);
+                      const outcome = await revoke.run(row.id);
                       if (outcome) {
                         toast.success(
                           "Access revoked",
-                          `${row.user_directory.full_name} can no longer open this case.`
+                          `${row.full_name ?? "User"} can no longer open this case.`
                         );
                         detail.refetch();
                         onChanged();
