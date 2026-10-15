@@ -8,7 +8,9 @@ import { asyncRoute } from "../middleware/error";
 import { validate, uuid, safeText } from "../middleware/validate";
 import { requireAuth, requireRole, assertCaseAccess } from "../middleware/auth";
 import { recordAction } from "../services/audit";
-import { loadDossier } from "../services/report.service";
+import { loadDossier, redactForRole } from "../services/report.service";
+import { canSeeFir } from "../services/case.service";
+import type { UserRole } from "../middleware/auth";
 import { buildFinalReport } from "../lib/pdf/finalReport";
 import { sendCaseDocument, maskEmail } from "../lib/mailer";
 import { capabilities } from "../config/env";
@@ -33,8 +35,8 @@ import { listCaseRecipients } from "../services/assignments.service";
 const router = Router();
 router.use(requireAuth);
 
-function fileNameFor(firNumber: string, kind: string): string {
-  const safe = firNumber.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+function fileNameFor(caseReference: string, kind: string): string {
+  const safe = caseReference.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return `${kind}-${safe}.pdf`;
 }
 
@@ -51,7 +53,7 @@ router.get(
   asyncRoute(async (req, res) => {
     await assertCaseAccess(req, req.params.id);
 
-    const dossier = await loadDossier(req.params.id);
+    const dossier = redactForRole(await loadDossier(req.params.id), req.user!.role);
     const pdf = await buildFinalReport(dossier).toBuffer();
     const digest = sha256Hex(pdf);
 
@@ -72,7 +74,7 @@ router.get(
       .setHeader("content-type", "application/pdf")
       .setHeader(
         "content-disposition",
-        `inline; filename="${fileNameFor(dossier.case.fir_number, "final-report")}"`
+        `inline; filename="${fileNameFor(dossier.case.case_reference, "final-report")}"`
       )
       // So a recipient can check the bytes they received against the bytes sent
       // without opening the file.
@@ -123,10 +125,13 @@ router.post(
 
     const assigned = body.includeAssigned ? await listCaseRecipients(req.params.id) : [];
 
+    // An address typed in by hand has no known role, so it gets the copy with
+    // the FIR number withheld.
     const explicit = (body.recipients ?? []).map((email) => ({
       id: null as string | null,
       email,
       full_name: null as string | null,
+      role: null as string | null,
     }));
 
     // Deduplicated on the address, case-insensitively, so somebody who is both
@@ -145,14 +150,18 @@ router.post(
       );
     }
 
-    const pdf = await buildFinalReport(dossier).toBuffer();
-    const digest = sha256Hex(pdf);
-    const fileName = fileNameFor(dossier.case.fir_number, "final-report");
+    // Two renderings at most: one naming the FIR for the roles that may read it,
+    // one withholding it for everyone else. Each recipient gets the one for them.
+    const privileged = await buildFinalReport(dossier).toBuffer();
+    const redacted = await buildFinalReport(redactForRole(dossier, null)).toBuffer();
+    const fileName = fileNameFor(dossier.case.case_reference, "final-report");
 
     // Sent one at a time rather than as a single message with many recipients, so
     // that one bad address fails alone and nobody learns who else received it.
     const results = [];
     for (const target of targets) {
+      const pdf = target.role && canSeeFir(target.role as UserRole) ? privileged : redacted;
+      const digest = sha256Hex(pdf);
       const outcome = await sendCaseDocument({
         to: target.email,
         userId: target.id,
@@ -160,7 +169,7 @@ router.post(
         documentTitle: "Final Report / Charge Sheet",
         fileName,
         pdf,
-        caseReference: `C.R. No. ${dossier.case.fir_number}`,
+        caseReference: dossier.case.case_reference,
         caseTitle: dossier.case.title,
         sentByName: req.user!.fullName,
         digest,
@@ -182,13 +191,19 @@ router.post(
       subject: dossier.case.id,
       caseId: dossier.case.id,
       outcome: failed === results.length ? "failed" : "ok",
-      detail: { documentDigest: digest, recipients: results.length, failed },
+      detail: {
+        documentDigest: sha256Hex(privileged),
+        redactedDigest: sha256Hex(redacted),
+        recipients: results.length,
+        failed,
+      },
     });
 
     res.json({
       sent: results.filter((r) => r.status === "sent").length,
       failed,
-      digest,
+      digest: sha256Hex(privileged),
+      redactedDigest: sha256Hex(redacted),
       fileName,
       results,
     });

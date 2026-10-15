@@ -46,9 +46,34 @@ export function keccakOfString(value: string): string {
   return keccak256(toUtf8Bytes(value));
 }
 
-/** The bytes32 caseId every contract uses for this FIR. */
+/**
+ * The 1.0 bytes32 caseId: keccak256 of the FIR number. Kept for cases created
+ * before 2.0, whose anchors are already on chain under it. FIR numbers are
+ * guessable, so this key effectively publishes the FIR; new cases use
+ * saltedCaseIdHash instead (docs/DECISIONS.md D-02).
+ */
 export function caseIdHash(firNumber: string): string {
   return keccakOfString(firNumber.trim().toUpperCase());
+}
+
+/**
+ * The 2.0 bytes32 caseId: keccak256 of the case reference and 32 random bytes.
+ * Nothing about the case can be recovered from it without the salt, which never
+ * leaves the database.
+ */
+export function saltedCaseIdHash(caseReference: string, saltHex: string): string {
+  if (!/^[0-9a-f]{64}$/.test(saltHex)) throw new Error("Case salt must be 32 bytes of lower-case hex.");
+  return keccakOfString(`nyaysetu:case:v2:${caseReference}:${saltHex}`);
+}
+
+/**
+ * The officer identity written into registerEvidence for 2.0 registrations, in
+ * place of an Aadhaar-derived token (D-05). Keyed with the server pepper so it
+ * cannot be linked to a user id by anyone who lacks it, and stable per officer so
+ * the chain can still show that two items were registered by the same person.
+ */
+export function officerPseudonym(userId: string): string {
+  return "0x" + crypto.createHmac("sha256", env.AADHAAR_TOKEN_PEPPER).update(`nyaysetu:officer:${userId}`).digest("hex");
 }
 
 /**

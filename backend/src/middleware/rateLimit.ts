@@ -97,3 +97,41 @@ export const otpLimiter = rateLimit({
     });
   },
 });
+
+/**
+ * Mutations that write records or spend gas. Tighter than the general limiter,
+ * keyed by session, so one compromised session cannot flood the chain queue.
+ */
+export const writeLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  limit: env.WRITE_RATE_LIMIT_MAX,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => `w:${keyFor(req)}`,
+  handler: (req, res) => {
+    onLimit(req, "write");
+    res.status(429).json({
+      error: { code: "RATE_LIMITED", message: "Too many changes in a short time. Wait a minute and retry." },
+    });
+  },
+});
+
+/**
+ * The public verification pages. No session exists, so the key is always the
+ * address, and the ceiling is the lowest in the API: these routes read the chain
+ * for anyone on the internet, and a scraper must not be able to walk every
+ * reference or run the keeper's RPC quota dry.
+ */
+export const publicLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  limit: env.PUBLIC_RATE_LIMIT_MAX,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => `p:${normaliseIp(req.ip)}`,
+  handler: (req, res) => {
+    onLimit(req, "public");
+    res.status(429).json({
+      error: { code: "RATE_LIMITED", message: "Too many verification requests from this address. Try again in a minute." },
+    });
+  },
+});

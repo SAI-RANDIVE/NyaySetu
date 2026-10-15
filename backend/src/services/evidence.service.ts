@@ -61,10 +61,10 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
   const caseRow = unwrapMaybe(
     await db
       .from("cases")
-      .select("id, fir_number, case_id_hash, police_station")
+      .select("id, case_reference, case_id_hash, police_station")
       .eq("id", input.caseId)
       .maybeSingle()
-  ) as { id: string; fir_number: string; case_id_hash: string; police_station: string } | null;
+  ) as { id: string; case_reference: string; case_id_hash: string; police_station: string } | null;
 
   if (!caseRow) throw notFound("Case");
   if (!user.aadhaarToken) {
@@ -148,7 +148,7 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
       toMicroDegrees(input.gpsLng, "longitude"),
       user.aadhaarToken,
     ],
-    { submittedBy: user.id, payload: { evidenceRowId: row.id, fir: caseRow.fir_number } }
+    { submittedBy: user.id, payload: { evidenceRowId: row.id, caseReference: caseRow.case_reference } }
   );
 
   const args = eventArgs(result.receipt, "EvidenceChain", "EvidenceRegistered");
@@ -581,7 +581,7 @@ export async function inboxFor(role: SessionUser["role"], userId: string) {
       .from("evidence_items")
       .select(
         "id, case_id, chain_evidence_id, file_hash, file_name, kind, current_stage, collected_at, " +
-          "anomaly_flagged, anomaly_score, cases(fir_number, title)"
+          "anomaly_flagged, anomaly_score, cases(case_reference, title)"
       )
       .eq("current_stage", previous)
       .in(

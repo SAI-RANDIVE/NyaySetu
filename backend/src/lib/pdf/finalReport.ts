@@ -96,7 +96,7 @@ export function buildFinalReport(dossier: CaseDossier): CourtDocument {
       "Under Section 193 of the Bharatiya Nagarik Suraksha Sanhita, 2023 " +
       "(formerly Section 173, Code of Criminal Procedure, 1973)",
     shortTitle: "Final Report",
-    fileReference: `C.R. No. ${c.fir_number}`,
+    fileReference: c.case_reference,
     issuedBy: c.police_station,
     district: "Pune",
   });
@@ -106,7 +106,11 @@ export function buildFinalReport(dossier: CaseDossier): CourtDocument {
   document.item("1", "Particulars of the case");
   document.field("Police Station", c.police_station);
   document.field("Year", String(year));
-  document.field("C.R. / F.I.R. No.", c.fir_number);
+  document.field("Case reference", c.case_reference);
+  document.field(
+    "C.R. / F.I.R. No.",
+    c.fir_number ?? (c.fir_linked ? "Linked; withheld from this copy" : "No FIR linked")
+  );
   document.field("Date of registration", date(c.registered_at));
   document.field("Court", c.court_name ?? "Not yet assigned");
 

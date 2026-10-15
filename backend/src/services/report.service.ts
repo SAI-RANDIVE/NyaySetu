@@ -4,6 +4,17 @@ import { chain } from "../lib/chain";
 import { notFound } from "../lib/errors";
 import { env } from "../config/env";
 import { listCaseParticipants } from "./assignments.service";
+import { canSeeFir, getFirRecord } from "./case.service";
+import type { UserRole } from "../middleware/auth";
+
+/**
+ * The same dossier, with the FIR number removed for a reader who may not see it.
+ * fir_linked stays true, so the document can say an FIR exists without naming it.
+ */
+export function redactForRole(dossier: CaseDossier, role: UserRole | null): CaseDossier {
+  if (role && canSeeFir(role)) return dossier;
+  return { ...dossier, case: { ...dossier.case, fir_number: null } };
+}
 
 /**
  * Everything a document needs, gathered in one place.
@@ -16,7 +27,13 @@ import { listCaseParticipants } from "./assignments.service";
 export interface CaseDossier {
   case: {
     id: string;
-    fir_number: string;
+    case_reference: string;
+    /**
+     * The FIR number, or null when none is linked or when the copy is for a role
+     * that may not read FIR numbers (redactForRole). fir_linked says which.
+     */
+    fir_number: string | null;
+    fir_linked: boolean;
     case_id_hash: string;
     title: string;
     offence_type: string;
@@ -152,7 +169,7 @@ export async function loadDossier(caseId: string): Promise<CaseDossier> {
     await db
       .from("cases")
       .select(
-        "id, fir_number, case_id_hash, title, offence_type, sections, police_station, " +
+        "id, case_reference, fir_number, case_id_hash, title, offence_type, sections, police_station, " +
           "court_name, status, summary, registered_at, registered_by"
       )
       .eq("id", caseId)
@@ -160,6 +177,11 @@ export async function loadDossier(caseId: string): Promise<CaseDossier> {
   ) as (CaseDossier["case"] & { registered_by: string | null }) | null;
 
   if (!caseRow) throw notFound("Case");
+
+  // 2.0 cases keep their FIR in fir_records; 1.0 cases also have it on the row.
+  const firRecord = await getFirRecord(caseId);
+  caseRow.fir_number = firRecord?.fir_number ?? caseRow.fir_number ?? null;
+  caseRow.fir_linked = Boolean(caseRow.fir_number);
 
   const evidence = unwrapList(
     await db

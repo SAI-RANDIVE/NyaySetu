@@ -15,13 +15,20 @@
  *   - re-running the 2.0 migrations is harmless (they are idempotent)
  */
 import { PGlite } from "@electric-sql/pglite";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "..", "database", "migrations");
 const seedFile = join(here, "..", "..", "database", "seed", "reference.sql");
+const fixturesDir = join(here, "..", "..", "database", "fixtures");
+
+/** Optional data fixtures: before_NNN.sql seeds rows, after_NNN.sql asserts. */
+function fixture(kind, name) {
+  const file = join(fixturesDir, `${kind}_${name.slice(0, 3)}.sql`);
+  return existsSync(file) ? readFileSync(file, "utf8") : null;
+}
 
 const files = readdirSync(migrationsDir)
   .filter((name) => /^\d{3}_.+\.sql$/.test(name))
@@ -61,7 +68,13 @@ async function apply(name, sql) {
 
 console.log("Applying migrations to an in-process Postgres (PGlite):");
 for (const name of files) {
+  const before = fixture("before", name);
+  if (before) await apply(`fixtures/before_${name.slice(0, 3)}.sql`, before);
+  if (failed) break;
   await apply(name, readFileSync(join(migrationsDir, name), "utf8"));
+  if (failed) break;
+  const after = fixture("after", name);
+  if (after) await apply(`fixtures/after_${name.slice(0, 3)}.sql`, after);
   if (failed) break;
   // The reference seed belongs straight after the schema exists.
   if (name.startsWith("003_")) await apply("seed/reference.sql", readFileSync(seedFile, "utf8"));

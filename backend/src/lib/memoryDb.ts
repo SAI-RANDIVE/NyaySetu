@@ -204,6 +204,22 @@ export class MemoryDatabase {
         else pii.push(next);
         return { data: null, error: null };
       }
+      case "next_case_reference": {
+        const code = String(args.p_station_code ?? "")
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 40);
+        if (!code) return { data: null, error: { code: "P0001", message: "A station or court code is required to number a case." } };
+        const counters = this.table("case_reference_counters");
+        let counter = counters.find((c) => c.station_code === code && c.year === args.p_year);
+        if (!counter) {
+          counter = { station_code: code, year: args.p_year, last_serial: 0 };
+          counters.push(counter);
+        }
+        counter.last_serial += 1;
+        return { data: `NS/${code}/${args.p_year}/${String(counter.last_serial).padStart(6, "0")}`, error: null };
+      }
       case "prune_expired":
         return { data: [{ deleted_sessions: 0, deleted_otps: 0 }], error: null };
       default:

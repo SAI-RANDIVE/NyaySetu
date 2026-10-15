@@ -49,8 +49,8 @@ export interface IssueInput {
 
 export async function issueSummons(req: Request, user: SessionUser, input: IssueInput) {
   const caseRow = unwrapMaybe(
-    await db.from("cases").select("id, fir_number, case_id_hash, court_name").eq("id", input.caseId).maybeSingle()
-  ) as { id: string; fir_number: string; case_id_hash: string; court_name: string | null } | null;
+    await db.from("cases").select("id, case_reference, case_id_hash, court_name").eq("id", input.caseId).maybeSingle()
+  ) as { id: string; case_reference: string; case_id_hash: string; court_name: string | null } | null;
   if (!caseRow) throw notFound("Case");
 
   const windowHours = input.windowHours ?? env.SUMMONS_WINDOW_HOURS;
@@ -61,7 +61,7 @@ export async function issueSummons(req: Request, user: SessionUser, input: Issue
   // edit to any of these fields is detectable.
   const documentHash = sha256Hex(
     canonicalise({
-      fir: caseRow.fir_number,
+      caseReference: caseRow.case_reference,
       recipient: input.recipientAadhaarToken,
       body: input.documentBody,
       hearingAt: input.hearingAt ?? null,
@@ -108,7 +108,7 @@ export async function issueSummons(req: Request, user: SessionUser, input: Issue
       documentHash,
       BigInt(Math.floor(expiryAt.getTime() / 1000)),
     ],
-    { submittedBy: user.id, payload: { summonsRowId: row.id, fir: caseRow.fir_number } }
+    { submittedBy: user.id, payload: { summonsRowId: row.id, caseReference: caseRow.case_reference } }
   );
 
   const args = eventArgs(result.receipt, "SummonsChain", "SummonsIssued");
@@ -136,7 +136,7 @@ export async function issueSummons(req: Request, user: SessionUser, input: Issue
     void notifyRecipient({
       recipientUserId: input.recipientUserId ?? null,
       recipientName: input.recipientName,
-      firNumber: caseRow.fir_number,
+      caseReference: caseRow.case_reference,
       courtName: caseRow.court_name,
       expiryAt: expiryAt.toISOString(),
     });
@@ -369,10 +369,10 @@ async function alertIssuer(row: {
     const summons = unwrapMaybe(
       await db
         .from("summons")
-        .select("issued_by, cases(fir_number)")
+        .select("issued_by, cases(case_reference)")
         .eq("id", row.id)
         .maybeSingle()
-    ) as { issued_by: string | null; cases: { fir_number: string } | null } | null;
+    ) as { issued_by: string | null; cases: { case_reference: string } | null } | null;
 
     if (!summons?.issued_by) return;
 
@@ -386,7 +386,7 @@ async function alertIssuer(row: {
       to: issuer.email,
       userId: issuer.id,
       recipientName: row.recipient_name,
-      firNumber: summons.cases?.fir_number ?? "the case",
+      caseReference: summons.cases?.case_reference ?? "the case",
       expiryAt: row.expiry_at,
       portalUrl: `${env.PUBLIC_APP_URL.replace(/\/$/, "")}/judge/summons`,
     });
@@ -418,7 +418,7 @@ export async function listForRecipient(user: SessionUser) {
       .from("summons")
       .select(
         "id, case_id, chain_summons_id, recipient_name, status, issued_at, expiry_at, delivered_at, " +
-          "hearing_at, document_hash, document_body, cases(fir_number, title, court_name)"
+          "hearing_at, document_hash, document_body, cases(case_reference, title, court_name)"
       )
       .eq("recipient_aadhaar_token", user.aadhaarToken)
       .order("issued_at", { ascending: false })
@@ -432,7 +432,7 @@ export async function courtOverview() {
       .from("summons")
       .select(
         "id, case_id, recipient_name, status, issued_at, expiry_at, delivered_at, non_delivery_alerted_at, " +
-          "cases(fir_number, title)"
+          "cases(case_reference, title)"
       )
       .order("issued_at", { ascending: false })
       .limit(100)
@@ -458,7 +458,7 @@ export async function courtOverview() {
 async function notifyRecipient(args: {
   recipientUserId: string | null;
   recipientName: string;
-  firNumber: string;
+  caseReference: string;
   courtName: string | null;
   expiryAt: string;
 }): Promise<void> {
@@ -479,7 +479,7 @@ async function notifyRecipient(args: {
       to: recipient.email,
       userId: recipient.id,
       recipientName: args.recipientName,
-      firNumber: args.firNumber,
+      caseReference: args.caseReference,
       courtName: args.courtName,
       expiryAt: args.expiryAt,
       portalUrl: `${env.PUBLIC_APP_URL.replace(/\/$/, "")}/accused/summons`,

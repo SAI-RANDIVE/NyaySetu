@@ -195,6 +195,10 @@ const schema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   OTP_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
+  // Record-writing and chain-writing routes, per session per window.
+  WRITE_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(40),
+  // The public verification page and its API, per IP per window.
+  PUBLIC_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
   LOGIN_LOCKOUT_ATTEMPTS: z.coerce.number().int().positive().default(5),
   LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
 

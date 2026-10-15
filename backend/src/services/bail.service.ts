@@ -89,8 +89,8 @@ export interface GrantInput {
 
 export async function grantBail(req: Request, user: SessionUser, input: GrantInput) {
   const caseRow = unwrapMaybe(
-    await db.from("cases").select("id, fir_number, case_id_hash").eq("id", input.caseId).maybeSingle()
-  ) as { id: string; fir_number: string; case_id_hash: string } | null;
+    await db.from("cases").select("id, case_reference, case_id_hash").eq("id", input.caseId).maybeSingle()
+  ) as { id: string; case_reference: string; case_id_hash: string } | null;
   if (!caseRow) throw notFound("Case");
 
   const existing = unwrapMaybe(
@@ -163,7 +163,7 @@ export async function grantBail(req: Request, user: SessionUser, input: GrantInp
       tagHashes,
       BigInt(Math.floor(new Date(input.expiryAt).getTime() / 1000)),
     ],
-    { submittedBy: user.id, payload: { bailRowId: row.id, fir: caseRow.fir_number } }
+    { submittedBy: user.id, payload: { bailRowId: row.id, caseReference: caseRow.case_reference } }
   );
 
   await submit(
@@ -369,8 +369,8 @@ export async function refreshCompliance(bailId: string, caseIdHash: string) {
 export async function complianceFor(caseId: string) {
   const bail = await loadBailByCase(caseId);
   const caseRow = unwrapMaybe(
-    await db.from("cases").select("case_id_hash, fir_number, title").eq("id", bail.case_id).maybeSingle()
-  ) as { case_id_hash: string; fir_number: string; title: string } | null;
+    await db.from("cases").select("case_id_hash, case_reference, title").eq("id", bail.case_id).maybeSingle()
+  ) as { case_id_hash: string; case_reference: string; title: string } | null;
   if (!caseRow) throw notFound("Case");
 
   const compliance = await refreshCompliance(bail.id, caseRow.case_id_hash);
@@ -409,7 +409,7 @@ export async function complianceDashboard() {
       .from("bail_conditions")
       .select(
         "id, case_id, accused_name, conditions, compliance_score, risk_band, risk_score, radius_metres, " +
-          "checkin_interval_seconds, expiry_at, active, cases(fir_number, title, case_id_hash)"
+          "checkin_interval_seconds, expiry_at, active, cases(case_reference, title, case_id_hash)"
       )
       .eq("active", true)
       .order("compliance_score", { ascending: true })
@@ -446,7 +446,7 @@ export async function sweepMissedCheckIns(): Promise<{ flagged: number; cases: s
   const active = unwrapList(
     await db
       .from("bail_conditions")
-      .select("id, case_id, accused_name, cases(case_id_hash, fir_number)")
+      .select("id, case_id, accused_name, cases(case_id_hash, case_reference)")
       .eq("active", true)
       .gt("expiry_at", new Date().toISOString())
       .limit(100)
@@ -468,8 +468,8 @@ export async function sweepMissedCheckIns(): Promise<{ flagged: number; cases: s
 
       await persistViolations(row, result.receipt, result.txHash, result.blockNumber);
       await refreshCompliance(row.id, caseIdHash);
-      flagged.push(row.cases.fir_number);
-      logger.info("Missed check-in flagged", { fir: row.cases.fir_number, accused: row.accused_name });
+      flagged.push(row.cases.case_reference);
+      logger.info("Missed check-in flagged", { caseReference: row.cases.case_reference, accused: row.accused_name });
     } catch (error) {
       // NotOverdue can be raised by a race with a late check-in; that is fine.
       logger.debug("Sweep skipped a bail order", {
@@ -564,7 +564,7 @@ export async function suretyView(user: SessionUser) {
       .from("bail_conditions")
       .select(
         "id, case_id, accused_name, conditions, compliance_score, expiry_at, active, " +
-          "radius_metres, checkin_interval_seconds, cases(fir_number, case_id_hash)"
+          "radius_metres, checkin_interval_seconds, cases(case_reference, case_id_hash)"
       )
       .eq("surety_user_id", user.id)
   ) as any[];
@@ -576,7 +576,7 @@ export async function suretyView(user: SessionUser) {
     out.push({
       id: row.id,
       accusedName: row.accused_name,
-      firNumber: row.cases?.fir_number,
+      caseReference: row.cases?.case_reference,
       conditions: row.conditions,
       complianceScore: live?.score ?? row.compliance_score,
       overdue: live?.overdue ?? null,
@@ -594,7 +594,7 @@ export async function bailForAccused(user: SessionUser) {
       .from("bail_conditions")
       .select(
         "id, case_id, conditions, condition_tags, centre_lat, centre_lng, radius_metres, " +
-          "checkin_interval_seconds, expiry_at, active, compliance_score, cases(fir_number, title, case_id_hash)"
+          "checkin_interval_seconds, expiry_at, active, compliance_score, cases(case_reference, title, case_id_hash)"
       )
       .eq("accused_aadhaar_token", user.aadhaarToken)
       .eq("active", true)

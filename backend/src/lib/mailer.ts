@@ -742,7 +742,7 @@ export async function sendSummonsNotice(args: {
   to: string;
   userId?: string | null;
   recipientName: string;
-  firNumber: string;
+  caseReference: string;
   courtName: string | null;
   expiryAt: string;
   portalUrl: string;
@@ -755,7 +755,7 @@ export async function sendSummonsNotice(args: {
   const text = [
     `${args.recipientName},`,
     "",
-    `A summons has been issued to you in ${args.firNumber}${args.courtName ? ` by ${args.courtName}` : ""}.`,
+    `A summons has been issued to you in ${args.caseReference}${args.courtName ? ` by ${args.courtName}` : ""}.`,
     "",
     `You must acknowledge it by ${deadline}. If that window closes without your`,
     "acknowledgement, the court is notified that it could not be served and may",
@@ -770,7 +770,7 @@ export async function sendSummonsNotice(args: {
     to: args.to,
     userId: args.userId,
     purpose: "summons_notice",
-    subject: `Action needed: summons in ${args.firNumber}`,
+    subject: `Action needed: summons in ${args.caseReference}`,
     text,
     html: shell({
       title: "A summons has been issued to you",
@@ -779,7 +779,7 @@ export async function sendSummonsNotice(args: {
       body:
         paragraph(
           `${escapeHtml(args.recipientName)}, a summons has been issued to you in ` +
-            `${strong(args.firNumber)}${args.courtName ? ` by ${escapeHtml(args.courtName)}` : ""}.`
+            `${strong(args.caseReference)}${args.courtName ? ` by ${escapeHtml(args.courtName)}` : ""}.`
         ) +
         callout(
           `Acknowledge it by ${strong(deadline)}. If the window closes unanswered, the court is ` +
@@ -797,7 +797,7 @@ export async function sendNonDeliveryAlert(args: {
   to: string;
   userId?: string | null;
   recipientName: string;
-  firNumber: string;
+  caseReference: string;
   expiryAt: string;
   portalUrl: string;
 }): Promise<SendResult> {
@@ -807,7 +807,7 @@ export async function sendNonDeliveryAlert(args: {
   });
 
   const text = [
-    `The acknowledgement window for a summons in ${args.firNumber} closed at`,
+    `The acknowledgement window for a summons in ${args.caseReference} closed at`,
     `${closed} without a response.`,
     "",
     `Recipient: ${args.recipientName}`,
@@ -822,7 +822,7 @@ export async function sendNonDeliveryAlert(args: {
     to: args.to,
     userId: args.userId,
     purpose: "non_delivery_alert",
-    subject: `Summons not served: ${args.firNumber}`,
+    subject: `Summons not served: ${args.caseReference}`,
     text,
     html: shell({
       title: "A summons went unanswered",
@@ -830,7 +830,7 @@ export async function sendNonDeliveryAlert(args: {
       tone: "orange",
       body:
         paragraph(
-          `The acknowledgement window for a summons in ${strong(args.firNumber)} closed at ` +
+          `The acknowledgement window for a summons in ${strong(args.caseReference)} closed at ` +
             `${strong(closed)} without a response.`
         ) +
         callout(
