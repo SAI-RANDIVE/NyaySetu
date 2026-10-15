@@ -73,3 +73,4 @@ desktop.ini
 # from a mock trial competition and belongs to whoever wrote it; the format it
 # demonstrates is reproduced in code, the document itself is not redistributed.
 brand/*.pdf
+backend/test/.blobs/

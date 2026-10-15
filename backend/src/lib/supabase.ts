@@ -1,6 +1,18 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { env } from "../config/env";
 import { fromSupabase } from "./errors";
+import { memoryDatabase } from "./memoryDb";
+
+/**
+ * NYAY_DB=memory swaps the client for an in-memory stand-in so the route tests
+ * can run the real app without Supabase (docs/DECISIONS.md D-10). It is refused in
+ * production: a server that silently kept its records in RAM would lose them all
+ * on restart.
+ */
+const useMemory = process.env.NYAY_DB === "memory";
+if (useMemory && env.isProduction) {
+  throw new Error("NYAY_DB=memory is a test instrument and cannot be used with NODE_ENV=production.");
+}
 
 /**
  * The single service-role client. It holds the key that bypasses RLS, which is
@@ -9,14 +21,12 @@ import { fromSupabase } from "./errors";
  * The key must never be shipped to a browser. The frontend talks to this API;
  * it has no Supabase credentials of its own.
  */
-export const db: SupabaseClient = createClient(
-  env.SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { "x-nyaysetu-client": "api" } },
-  }
-);
+export const db: SupabaseClient = useMemory
+  ? (memoryDatabase() as unknown as SupabaseClient)
+  : createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { "x-nyaysetu-client": "api" } },
+    });
 
 /**
  * PII lives in the `restricted` schema. For PostgREST to reach it, the schema

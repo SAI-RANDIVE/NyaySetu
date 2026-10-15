@@ -52,5 +52,23 @@ export function fromSupabase(error: { message: string; code?: string; details?: 
   if (error.code === "23503") return badRequest("Referenced record does not exist.", error.details);
   if (error.code === "23514") return badRequest("A value failed a database constraint.", error.details);
   if (error.code === "PGRST116") return notFound("Record");
+  // An undefined table or column means the code is newer than the database: the
+  // 2.0 migrations have not been run yet. Saying so beats a bare 500, because the
+  // fix is a step for whoever owns the database, not a bug to hunt for.
+  if (
+    error.code === "42P01" ||
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    error.code === "PGRST205" ||
+    /does not exist|Could not find the .* (column|table)/i.test(error.message)
+  ) {
+    return new AppError(
+      503,
+      "SCHEMA_OUT_OF_DATE",
+      "The database is missing a migration this version needs. Run the SQL files in " +
+        "database/migrations from 008 onward, in order, then retry.",
+      { reason: error.message }
+    );
+  }
   return new AppError(500, "DB_ERROR", error.message, error.details);
 }

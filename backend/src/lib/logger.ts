@@ -9,7 +9,15 @@ import { env } from "../config/env";
 type Level = "debug" | "info" | "warn" | "error";
 
 const LEVELS: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
-const threshold = env.NODE_ENV === "production" ? LEVELS.info : LEVELS.debug;
+// LOG_LEVEL overrides the default; the test suite sets it to "error" so a run
+// prints results rather than every refused request.
+const configured = process.env.LOG_LEVEL as Level | undefined;
+const threshold =
+  configured && configured in LEVELS
+    ? LEVELS[configured]
+    : env.NODE_ENV === "production"
+      ? LEVELS.info
+      : LEVELS.debug;
 
 const SECRET_KEYS = new Set([
   "password",
