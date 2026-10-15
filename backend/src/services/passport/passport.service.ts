@@ -258,7 +258,8 @@ export async function authorisedPassport(evidenceId: string, role: UserRole) {
       .select(
         PASSPORT_COLUMNS +
           ", capture_purpose, gps_lat, gps_lng, gps_accuracy_m, gps_mocked, device_id, app_version, device_time, " +
-          "server_received_at, clock_skew_seconds, clock_skew_flagged, signature_status, duration_ms, manifest_hash, kind, mime_type, size_bytes"
+          "server_received_at, clock_skew_seconds, clock_skew_flagged, signature_status, duration_ms, manifest_hash, kind, mime_type, size_bytes, " +
+          "witnesses, search_checklist"
       )
       .eq("id", evidenceId)
       .maybeSingle()
@@ -294,6 +295,8 @@ export async function authorisedPassport(evidenceId: string, role: UserRole) {
       deviceId: row.device_id,
       appVersion: row.app_version,
       manifest: row.capture_manifest ?? null,
+      witnesses: row.witnesses ?? [],
+      searchChecklist: row.search_checklist ?? null,
     },
   };
 }

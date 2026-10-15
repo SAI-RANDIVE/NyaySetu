@@ -230,6 +230,9 @@ const schema = z.object({
   LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
 
   MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(50 * 1024 * 1024),
+  // A recording sent in resumable pieces (F12). Reassembled in memory once at
+  // registration, so keep this within what the API host can hold.
+  MAX_CHUNKED_UPLOAD_BYTES: z.coerce.number().int().positive().default(300 * 1024 * 1024),
 });
 
 const parsed = schema.safeParse(process.env);

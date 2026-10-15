@@ -12,6 +12,12 @@ import { startScheduler, stopScheduler } from "./jobs/scheduler";
 async function start() {
   initChain();
 
+  // A fully local run: seed the in-memory database (refused for a real one).
+  if (process.env.NYAY_DB === "memory" && process.env.DEV_SEED === "true") {
+    const { seedMemoryDatabase } = await import("./scripts/devSeed");
+    await seedMemoryDatabase();
+  }
+
   const databaseReachable = await pingDatabase();
   if (!databaseReachable) {
     logger.error(

@@ -21,6 +21,7 @@ import referenceRoutes from "./routes/reference";
 import reportRoutes from "./routes/reports";
 import publicRoutes from "./routes/public";
 import deviceRoutes from "./routes/devices";
+import uploadRoutes from "./routes/uploads";
 
 /**
  * The Express application, without a listening socket or background jobs, so the
@@ -64,7 +65,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["content-type", "x-csrf-token", "idempotency-key"],
+    allowedHeaders: ["content-type", "x-csrf-token", "idempotency-key", "x-chunk-sha256"],
     exposedHeaders: ["x-nyaysetu-sha256", "x-nyaysetu-integrity"],
     maxAge: 600,
   })
@@ -101,6 +102,7 @@ app.use("/api/bail", requirePasswordSettled, bailRoutes);
 app.use("/api/ai", requirePasswordSettled, aiRoutes);
 app.use("/api/admin", requirePasswordSettled, adminRoutes);
 app.use("/api/devices", requirePasswordSettled, deviceRoutes);
+app.use("/api/uploads", requirePasswordSettled, uploadRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

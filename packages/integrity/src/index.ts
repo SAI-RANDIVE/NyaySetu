@@ -11,3 +11,4 @@ export * from "./sha256";
 export * from "./canonical";
 export * from "./manifest";
 export * from "./explain";
+export * from "./journal";

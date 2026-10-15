@@ -17,6 +17,13 @@ import { buildPassportPdf } from "../lib/pdf/passport";
  */
 const router = Router();
 router.use(publicLimiter);
+// The QR image and the PDF are embedded or opened by the SPA on another origin.
+// They are public by design, so the API's default same-site resource policy is
+// relaxed here and nowhere else.
+router.use((_req, res, next) => {
+  res.setHeader("cross-origin-resource-policy", "cross-origin");
+  next();
+});
 
 const refParam = z.object({ ref: z.string().trim().min(4).max(40) });
 

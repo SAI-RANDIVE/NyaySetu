@@ -24,6 +24,34 @@ import {
 } from "../services/evidence.service";
 import { anchorHistory, loadAnchor, recheck } from "../services/verification/anchors";
 import { parseManifestField, parseSignatureField } from "../services/capture.service";
+import { assembleUpload, consumeUpload } from "../services/upload.service";
+
+const witnessSchema = z
+  .array(z.object({ name: z.string().trim().min(2).max(120), description: z.string().trim().max(200).optional() }))
+  .max(10);
+const checklistSchema = z.record(z.string().max(40), z.boolean());
+
+function jsonField(raw: string, label: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw badRequest(`${label} is not valid JSON.`);
+  }
+}
+
+function parseWitnesses(raw: string | undefined) {
+  if (!raw) return null;
+  const parsed = witnessSchema.safeParse(jsonField(raw, "witnesses"));
+  if (!parsed.success) throw badRequest("witnesses must be a list of {name, description}.");
+  return parsed.data;
+}
+
+function parseChecklist(raw: string | undefined) {
+  if (!raw) return null;
+  const parsed = checklistSchema.safeParse(jsonField(raw, "searchChecklist"));
+  if (!parsed.success) throw badRequest("searchChecklist must be an object of booleans.");
+  return parsed.data;
+}
 import { authorisedPassport, canSeeCaptureDetail, verifyUrl } from "../services/passport/passport.service";
 import { buildPassportPdf } from "../lib/pdf/passport";
 import { canonicalJson } from "../shared/integrity";
@@ -71,6 +99,11 @@ const registerSchema = z
     manifest: z.string().max(20_000).optional(),
     signature: z.string().max(2_000).optional(),
     deviceClockAtSendMs: z.coerce.number().int().positive().optional(),
+    // A long recording sent in resumable pieces (F12) instead of as `file`.
+    uploadId: uuid.optional(),
+    // Search and seizure: witnesses present (JSON array) and the checklist.
+    witnesses: z.string().max(4_000).optional(),
+    searchChecklist: z.string().max(2_000).optional(),
   })
   .refine((v) => (v.gpsLat === undefined || v.gpsLat === null) === (v.gpsLng === undefined || v.gpsLng === null), {
     message: "Give both coordinates or neither.",
@@ -90,8 +123,6 @@ router.post(
   writeLimiter,
   upload.single("file"),
   asyncRoute(async (req, res) => {
-    if (!req.file) throw badRequest("Attach the evidence file as the `file` field.");
-
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
       throw badRequest(
@@ -102,6 +133,19 @@ router.post(
 
     await assertCaseAccess(req, parsed.data.caseId, "write");
 
+    // The bytes come either with this request or from a completed resumable upload.
+    let file: { buffer: Buffer; originalname: string; mimetype: string };
+    if (parsed.data.uploadId) {
+      if (req.file) throw badRequest("Send either a file or an uploadId, not both.");
+      const assembled = await assembleUpload(req.user!, parsed.data.uploadId, parsed.data.caseId);
+      file = { buffer: assembled.buffer, originalname: assembled.session.file_name, mimetype: assembled.session.mime_type };
+    } else {
+      if (!req.file) throw badRequest("Attach the evidence file as the `file` field, or send an uploadId.");
+      file = req.file;
+    }
+    const witnesses = parseWitnesses(parsed.data.witnesses);
+    const searchChecklist = parseChecklist(parsed.data.searchChecklist);
+
     const manifest = parseManifestField(parsed.data.manifest);
     const signature = parseSignatureField(parsed.data.signature);
     if (parsed.data.source === "upload" && manifest) {
@@ -111,10 +155,10 @@ router.post(
     const result = await registerEvidence(req, req.user!, {
       caseId: parsed.data.caseId,
       clientHash: parsed.data.clientHash,
-      fileName: req.file.originalname,
-      mimeType: req.file.mimetype || "application/octet-stream",
+      fileName: file.originalname,
+      mimeType: file.mimetype || "application/octet-stream",
       kind: parsed.data.kind,
-      buffer: req.file.buffer,
+      buffer: file.buffer,
       gpsLat: parsed.data.gpsLat ?? null,
       gpsLng: parsed.data.gpsLng ?? null,
       source: parsed.data.source,
@@ -125,7 +169,11 @@ router.post(
       deviceReportedMtime: parsed.data.deviceReportedMtime ?? null,
       notes: parsed.data.notes ?? null,
       idempotencyKey: idempotencyKey(req),
+      witnesses,
+      searchChecklist,
     });
+
+    if (parsed.data.uploadId && !result.replayed) await consumeUpload(parsed.data.uploadId, result.evidence.id);
 
     // 200 for a replay of a request already handled; 201 for a new record,
     // whatever state its anchoring reached. The body always says which state.

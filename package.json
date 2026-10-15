@@ -30,7 +30,8 @@
     "audit:python": "cd ai-service && python -m pip_audit -r requirements.txt",
     "integrity:sync": "node scripts/integrity-sync.mjs",
     "integrity:check": "node scripts/integrity-sync.mjs --check",
-    "test:integrity": "npm --prefix backend exec -- tsx --test packages/integrity/test/sha256.test.ts packages/integrity/test/manifest.test.ts packages/integrity/test/explain.test.ts",
-    "check": "npm --prefix backend run check"
+    "test:integrity": "npm --prefix backend exec -- tsx --test packages/integrity/test/sha256.test.ts packages/integrity/test/manifest.test.ts packages/integrity/test/explain.test.ts packages/integrity/test/journal.test.ts",
+    "check": "npm --prefix backend run check",
+    "local": "node scripts/local-stack.mjs"
   }
 }

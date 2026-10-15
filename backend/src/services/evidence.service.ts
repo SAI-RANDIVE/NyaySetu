@@ -111,7 +111,7 @@ export function stripEnvelope(item: any) {
   if (!item) return item;
   // The capture manifest holds raw coordinates: it is served only by the
   // dedicated, access-checked passport and manifest routes.
-  const { encryption_iv, encryption_tag, encryption_key_id, idempotency_key, capture_manifest, manifest_signature, ...safe } = item;
+  const { encryption_iv, encryption_tag, encryption_key_id, idempotency_key, capture_manifest, manifest_signature, witnesses, ...safe } = item;
   return safe;
 }
 
@@ -133,6 +133,9 @@ export interface RegisterInput {
   signature?: SignatureEnvelope | null;
   /** The device clock when the request was sent, for skew detection. */
   deviceClockAtSendMs?: number | null;
+  /** Search and seizure (F12): who was present, and the minimum checklist. Off chain. */
+  witnesses?: { name: string; description?: string }[] | null;
+  searchChecklist?: Record<string, boolean> | null;
   deviceReportedMtime?: string | null;
   notes?: string | null;
   idempotencyKey?: string | null;
@@ -301,6 +304,8 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
       clock_skew_seconds: capture?.skewSeconds ?? null,
       clock_skew_flagged: capture?.skewFlagged ?? false,
       duration_ms: capture?.durationMs ?? null,
+      witnesses: input.witnesses ?? null,
+      search_checklist: input.searchChecklist ?? null,
     })
     .select("*")
     .single();
