@@ -1,8 +1,8 @@
 {
   "name": "nyaysetu",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "NyaySetu (\u0928\u094d\u092f\u093e\u092f\u0938\u0947\u0924\u0941) \u2014 blockchain-anchored evidence, summons and bail infrastructure",
+  "description": "NyaySetu (न्यायसेतु) — blockchain-anchored evidence, summons and bail infrastructure",
   "license": "MIT",
   "engines": {
     "node": ">=20"
@@ -27,6 +27,10 @@
     "test": "npm --prefix contracts test",
     "audit": "npm --prefix contracts audit --omit=dev && npm --prefix backend audit --omit=dev && npm --prefix frontend audit --omit=dev",
     "audit:all": "npm --prefix contracts audit; npm --prefix backend audit; npm --prefix frontend audit",
-    "audit:python": "cd ai-service && python -m pip_audit -r requirements.txt"
+    "audit:python": "cd ai-service && python -m pip_audit -r requirements.txt",
+    "integrity:sync": "node scripts/integrity-sync.mjs",
+    "integrity:check": "node scripts/integrity-sync.mjs --check",
+    "test:integrity": "npm --prefix backend exec -- tsx --test packages/integrity/test/sha256.test.ts packages/integrity/test/manifest.test.ts packages/integrity/test/explain.test.ts",
+    "check": "npm --prefix backend run check"
   }
 }
