@@ -89,6 +89,15 @@ const schema = z.object({
   REORG_WATCH_MINUTES: z.coerce.number().int().min(1).default(60),
   // Write raw micro-degree coordinates into registerEvidence. Off by default:
   // the fix is committed inside the capture manifest instead. See DECISIONS D-03.
+  // Live capture (F10). The device enforces these before capture; the server
+  // re-checks them.
+  CAPTURE_MAX_ACCURACY_M: z.coerce.number().positive().default(50),
+  CAPTURE_REQUIRE_GPS: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true"),
+  // Device clock against server clock. Beyond this, the item is flagged.
+  CLOCK_SKEW_TOLERANCE_SECONDS: z.coerce.number().int().positive().default(300),
   ANCHOR_RAW_COORDS_ON_CHAIN: z
     .string()
     .default("false")

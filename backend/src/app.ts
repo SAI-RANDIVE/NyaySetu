@@ -19,6 +19,8 @@ import aiRoutes from "./routes/ai";
 import adminRoutes from "./routes/admin";
 import referenceRoutes from "./routes/reference";
 import reportRoutes from "./routes/reports";
+import publicRoutes from "./routes/public";
+import deviceRoutes from "./routes/devices";
 
 /**
  * The Express application, without a listening socket or background jobs, so the
@@ -79,6 +81,8 @@ app.use(generalLimiter);
 app.use(csrfProtection);
 
 app.use("/api/health", healthRoutes);
+// The Integrity Passport. Public by design: no session is needed or consulted.
+app.use("/api/public", publicRoutes);
 // Not behind requirePasswordSettled: this router is how the password is changed.
 app.use("/api/auth", authRoutes);
 
@@ -96,6 +100,7 @@ app.use("/api/summons", requirePasswordSettled, summonsRoutes);
 app.use("/api/bail", requirePasswordSettled, bailRoutes);
 app.use("/api/ai", requirePasswordSettled, aiRoutes);
 app.use("/api/admin", requirePasswordSettled, adminRoutes);
+app.use("/api/devices", requirePasswordSettled, deviceRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

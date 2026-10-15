@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { AppError } from "../../src/lib/errors";
 import { setVerificationDeps, type Sender } from "../../src/services/verification/anchors";
 import type { ChainProbe, ReceiptView } from "../../src/services/verification/probe";
+import { setChainReader } from "../../src/services/verification/reader";
 
 /**
  * A simulated EvidenceChain for tests: its own registry of digests (so it can
@@ -20,7 +21,11 @@ interface Record_ {
   mismatchCount: number;
   custody: { fromRole: string; toRole: string; confirmedHash: string; timestamp: number }[];
   registeredAt: number;
+  gpsLatE6: number;
+  gpsLngE6: number;
 }
+
+const NEXT: Record<string, string> = { SCENE: "FORENSIC_LAB", FORENSIC_LAB: "PROSECUTOR", PROSECUTOR: "COURT" };
 
 export class FakeChain {
   head = 100;
@@ -55,16 +60,54 @@ export class FakeChain {
       events: (receipt, _contract, names) => (receipt.events ?? []).filter((e) => names.includes(e.name)),
     };
     setVerificationDeps({ sender, probe, ready: () => this.ready });
+    setChainReader({
+      ready: () => this.ready && !this.rpcDown,
+      evidence: async (id) => {
+        if (this.rpcDown) throw new Error("RPC down");
+        const r = this.registry.get(id);
+        if (!r) throw new Error(`UnknownEvidence(${id})`);
+        return {
+          caseId: r.caseId,
+          fileHash: r.fileHash,
+          collectedAt: r.registeredAt,
+          currentStage: r.stage,
+          mismatchCount: r.mismatchCount,
+          forensicReportHash: "0x" + "00".repeat(32),
+          anomalyFlagHash: "0x" + "00".repeat(32),
+          gpsLatE6: r.gpsLatE6,
+          gpsLngE6: r.gpsLngE6,
+          registrar: "0x" + "11".repeat(20),
+        };
+      },
+      custody: async (id) => {
+        if (this.rpcDown) throw new Error("RPC down");
+        const r = this.registry.get(id);
+        if (!r) throw new Error(`UnknownEvidence(${id})`);
+        return r.custody.map((c, i) => ({
+          fromStage: i === 0 ? null : c.fromRole,
+          toStage: c.toRole,
+          confirmedHash: c.confirmedHash,
+          timestamp: c.timestamp,
+        }));
+      },
+    });
     return this;
   }
 
   uninstall(): void {
     setVerificationDeps(null);
+    setChainReader(null);
   }
 
   /** Mines n empty blocks. */
   mine(n = 1): void {
     this.head += n;
+  }
+
+  /** Rewrites the chain's stored digest, for tests of a record that disagrees with the chain. */
+  setDigest(id: number, digest: string): void {
+    const r = this.registry.get(id);
+    if (r) r.fileHash = digest.toLowerCase();
   }
 
   /** Moves a mined transaction into a different block, as a reorg would. */
@@ -113,7 +156,7 @@ export class FakeChain {
     const now = Math.floor(Date.now() / 1000);
     switch (method) {
       case "registerEvidence": {
-        const [caseId, fileHash] = args as [string, string];
+        const [caseId, fileHash, lat, lng] = args as [string, string, bigint, bigint];
         const id = this.nextEvidenceId++;
         this.registry.set(id, {
           caseId,
@@ -122,6 +165,8 @@ export class FakeChain {
           mismatchCount: 0,
           custody: [{ fromRole: "0x" + "00".repeat(32), toRole: "SCENE", confirmedHash: fileHash, timestamp: now }],
           registeredAt: now,
+          gpsLatE6: Number(lat ?? 0),
+          gpsLngE6: Number(lng ?? 0),
         });
         return [{ name: "EvidenceRegistered", args: { evidenceId: String(id), caseId, fileHash: fileHash.toLowerCase() } }];
       }
@@ -144,7 +189,9 @@ export class FakeChain {
         const [id, , , confirmedHash] = args as [number, string, string, string];
         const record = this.registry.get(Number(id));
         if (!record) return [];
-        record.custody.push({ fromRole: record.stage, toRole: "next", confirmedHash, timestamp: now });
+        const to = NEXT[record.stage] ?? record.stage;
+        record.custody.push({ fromRole: record.stage, toRole: to, confirmedHash, timestamp: now });
+        record.stage = to;
         return [{ name: "CustodyTransferred", args: { evidenceId: String(id), confirmedHash: String(confirmedHash).toLowerCase() } }];
       }
       case "anchorAnomalyFlag": {

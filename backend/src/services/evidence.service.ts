@@ -3,7 +3,8 @@ import { randomUUID } from "crypto";
 import { db, unwrap, unwrapList, unwrapMaybe } from "../lib/supabase";
 import { sha256Hex, keccakOfString, officerPseudonym } from "../lib/crypto";
 import { storeEncrypted, loadDecrypted } from "../lib/storage";
-import { read, toMicroDegrees, fromMicroDegrees, explorerUrl, chain } from "../lib/chain";
+import { toMicroDegrees, fromMicroDegrees, explorerUrl } from "../lib/chain";
+import { chainReader } from "./verification/reader";
 import { conflict, notFound, AppError } from "../lib/errors";
 import { logger } from "../lib/logger";
 import { env } from "../config/env";
@@ -19,6 +20,8 @@ import {
   type Actor,
 } from "./verification/anchors";
 import { STATE_LABEL, type VerificationState } from "./verification/stateMachine";
+import { checkCapture, digestForChain, type SignatureEnvelope } from "./capture.service";
+import { newPublicRef } from "../lib/publicRef";
 
 /**
  * SaakshyaSetu service layer.
@@ -106,7 +109,9 @@ export function presentVerification(anchor: Partial<AnchorRow> | null | undefine
 /** Columns of evidence_items that may leave the API. The encryption envelope never does. */
 export function stripEnvelope(item: any) {
   if (!item) return item;
-  const { encryption_iv, encryption_tag, encryption_key_id, idempotency_key, ...safe } = item;
+  // The capture manifest holds raw coordinates: it is served only by the
+  // dedicated, access-checked passport and manifest routes.
+  const { encryption_iv, encryption_tag, encryption_key_id, idempotency_key, capture_manifest, manifest_signature, ...safe } = item;
   return safe;
 }
 
@@ -119,17 +124,23 @@ export interface RegisterInput {
   mimeType: string;
   kind: "photo" | "video" | "document" | "audio" | "physical";
   buffer: Buffer;
-  gpsLat: number;
-  gpsLng: number;
+  gpsLat: number | null;
+  gpsLng: number | null;
   collectedAt: string;
+  /** "capture" requires a manifest; "upload" is a file chosen from storage. */
+  source?: "upload" | "capture";
+  manifest?: unknown;
+  signature?: SignatureEnvelope | null;
+  /** The device clock when the request was sent, for skew detection. */
+  deviceClockAtSendMs?: number | null;
   deviceReportedMtime?: string | null;
   notes?: string | null;
   idempotencyKey?: string | null;
 }
 
 /** Coordinates for registerEvidence: real micro-degrees only when explicitly enabled (D-03). */
-function chainCoordinates(lat: number, lng: number): [bigint, bigint] {
-  if (!env.ANCHOR_RAW_COORDS_ON_CHAIN) return [0n, 0n];
+function chainCoordinates(lat: number | null, lng: number | null): [bigint, bigint] {
+  if (!env.ANCHOR_RAW_COORDS_ON_CHAIN || lat === null || lng === null) return [0n, 0n];
   return [toMicroDegrees(lat, "latitude"), toMicroDegrees(lng, "longitude")];
 }
 
@@ -202,6 +213,31 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
     );
   }
 
+  // 1b -- A live capture: the manifest must describe exactly these bytes, this
+  //       case and this officer. Its digest, not the file's, goes on chain.
+  const source = input.source ?? "upload";
+  if (source === "capture" && !input.manifest) {
+    throw conflict("A live capture must carry its capture manifest. Use source=upload for an existing file.");
+  }
+  const capture =
+    source === "capture"
+      ? await checkCapture({
+          manifest: input.manifest,
+          signature: input.signature ?? null,
+          serverFileHash: serverHash,
+          fileBytes: input.buffer.length,
+          caseReference: caseRow.case_reference,
+          userId: user.id,
+          deviceClockAtSendMs: input.deviceClockAtSendMs ?? null,
+        })
+      : null;
+  if (capture && capture.manifest.source !== "capture") {
+    throw conflict("The manifest says this file was uploaded, not captured live.");
+  }
+  const gpsLat = capture ? capture.gps.lat : input.gpsLat;
+  const gpsLng = capture ? capture.gps.lng : input.gpsLng;
+  const anchoredDigest = capture ? capture.manifestHash : serverHash;
+
   // 2 -- Anomaly screening, before anything is anchored.
   const uploadDelaySeconds = Math.max(0, Math.round((Date.now() - new Date(input.collectedAt).getTime()) / 1000));
   const screeningInput = {
@@ -209,8 +245,10 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
     mimeType: input.mimeType,
     claimedCollectedAt: input.collectedAt,
     deviceReportedMtime: input.deviceReportedMtime ?? null,
-    gpsLat: input.gpsLat,
-    gpsLng: input.gpsLng,
+    // The model needs a position; an item without one is screened at the
+    // jurisdiction centroid, and the missing fix is reported separately.
+    gpsLat: gpsLat ?? 0,
+    gpsLng: gpsLng ?? 0,
     uploadDelaySeconds,
   };
   const screening = await screenEvidence(screeningInput);
@@ -232,9 +270,9 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
       encryption_iv: blob.iv,
       encryption_tag: blob.tag,
       encryption_key_id: blob.keyId,
-      gps_lat: input.gpsLat,
-      gps_lng: input.gpsLng,
-      collected_at: input.collectedAt,
+      gps_lat: gpsLat,
+      gps_lng: gpsLng,
+      collected_at: capture ? capture.deviceTime : input.collectedAt,
       device_reported_mtime: input.deviceReportedMtime ?? null,
       current_stage: "SCENE",
       officer_id: user.id,
@@ -244,6 +282,25 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
       anomaly_reasons: screening.reasons,
       notes: input.notes ?? null,
       idempotency_key: input.idempotencyKey ?? null,
+      public_ref: newPublicRef(),
+      source,
+      anchor_mode: capture ? "manifest" : "file",
+      anchored_digest: anchoredDigest,
+      capture_purpose: capture?.purpose ?? "general",
+      capture_manifest: capture?.manifest ?? null,
+      manifest_hash: capture?.manifestHash ?? null,
+      manifest_signature: input.signature ?? null,
+      signature_status: capture?.signatureStatus ?? "none",
+      gps_status: capture ? capture.gps.status : gpsLat === null ? "NO_GPS" : null,
+      gps_accuracy_m: capture?.gps.accuracyMetres ?? null,
+      gps_mocked: capture?.gps.mocked ?? null,
+      device_id: capture?.deviceId ?? null,
+      app_version: capture?.appVersion ?? null,
+      device_time: capture?.deviceTime ?? null,
+      server_received_at: new Date().toISOString(),
+      clock_skew_seconds: capture?.skewSeconds ?? null,
+      clock_skew_flagged: capture?.skewFlagged ?? false,
+      duration_ms: capture?.durationMs ?? null,
     })
     .select("*")
     .single();
@@ -258,18 +315,18 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
   const row = unwrap(inserted) as any;
 
   // 5 -- The anchor, then the genesis custody record (its tx is filled in once known).
-  const [lat, lng] = chainCoordinates(input.gpsLat, input.gpsLng);
+  const [lat, lng] = chainCoordinates(gpsLat, gpsLng);
   const pseudonym = officerPseudonym(user.id);
   const { anchor: created } = await createAnchor({
     purpose: "evidence_registration",
     contract: "EvidenceChain",
     method: "registerEvidence",
-    args: [caseRow.case_id_hash, serverHash, lat, lng, pseudonym],
+    args: [caseRow.case_id_hash, anchoredDigest, lat, lng, pseudonym],
     caseId: caseRow.id,
     subjectType: "evidence_item",
     subjectId: row.id,
     expectedEvent: "EvidenceRegistered",
-    expectedDigest: serverHash,
+    expectedDigest: anchoredDigest,
     digestArg: "fileHash",
     expectedArgs: { caseId: caseRow.case_id_hash },
     idempotencyKey: `evidence:${row.id}:registration`,
@@ -281,7 +338,7 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
     evidence_id: row.id,
     from_stage: null,
     to_stage: "SCENE",
-    confirmed_hash: serverHash,
+    confirmed_hash: anchoredDigest,
     actor_id: user.id,
     actor_role: user.role,
     occurred_at: new Date().toISOString(),
@@ -342,6 +399,8 @@ export async function registerEvidence(req: Request, user: SessionUser, input: R
       state: outcome.anchor.state,
       anomalyFlagged: screening.anomaly,
       ipfsBackend: blob.backend,
+      source,
+      ...(capture ? { gpsStatus: capture.gps.status, signature: capture.signatureStatus, skewFlagged: capture.skewFlagged } : {}),
       ...(outcome.error ? { reason: outcome.anchor.failure_code } : {}),
     },
   });
@@ -448,17 +507,21 @@ export async function transferCustody(
   }
 
   const actor = actorOf(user);
+  // The receiver hashes the FILE they hold. For a live capture the chain holds
+  // the manifest's digest, so the server substitutes the receiver's file digest
+  // into the stored manifest and sends that (DECISIONS D-04).
+  const chainDigest = digestForChain(item, submittedHash);
   const { anchor: checkAnchor } = await createAnchor({
     purpose: "integrity_check",
     contract: "EvidenceChain",
     method: "reportIntegrityCheck",
-    args: [item.chain_evidence_id, submittedHash],
+    args: [item.chain_evidence_id, chainDigest],
     caseId: item.case_id,
     subjectType: "evidence_item",
     subjectId: item.id,
     parentAnchorId: item.anchor_id ?? null,
     expectedEvent: "IntegrityVerified|IntegrityMismatch",
-    expectedDigest: submittedHash,
+    expectedDigest: chainDigest,
     digestArg: "checkHash|submittedHash",
     expectedArgs: { evidenceId: String(item.chain_evidence_id) },
     idempotencyKey: `custody-check:${item.id}:${attemptKey}`,
@@ -483,12 +546,12 @@ export async function transferCustody(
   }
 
   const matched = checked.event.name === "IntegrityVerified";
-  const expectedOnChain = String(checked.event.args.expectedHash ?? item.file_hash);
+  const expectedOnChain = String(checked.event.args.expectedHash ?? item.anchored_digest ?? item.file_hash);
 
   await db.from("integrity_checks").insert({
     evidence_id: item.id,
-    submitted_hash: submittedHash,
-    expected_hash: matched ? submittedHash : expectedOnChain,
+    submitted_hash: chainDigest,
+    expected_hash: matched ? chainDigest : expectedOnChain,
     matched,
     checked_by: user.id,
     checked_by_role: user.role,
@@ -530,13 +593,13 @@ export async function transferCustody(
     purpose: "custody_transfer",
     contract: "EvidenceChain",
     method: "transferCustody",
-    args: [item.chain_evidence_id, stageTag(fromStage), stageTag(toStage), submittedHash],
+    args: [item.chain_evidence_id, stageTag(fromStage), stageTag(toStage), chainDigest],
     caseId: item.case_id,
     subjectType: "evidence_item",
     subjectId: item.id,
     parentAnchorId: item.anchor_id ?? null,
     expectedEvent: "CustodyTransferred",
-    expectedDigest: submittedHash,
+    expectedDigest: chainDigest,
     digestArg: "confirmedHash",
     expectedArgs: { evidenceId: String(item.chain_evidence_id) },
     idempotencyKey: `custody-transfer:${item.id}:${attemptKey}`,
@@ -561,7 +624,7 @@ export async function transferCustody(
     evidence_id: item.id,
     from_stage: fromStage,
     to_stage: toStage,
-    confirmed_hash: submittedHash,
+    confirmed_hash: chainDigest,
     actor_id: user.id,
     actor_role: user.role,
     occurred_at: new Date().toISOString(),
@@ -615,9 +678,17 @@ export async function verifyAgainstChain(
     throw conflict("This item is not anchored on chain, so there is nothing independent to verify against.");
   }
 
-  const onChain = (await read<any>("EvidenceChain", "getEvidence", [item.chain_evidence_id])) as any;
-  const chainHash: string = String(onChain.fileHash).toLowerCase();
-  const matched = chainHash === submittedHash.toLowerCase();
+  const reader = chainReader();
+  if (!reader.ready()) {
+    throw new AppError(503, "UNAVAILABLE", "The blockchain cannot be read right now, so nothing can be verified independently. Retry shortly.");
+  }
+  const onChain = await reader.evidence(Number(item.chain_evidence_id));
+  const chainHash: string = onChain.fileHash;
+  // For a capture, the visitor's FILE digest is turned into the manifest digest
+  // the chain holds, using the manifest on record. A tampered manifest cannot
+  // produce a false match without a SHA-256 pre-image.
+  const candidate = digestForChain(item, submittedHash);
+  const matched = chainHash === candidate;
 
   // Does the off-chain record still agree with the chain? A disagreement here is
   // a database tampering finding in its own right.
@@ -630,13 +701,13 @@ export async function verifyAgainstChain(
       purpose: "integrity_check",
       contract: "EvidenceChain",
       method: "reportIntegrityCheck",
-      args: [item.chain_evidence_id, submittedHash],
+      args: [item.chain_evidence_id, candidate],
       caseId: item.case_id,
       subjectType: "evidence_item",
       subjectId: item.id,
       parentAnchorId: item.anchor_id ?? null,
       expectedEvent: "IntegrityVerified|IntegrityMismatch",
-      expectedDigest: submittedHash,
+      expectedDigest: candidate,
       digestArg: "checkHash|submittedHash",
       expectedArgs: { evidenceId: String(item.chain_evidence_id) },
       idempotencyKey: `independent-check:${item.id}:${randomUUID()}`,
@@ -649,7 +720,7 @@ export async function verifyAgainstChain(
 
   await db.from("integrity_checks").insert({
     evidence_id: item.id,
-    submitted_hash: submittedHash,
+    submitted_hash: candidate,
     expected_hash: chainHash,
     matched,
     checked_by: user.id,
@@ -670,14 +741,18 @@ export async function verifyAgainstChain(
     matched,
     databaseAgreesWithChain,
     submittedHash,
+    anchorMode: item.anchor_mode ?? "file",
+    comparedDigest: candidate,
     onChainHash: chainHash,
     onChain: {
       caseId: onChain.caseId,
-      collectedAt: Number(onChain.collectedAt),
-      gpsLat: fromMicroDegrees(onChain.gpsLat),
-      gpsLng: fromMicroDegrees(onChain.gpsLng),
+      collectedAt: onChain.collectedAt,
+      // (0, 0) means the coordinates were kept off chain (DECISIONS D-03).
+      gpsLat: fromMicroDegrees(onChain.gpsLatE6),
+      gpsLng: fromMicroDegrees(onChain.gpsLngE6),
+      coordinatesOnChain: onChain.gpsLatE6 !== 0 || onChain.gpsLngE6 !== 0,
       currentStage: onChain.currentStage,
-      mismatchCount: Number(onChain.mismatchCount),
+      mismatchCount: onChain.mismatchCount,
       forensicReportHash: onChain.forensicReportHash,
       anomalyFlagHash: onChain.anomalyFlagHash,
       registrar: onChain.registrar,
@@ -702,15 +777,15 @@ export async function custodyTimeline(evidenceId: string) {
 
   let onChain: any[] = [];
   let chainReadable = false;
-  if (item.chain_evidence_id !== null && item.chain_evidence_id !== undefined && chain.isReady) {
+  const reader = chainReader();
+  if (item.chain_evidence_id !== null && item.chain_evidence_id !== undefined && reader.ready()) {
     try {
-      const raw = (await read<any[]>("EvidenceChain", "getChainOfCustody", [item.chain_evidence_id])) as any[];
+      const raw = await reader.custody(Number(item.chain_evidence_id));
       onChain = raw.map((e) => ({
-        fromRole: e.fromRole,
-        toRole: e.toRole,
+        fromRole: e.fromStage,
+        toRole: e.toStage,
         confirmedHash: e.confirmedHash,
-        timestamp: Number(e.timestamp),
-        actor: e.actor,
+        timestamp: e.timestamp,
       }));
       chainReadable = true;
     } catch (error) {
@@ -824,7 +899,9 @@ export async function loadEvidence(evidenceId: string) {
 }
 
 const LIST_COLUMNS =
-  "id, case_id, chain_evidence_id, file_hash, file_name, mime_type, size_bytes, kind, current_stage, " +
+  "id, case_id, chain_evidence_id, file_hash, anchored_digest, anchor_mode, source, public_ref, capture_purpose, " +
+  "gps_status, gps_accuracy_m, signature_status, clock_skew_flagged, device_time, duration_ms, " +
+  "file_name, mime_type, size_bytes, kind, current_stage, " +
   "collected_at, gps_lat, gps_lng, anomaly_flagged, anomaly_score, anomaly_reasons, anomaly_flag_hash, " +
   "forensic_report_hash, mismatch_count, registration_tx_hash, created_at, anchor_id, " +
   "anchors(id, state, tx_hash, block_number, confirmations, required_confirmations, failure_code, failure_reason, submitted_at, confirmed_at, last_checked_at)";

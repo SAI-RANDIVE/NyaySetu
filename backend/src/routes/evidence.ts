@@ -23,6 +23,11 @@ import {
   presentVerification,
 } from "../services/evidence.service";
 import { anchorHistory, loadAnchor, recheck } from "../services/verification/anchors";
+import { parseManifestField, parseSignatureField } from "../services/capture.service";
+import { authorisedPassport, canSeeCaptureDetail, verifyUrl } from "../services/passport/passport.service";
+import { buildPassportPdf } from "../lib/pdf/passport";
+import { canonicalJson } from "../shared/integrity";
+import { forbidden } from "../lib/errors";
 import { recordAction } from "../services/audit";
 
 /**
@@ -48,17 +53,29 @@ const upload = multer({
   limits: { fileSize: env.MAX_UPLOAD_BYTES, files: 1 },
 });
 
-const registerSchema = z.object({
-  caseId: uuid,
-  // The digest the device computed before the upload started.
-  clientHash: hash32,
-  kind: z.enum(["photo", "video", "document", "audio", "physical"]),
-  gpsLat: latitude,
-  gpsLng: longitude,
-  collectedAt: z.string().datetime({ offset: true }),
-  deviceReportedMtime: z.string().datetime({ offset: true }).optional().nullable(),
-  notes: safeText(2000).optional().nullable(),
-});
+const registerSchema = z
+  .object({
+    caseId: uuid,
+    // The digest the device computed before the upload started.
+    clientHash: hash32,
+    kind: z.enum(["photo", "video", "document", "audio", "physical"]),
+    // Optional: an upload of an existing file may have no meaningful position,
+    // and a live capture carries its fix inside the manifest instead.
+    gpsLat: latitude.optional().nullable(),
+    gpsLng: longitude.optional().nullable(),
+    collectedAt: z.string().datetime({ offset: true }),
+    deviceReportedMtime: z.string().datetime({ offset: true }).optional().nullable(),
+    notes: safeText(2000).optional().nullable(),
+    source: z.enum(["upload", "capture"]).default("upload"),
+    // JSON text fields: multipart cannot carry nested objects.
+    manifest: z.string().max(20_000).optional(),
+    signature: z.string().max(2_000).optional(),
+    deviceClockAtSendMs: z.coerce.number().int().positive().optional(),
+  })
+  .refine((v) => (v.gpsLat === undefined || v.gpsLat === null) === (v.gpsLng === undefined || v.gpsLng === null), {
+    message: "Give both coordinates or neither.",
+    path: ["gpsLng"],
+  });
 
 /**
  * Register evidence collected at a scene.
@@ -85,6 +102,12 @@ router.post(
 
     await assertCaseAccess(req, parsed.data.caseId, "write");
 
+    const manifest = parseManifestField(parsed.data.manifest);
+    const signature = parseSignatureField(parsed.data.signature);
+    if (parsed.data.source === "upload" && manifest) {
+      throw badRequest("An uploaded file is anchored by its own digest; send source=capture with a manifest for a live capture.");
+    }
+
     const result = await registerEvidence(req, req.user!, {
       caseId: parsed.data.caseId,
       clientHash: parsed.data.clientHash,
@@ -92,8 +115,12 @@ router.post(
       mimeType: req.file.mimetype || "application/octet-stream",
       kind: parsed.data.kind,
       buffer: req.file.buffer,
-      gpsLat: parsed.data.gpsLat,
-      gpsLng: parsed.data.gpsLng,
+      gpsLat: parsed.data.gpsLat ?? null,
+      gpsLng: parsed.data.gpsLng ?? null,
+      source: parsed.data.source,
+      manifest,
+      signature,
+      deviceClockAtSendMs: parsed.data.deviceClockAtSendMs ?? null,
       collectedAt: parsed.data.collectedAt,
       deviceReportedMtime: parsed.data.deviceReportedMtime ?? null,
       notes: parsed.data.notes ?? null,
@@ -349,6 +376,81 @@ router.post(
       detail: { state: after.state, fromState: before.state },
     });
     res.json({ verification: presentVerification(after), changed: after.state !== before.state });
+  })
+);
+
+/**
+ * The Passport as an assigned role sees it: the public view plus capture
+ * quality, and — for every role but the accused — where it was captured.
+ */
+router.get(
+  "/:id/passport",
+  validate(z.object({ id: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    const item = await loadEvidence(req.params.id);
+    await assertCaseAccess(req, item.case_id);
+    const view = await authorisedPassport(item.id, req.user!.role);
+    res.json({ ...view, verifyUrl: verifyUrl(view.passport.reference) });
+  })
+);
+
+/** The authorised PDF edition. Capture quality, never coordinates. */
+router.get(
+  "/:id/passport.pdf",
+  validate(z.object({ id: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    const item = await loadEvidence(req.params.id);
+    await assertCaseAccess(req, item.case_id);
+    const view = await authorisedPassport(item.id, req.user!.role);
+    const c = view.capture;
+    const pdf = await buildPassportPdf(view.passport, {
+      verifyUrl: verifyUrl(view.passport.reference),
+      generatedFor: req.user!.role.replace(/_/g, " "),
+      capture: c
+        ? {
+            source: c.source,
+            purpose: c.purpose,
+            deviceTime: c.deviceTime,
+            serverReceivedAt: c.serverReceivedAt,
+            clockSkewSeconds: c.clockSkewSeconds,
+            clockSkewFlagged: c.clockSkewFlagged,
+            gpsStatus: c.gps.status,
+            accuracyMetres: c.gps.accuracyMetres,
+            mocked: c.gps.mocked,
+            signatureStatus: c.signatureStatus,
+            durationMs: c.durationMs,
+            fileSha256: c.fileSha256,
+            manifestHash: c.manifestHash,
+          }
+        : null,
+    });
+    await recordAction(req, { action: "evidence.passport_pdf", subject: item.id, caseId: item.case_id });
+    res
+      .status(200)
+      .setHeader("content-type", "application/pdf")
+      .setHeader("content-disposition", `inline; filename="passport-${view.passport.reference}.pdf"`)
+      .send(pdf);
+  })
+);
+
+/**
+ * The canonical capture manifest, byte for byte as it was hashed. With it, and
+ * the file, anyone can recompute both digests offline. Contains coordinates, so
+ * the accused does not receive it.
+ */
+router.get(
+  "/:id/manifest",
+  validate(z.object({ id: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    const item = await loadEvidence(req.params.id);
+    await assertCaseAccess(req, item.case_id);
+    if (!canSeeCaptureDetail(req.user!.role)) throw forbidden("The capture manifest is not available to your role.");
+    if (!item.capture_manifest) throw badRequest("This item was uploaded, not captured live, so it has no manifest.");
+    await recordAction(req, { action: "evidence.manifest_download", subject: item.id, caseId: item.case_id });
+    res
+      .setHeader("content-type", "application/json; charset=utf-8")
+      .setHeader("content-disposition", `attachment; filename="manifest-${item.public_ref}.json"`)
+      .send(canonicalJson(item.capture_manifest));
   })
 );
 
