@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Request, Router } from "express";
 import multer from "multer";
 import { z } from "zod";
 import { env } from "../config/env";
@@ -6,8 +6,10 @@ import { badRequest, notFound } from "../lib/errors";
 import { asyncRoute } from "../middleware/error";
 import { validate, hash32, uuid, latitude, longitude, safeText } from "../middleware/validate";
 import { requireAuth, requireRole, assertCaseAccess } from "../middleware/auth";
+import { writeLimiter } from "../middleware/rateLimit";
 import {
   registerEvidence,
+  retryRegistration,
   transferCustody,
   verifyAgainstChain,
   custodyTimeline,
@@ -16,7 +18,25 @@ import {
   listCaseEvidence,
   loadEvidence,
   inboxFor,
+  stripEnvelope,
+  verificationFor,
+  presentVerification,
 } from "../services/evidence.service";
+import { anchorHistory, loadAnchor, recheck } from "../services/verification/anchors";
+import { recordAction } from "../services/audit";
+
+/**
+ * The Idempotency-Key header, validated. Chain-writing routes accept one so a
+ * client that retries after a dropped connection cannot register an item twice.
+ */
+function idempotencyKey(req: Request): string | null {
+  const raw = req.get("idempotency-key");
+  if (!raw) return null;
+  if (!/^[A-Za-z0-9:_-]{8,120}$/.test(raw)) {
+    throw badRequest("Idempotency-Key must be 8-120 characters of letters, digits, colon, dash or underscore.");
+  }
+  return raw;
+}
 
 const router = Router();
 router.use(requireAuth);
@@ -50,6 +70,7 @@ const registerSchema = z.object({
 router.post(
   "/",
   requireRole("police"),
+  writeLimiter,
   upload.single("file"),
   asyncRoute(async (req, res) => {
     if (!req.file) throw badRequest("Attach the evidence file as the `file` field.");
@@ -76,9 +97,12 @@ router.post(
       collectedAt: parsed.data.collectedAt,
       deviceReportedMtime: parsed.data.deviceReportedMtime ?? null,
       notes: parsed.data.notes ?? null,
+      idempotencyKey: idempotencyKey(req),
     });
 
-    res.status(201).json(result);
+    // 200 for a replay of a request already handled; 201 for a new record,
+    // whatever state its anchoring reached. The body always says which state.
+    res.status(result.replayed ? 200 : 201).json(result);
   })
 );
 
@@ -109,8 +133,7 @@ router.get(
 
     // Neither the key id nor the auth tag is any use to a client, and both are
     // part of the encryption envelope, so they stay server-side.
-    const { encryption_iv, encryption_tag, encryption_key_id, ...safe } = item;
-    res.json({ evidence: safe });
+    res.json({ evidence: stripEnvelope(item), verification: await verificationFor(item) });
   })
 );
 
@@ -123,8 +146,7 @@ router.get(
     await assertCaseAccess(req, item.case_id);
 
     const timeline = await custodyTimeline(req.params.id);
-    const { encryption_iv, encryption_tag, encryption_key_id, ...safe } = timeline.evidence;
-    res.json({ ...timeline, evidence: safe });
+    res.json({ ...timeline, evidence: stripEnvelope(timeline.evidence) });
   })
 );
 
@@ -135,13 +157,20 @@ router.get(
 router.post(
   "/:id/custody",
   requireRole("forensic_lab", "prosecutor", "judge"),
+  writeLimiter,
   validate(z.object({ id: uuid }), "params"),
   validate(z.object({ confirmedHash: hash32 })),
   asyncRoute(async (req, res) => {
     const item = await loadEvidence(req.params.id);
     await assertCaseAccess(req, item.case_id, "write");
 
-    const result = await transferCustody(req, req.user!, req.params.id, req.body.confirmedHash);
+    const result = await transferCustody(
+      req,
+      req.user!,
+      req.params.id,
+      req.body.confirmedHash,
+      idempotencyKey(req) ?? undefined
+    );
     res.json(result);
   })
 );
@@ -266,6 +295,60 @@ router.get(
     res.setHeader("x-nyaysetu-sha256", digest);
     res.setHeader("x-nyaysetu-integrity", intact ? "verified" : "MISMATCH");
     res.send(plaintext);
+  })
+);
+
+/**
+ * The item's verification state and its full history. Every assigned role may
+ * read it: whether something is confirmed is not a secret from anyone who can
+ * see the item at all.
+ */
+router.get(
+  "/:id/verification",
+  validate(z.object({ id: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    const item = await loadEvidence(req.params.id);
+    await assertCaseAccess(req, item.case_id);
+    if (!item.anchor_id) return res.json({ verification: presentVerification(null), history: [] });
+    const anchor = await loadAnchor(item.anchor_id);
+    res.json({ verification: presentVerification(anchor), history: await anchorHistory(anchor.id) });
+  })
+);
+
+/** Resend a registration that failed to anchor. Police with write access, or the registry. */
+router.post(
+  "/:id/anchor/retry",
+  requireRole("police", "court_admin"),
+  writeLimiter,
+  validate(z.object({ id: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    const item = await loadEvidence(req.params.id);
+    await assertCaseAccess(req, item.case_id, "write");
+    res.json(await retryRegistration(req, req.user!, req.params.id));
+  })
+);
+
+/**
+ * Look at the chain now rather than waiting for the tracker. Moves the state only
+ * if what it sees justifies it; it cannot be used to declare anything confirmed.
+ */
+router.post(
+  "/:id/anchor/recheck",
+  writeLimiter,
+  validate(z.object({ id: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    const item = await loadEvidence(req.params.id);
+    await assertCaseAccess(req, item.case_id);
+    if (!item.anchor_id) throw badRequest("This item has no registration anchor.");
+    const before = await loadAnchor(item.anchor_id);
+    const after = await recheck(before, { id: req.user!.id, role: req.user!.role });
+    await recordAction(req, {
+      action: "evidence.recheck_anchor",
+      subject: item.id,
+      caseId: item.case_id,
+      detail: { state: after.state, fromState: before.state },
+    });
+    res.json({ verification: presentVerification(after), changed: after.state !== before.state });
   })
 );
 

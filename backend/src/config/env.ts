@@ -76,6 +76,24 @@ const schema = z.object({
   BAIL_CHAIN_ADDRESS: optionalString,
   CHAIN_CONFIRMATIONS: z.coerce.number().int().min(1).default(1),
 
+  // ------------------------------------------------- verification (2.0 · F2)
+  // Blocks that must sit on top of a registration before it is CONFIRMED.
+  // Unset: 3 on a public network, 1 on a local Hardhat node (which only mines
+  // when it receives a transaction, so it would never reach 3 on its own).
+  CONFIRMATION_DEPTH: z.coerce.number().int().min(1).max(64).optional(),
+  // A submitted transaction with no receipt after this long goes to review.
+  PENDING_TIMEOUT_MINUTES: z.coerce.number().int().min(1).default(30),
+  // A transaction the node no longer knows about, after this long, is dropped.
+  DROPPED_AFTER_MINUTES: z.coerce.number().int().min(1).default(10),
+  // How long after confirmation the tracker keeps checking for a reorg.
+  REORG_WATCH_MINUTES: z.coerce.number().int().min(1).default(60),
+  // Write raw micro-degree coordinates into registerEvidence. Off by default:
+  // the fix is committed inside the capture manifest instead. See DECISIONS D-03.
+  ANCHOR_RAW_COORDS_ON_CHAIN: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true"),
+
   // -------------------------------------------------------------------- IPFS
   PINATA_JWT: optionalString,
   PINATA_API_KEY: optionalString,
@@ -301,6 +319,8 @@ export const env = {
   },
   otpEcho,
   isProduction: raw.NODE_ENV === "production",
+  confirmationDepth:
+    raw.CONFIRMATION_DEPTH ?? (["localhost", "hardhat"].includes(raw.CHAIN_NETWORK) ? 1 : 3),
   cookieSecure: raw.NODE_ENV === "production" || raw.COOKIE_SAMESITE === "none",
   localBlobDir: path.resolve(process.cwd(), raw.LOCAL_BLOB_DIR),
   // One secret is enough for a demo; a deployment should set its own.

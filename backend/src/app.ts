@@ -62,7 +62,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["content-type", "x-csrf-token"],
+    allowedHeaders: ["content-type", "x-csrf-token", "idempotency-key"],
     exposedHeaders: ["x-nyaysetu-sha256", "x-nyaysetu-integrity"],
     maxAge: 600,
   })

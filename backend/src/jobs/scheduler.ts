@@ -3,6 +3,8 @@ import { logger } from "../lib/logger";
 import { chain } from "../lib/chain";
 import { sweepNonDelivery } from "../services/summons.service";
 import { sweepMissedCheckIns } from "../services/bail.service";
+import { trackAnchors } from "../services/verification/anchors";
+import { relinkRegistrations } from "../services/evidence.service";
 
 /**
  * The two jobs that make non-events visible.
@@ -24,9 +26,15 @@ let running = false;
 export async function runSweeps(): Promise<{
   summons: { marked: number; ids: string[] };
   bail: { flagged: number; cases: string[] };
+  anchors: { checked: number; changed: number; relinked: number };
 }> {
   const summons = await sweepNonDelivery();
   const bail = await sweepMissedCheckIns();
+  // Verification: advance SUBMITTED anchors by confirmation depth, catch drops,
+  // reverts and reorgs, then copy any newly learned chain ids onto evidence rows.
+  const tracked = await trackAnchors();
+  const relinked = await relinkRegistrations();
+  const anchors = { ...tracked, relinked };
 
   if (summons.marked > 0 || bail.flagged > 0) {
     logger.info("Sweep completed", {
@@ -35,7 +43,8 @@ export async function runSweeps(): Promise<{
       cases: bail.cases,
     });
   }
-  return { summons, bail };
+  if (anchors.changed > 0 || relinked > 0) logger.info("Verification tracker pass", anchors);
+  return { summons, bail, anchors };
 }
 
 export function startScheduler(): void {

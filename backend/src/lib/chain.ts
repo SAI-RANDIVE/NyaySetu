@@ -240,8 +240,13 @@ export function assertLatLng(lat: number, lng: number): void {
 // ------------------------------------------------------------- error decoding
 
 const FRIENDLY_REVERTS: Record<string, string> = {
+  // This message is shown when transferCustody ITSELF reverts. A reverted
+  // transaction keeps no state, so it must not claim anything was recorded. The
+  // mismatch is recorded only by the separate reportIntegrityCheck transaction,
+  // which evidence.service sends first and which succeeds on a mismatch.
   HashMismatch:
-    "The hash does not match the registered evidence. The transfer was refused and the mismatch was recorded.",
+    "The hash does not match the registered evidence, so the contract refused the transfer. " +
+    "A refused transaction records nothing; the mismatch is on chain only through the separate integrity check.",
   StageMismatch: "This item is not at the custody stage you specified.",
   IllegalTransition: "Custody cannot move between those stages.",
   NotAuthorised: "The keeper wallet does not hold the role this action needs.",
@@ -419,7 +424,16 @@ export async function submit(
   name: ContractName,
   method: string,
   args: unknown[],
-  meta: { submittedBy?: string | null; payload?: Record<string, unknown> } = {}
+  meta: {
+    submittedBy?: string | null;
+    payload?: Record<string, unknown>;
+    /**
+     * Called the moment the node accepts the transaction, before waiting for a
+     * receipt. This is where an anchor becomes SUBMITTED: if the process dies
+     * while waiting, the hash is already on record and the tracker can find it.
+     */
+    onSent?: (txHash: string) => Promise<void> | void;
+  } = {}
 ): Promise<SubmitResult> {
   requireChain();
   const contract = contractFor(name);
@@ -444,6 +458,8 @@ export async function submit(
         payload: meta.payload ?? null,
       });
 
+      if (meta.onSent) await meta.onSent(tx.hash);
+
       const receipt: TransactionReceipt = await tx.wait(env.CHAIN_CONFIRMATIONS);
       if (!receipt) throw new Error("Transaction receipt was null.");
 
@@ -458,7 +474,11 @@ export async function submit(
         .eq("tx_hash", tx.hash);
 
       if (receipt.status !== 1) {
-        throw new AppError(502, "CHAIN_REVERTED", "The transaction was mined but reverted.");
+        // A reverted transaction keeps no state. Nothing was recorded by it.
+        throw new AppError(502, "CHAIN_REVERTED", "The transaction was mined but reverted; it recorded nothing.", {
+          txHash: tx.hash,
+          blockNumber: receipt.blockNumber,
+        });
       }
 
       logger.info("Chain tx confirmed", {
@@ -540,4 +560,37 @@ export function explorerUrl(txHash: string): string | null {
   if (chainId === 11155111) return `https://sepolia.etherscan.io/tx/${txHash}`;
   if (chainId === 1) return `https://etherscan.io/tx/${txHash}`;
   return null;
+}
+
+/* ------------------------------------------------------ raw reads for tracking */
+
+/** Head block, or null if the RPC cannot answer. */
+export async function headBlock(): Promise<number | null> {
+  return chain.blockNumber();
+}
+
+/** A receipt by hash, or null if there is none (yet). Throws if the RPC fails. */
+export async function receiptFor(txHash: string): Promise<TransactionReceipt | null> {
+  if (!state.provider) throw unavailable(`Blockchain unavailable: ${state.reason}`);
+  return state.provider.getTransactionReceipt(txHash);
+}
+
+/** Whether the node knows the transaction at all (mempool or mined). Throws if the RPC fails. */
+export async function transactionKnown(txHash: string): Promise<boolean> {
+  if (!state.provider) throw unavailable(`Blockchain unavailable: ${state.reason}`);
+  return (await state.provider.getTransaction(txHash)) !== null;
+}
+
+/** Contract arguments as JSON: bigints become decimal strings. */
+export function serialiseArgs(args: unknown[]): unknown[] {
+  return args.map((value) => (typeof value === "bigint" ? { $bigint: value.toString() } : value));
+}
+
+/** The inverse of serialiseArgs, for a retry that must send exactly the same call. */
+export function deserialiseArgs(args: unknown[]): unknown[] {
+  return args.map((value) =>
+    value && typeof value === "object" && "$bigint" in (value as Record<string, unknown>)
+      ? BigInt((value as { $bigint: string }).$bigint)
+      : value
+  );
 }
