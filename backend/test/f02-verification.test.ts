@@ -205,6 +205,29 @@ describe("registration through the API with a simulated chain", () => {
     assert.equal(response.body.verification.state, "SYNC_ERROR");
   });
 
+  test("a transaction not mined within the request's wait stays SUBMITTED and the request still answers", async () => {
+    fake.nextSend = "pending";
+    const response = await upload(police);
+    assert.equal(response.status, 201);
+    assert.equal(response.body.verification.state, "SUBMITTED");
+    assert.equal(response.body.verification.verified, false);
+  });
+
+  test("when the tracker confirms first, the request accepts that instead of failing", async () => {
+    const response = await upload(police);
+    const anchor = await loadAnchor(mem.table("evidence_items")[0].anchor_id);
+    assert.equal(anchor.state, "CONFIRMED");
+    // A second worker trying the same move finds it already done: no error.
+    const stale = { ...anchor, state: "SUBMITTED" as const };
+    const result = await transition(stale, "CONFIRMED", {
+      code: "CONFIRMED",
+      reason: "race",
+      proof: { receiptStatus: 1, eventMatched: true, digestMatched: true, confirmations: 1, required: 1, blockHash: anchor.block_hash! },
+    });
+    assert.equal(result.state, "CONFIRMED");
+    assert.ok(response.body.evidence.id);
+  });
+
   test("a reverted registration is SYNC_ERROR with the reason, never confirmed", async () => {
     fake.nextSend = "revert";
     const response = await upload(police);

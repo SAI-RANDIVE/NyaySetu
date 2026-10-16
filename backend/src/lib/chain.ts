@@ -397,6 +397,30 @@ function commitNonce(): void {
 
 let queue: Promise<unknown> = Promise.resolve();
 
+/**
+ * Waits for a receipt by polling for it, with a deadline.
+ *
+ * Not tx.wait(). ethers' wait() compares the receipt against a cached block
+ * number and then waits for the NEXT block to arrive; a local Hardhat node mines
+ * only when it receives a transaction, so that next block never comes and the
+ * request — and the serial queue behind it — hangs for ever. Polling the receipt
+ * directly works the same on every chain, and the deadline means an HTTP request
+ * never waits indefinitely for mining: past it, the transaction stays SUBMITTED
+ * and the verification tracker follows it from there.
+ */
+async function waitForReceipt(txHash: string, timeoutMs: number): Promise<TransactionReceipt | null> {
+  if (!state.provider) throw unavailable("Chain bridge is not initialised.");
+  const deadline = Date.now() + timeoutMs;
+  let delay = 500;
+  for (;;) {
+    const receipt = await state.provider.getTransactionReceipt(txHash);
+    if (receipt) return receipt;
+    if (Date.now() + delay > deadline) return null;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    delay = Math.min(delay * 1.5, 4000);
+  }
+}
+
 /** Serialises sends so two transactions can never claim the same nonce. */
 function enqueue<T>(work: () => Promise<T>): Promise<T> {
   const run = queue.then(work, work);
@@ -460,8 +484,17 @@ export async function submit(
 
       if (meta.onSent) await meta.onSent(tx.hash);
 
-      const receipt: TransactionReceipt = await tx.wait(env.CHAIN_CONFIRMATIONS);
-      if (!receipt) throw new Error("Transaction receipt was null.");
+      const receipt = await waitForReceipt(tx.hash, env.SUBMIT_WAIT_SECONDS * 1000);
+      if (!receipt) {
+        // Accepted by the node, not mined yet. Not a failure: the anchor stays
+        // SUBMITTED and the tracker confirms it when it lands.
+        throw new AppError(
+          504,
+          "CHAIN_PENDING",
+          `The transaction was sent but not mined within ${env.SUBMIT_WAIT_SECONDS} seconds. It is being tracked.`,
+          { txHash: tx.hash }
+        );
+      }
 
       await db
         .from("chain_tx")
@@ -495,6 +528,7 @@ export async function submit(
         receipt,
       };
     } catch (error) {
+      if (error instanceof AppError && error.code === "CHAIN_PENDING") throw error;
       if (txHash) {
         await db
           .from("chain_tx")
@@ -564,9 +598,18 @@ export function explorerUrl(txHash: string): string | null {
 
 /* ------------------------------------------------------ raw reads for tracking */
 
-/** Head block, or null if the RPC cannot answer. */
+/**
+ * Head block, or null if the RPC cannot answer. Asked of the node directly:
+ * provider.getBlockNumber() is cached for a polling interval, and a stale head
+ * undercounts confirmations right after a transaction is mined.
+ */
 export async function headBlock(): Promise<number | null> {
-  return chain.blockNumber();
+  if (!state.provider) return null;
+  try {
+    return Number(BigInt(await state.provider.send("eth_blockNumber", [])));
+  } catch {
+    return null;
+  }
 }
 
 /** A receipt by hash, or null if there is none (yet). Throws if the RPC fails. */

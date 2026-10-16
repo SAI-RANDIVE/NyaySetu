@@ -59,6 +59,15 @@ export class RecordingJournal {
     return next;
   }
 
+  /** Adds metadata (the GPS fix at the start, say) without ending the recording. */
+  async annotate(id: string, extra: Record<string, unknown>): Promise<JournalMeta> {
+    const meta = decodeMeta(await this.store.get(META(id)));
+    if (!meta) throw new Error(`No recording ${id} in the journal.`);
+    const next = { ...meta, extra: { ...(meta.extra ?? {}), ...extra } };
+    await this.store.put(META(id), JSON.stringify(next));
+    return next;
+  }
+
   async stop(id: string, extra?: Record<string, unknown>): Promise<JournalMeta> {
     const meta = decodeMeta(await this.store.get(META(id)));
     if (!meta) throw new Error(`No recording ${id} in the journal.`);

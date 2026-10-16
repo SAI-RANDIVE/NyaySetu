@@ -17,7 +17,10 @@
     "noFallthroughCasesInSwitch": true,
     // No baseUrl: it is deprecated in TypeScript 7. Since TS 5, `paths` entries
     // resolve relative to this file, which is what we wanted anyway.
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "@nyaysetu/integrity": ["../packages/integrity/src/index.ts"]
+    }
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

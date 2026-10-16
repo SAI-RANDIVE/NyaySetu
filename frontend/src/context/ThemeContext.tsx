@@ -16,35 +16,31 @@ const ThemeContext = createContext<ThemeValue | null>(null);
 const STORAGE_KEY = "nyaysetu.theme";
 
 /**
- * Theme resolution order:
+ * Theme resolution:
  *   1. the signed-in user's saved preference, which follows them across devices
- *   2. localStorage, so a reload before the session loads does not flash
- *   3. the operating system preference
+ *   2. this browser's last choice
+ *   3. light
  *
- * The attribute goes on <html> rather than <body> so tokens.css applies before
- * first paint and there is no flash of the wrong theme.
+ * The operating system's preference is deliberately NOT consulted (DECISIONS
+ * D-11): the portal looks the same everywhere until a person chooses otherwise.
+ * index.html applies the stored value before first paint, so nothing flashes.
  */
 function initialTheme(): Theme {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "dark" || stored === "light") return stored;
+    return localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
   } catch {
-    // Storage can throw in private browsing; the OS preference is a fine default.
-  }
-  if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: light)").matches) {
     return "light";
   }
-  return "dark";
 }
+
+const THEME_COLOR: Record<Theme, string> = { light: "#f5f7fa", dark: "#07130e" };
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(initialTheme);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", theme === "dark" ? "#05120c" : "#f4f8f5");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[theme]);
     try {
       localStorage.setItem(STORAGE_KEY, theme);
     } catch {
@@ -55,13 +51,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const set = useCallback((next: Theme) => {
     setTheme(next);
     // Persist to the profile, but never block the UI on it. An unauthenticated
-    // visitor gets a 401 here, which is fine: their choice lives in
-    // localStorage until they sign in.
+    // visitor gets a 401 here, which is fine: their choice lives in this browser.
     void api.patch("/api/auth/me/theme", { theme: next }).catch(() => undefined);
   }, []);
 
-  // Adopting the server's value must not write it straight back, or restoring a
-  // session would fire a pointless PATCH on every page load.
+  // Adopting the server's value must not write it straight back.
   const adopt = useCallback((next: Theme) => setTheme(next), []);
 
   const toggle = useCallback(() => set(theme === "dark" ? "light" : "dark"), [set, theme]);

@@ -117,6 +117,11 @@ export function clearCsrfToken(): void {
   csrfToken = null;
 }
 
+/** The value for an X-CSRF-Token header, for the few requests made without request(). */
+export function csrfHeaderValue(): string | null {
+  return csrfToken ?? readCookie(CSRF_COOKIE);
+}
+
 type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 interface Options {
@@ -129,6 +134,8 @@ interface Options {
   raw?: boolean;
   /** Overrides the default deadline. Uploads and PDFs need longer. */
   timeoutMs?: number;
+  /** Extra headers, e.g. Idempotency-Key on a chain-writing request. */
+  headers?: Record<string, string>;
 }
 
 /**
@@ -151,7 +158,7 @@ const UPLOAD_TIMEOUT_MS = 120_000;
 
 async function request<T>(path: string, options: Options = {}): Promise<T> {
   const method = options.method ?? "GET";
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...(options.headers ?? {}) };
 
   if (method !== "GET") {
     // Memory first. The cookie is a fallback for a same-origin deployment, where
@@ -306,7 +313,8 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body }),
   del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
-  upload: <T>(path: string, form: FormData) => request<T>(path, { method: "POST", form }),
+  upload: <T>(path: string, form: FormData, headers?: Record<string, string>) =>
+    request<T>(path, { method: "POST", form, headers }),
   download: (path: string) => request<Response>(path, { raw: true }),
 };
 
@@ -373,7 +381,11 @@ export type SummonsStatus = "PENDING" | "DELIVERED" | "FAILED";
 
 export interface CaseRow {
   id: string;
-  fir_number: string;
+  case_reference: string;
+  /** 2.0: role-gated; the number is present only for police, prosecution, court and registry. */
+  fir: FirView;
+  origin?: "fir" | "complaint" | "court" | "other";
+  case_key_scheme?: "fir_v1" | "salted_v2";
   case_id_hash: string;
   title: string;
   offence_type: string;
@@ -391,6 +403,18 @@ export interface EvidenceRow {
   case_id: string;
   chain_evidence_id: number | null;
   file_hash: string;
+  anchored_digest?: string;
+  anchor_mode?: "file" | "manifest";
+  source?: "upload" | "capture";
+  public_ref?: string;
+  capture_purpose?: string;
+  gps_status?: string | null;
+  gps_accuracy_m?: number | null;
+  signature_status?: string;
+  clock_skew_flagged?: boolean;
+  device_time?: string | null;
+  duration_ms?: number | null;
+  verification?: Verification;
   file_name: string;
   mime_type: string | null;
   size_bytes: number | null;
@@ -407,7 +431,7 @@ export interface EvidenceRow {
   mismatch_count: number;
   registration_tx_hash: string | null;
   notes?: string | null;
-  cases?: { fir_number: string; title: string };
+  cases?: { case_reference: string; title: string };
 }
 
 export interface CustodyEventRow {
@@ -438,7 +462,7 @@ export interface SummonsRow {
   non_delivery_alerted_at?: string | null;
   effectiveStatus?: SummonsStatus;
   hoursRemaining?: number;
-  cases?: { fir_number: string; title: string; court_name?: string | null };
+  cases?: { case_reference: string; title: string; court_name?: string | null };
 }
 
 export interface ComplianceLive {
@@ -468,7 +492,7 @@ export interface BailRow {
   live?: ComplianceLive | null;
   openViolations?: number;
   state?: "compliant" | "breach" | "unknown";
-  cases?: { fir_number: string; title?: string; case_id_hash?: string };
+  cases?: { case_reference: string; title?: string; case_id_hash?: string };
 }
 
 export interface ViolationRow {
@@ -523,4 +547,119 @@ export interface HealthResponse {
     ai: { configured: boolean; reachable: boolean; note?: string };
     identity: { provider: string; authorisedForProduction: boolean; note?: string };
   };
+}
+
+/* ------------------------------------------------------------- 2.0 types */
+
+export type VerificationState =
+  | "LOCAL_ONLY"
+  | "SUBMITTED"
+  | "CONFIRMED"
+  | "INTEGRITY_MISMATCH"
+  | "SYNC_ERROR"
+  | "REVIEW_REQUIRED";
+
+/** The verification block every 2.0 evidence response carries. */
+export interface Verification {
+  anchorId?: string | null;
+  state: VerificationState;
+  label: string;
+  /** True only for CONFIRMED. Nothing else is ever shown as verified. */
+  verified: boolean;
+  txHash: string | null;
+  explorer: string | null;
+  blockNumber: number | null;
+  confirmations: number;
+  requiredConfirmations: number;
+  failureCode: string | null;
+  failureReason: string | null;
+  submittedAt: string | null;
+  confirmedAt: string | null;
+  lastCheckedAt: string | null;
+}
+
+export interface StateHistoryRow {
+  from_state: VerificationState | null;
+  to_state: VerificationState;
+  reason_code: string;
+  reason: string | null;
+  actor_role: string | null;
+  occurred_at: string;
+}
+
+export interface FirView {
+  linked: boolean;
+  number?: string;
+  year?: number;
+  date?: string | null;
+  policeStation?: string;
+  district?: string | null;
+  backfilled?: boolean;
+}
+
+export interface PublicCustodyEvent {
+  type: "REGISTERED" | "CUSTODY_TRANSFER";
+  from: string | null;
+  to: string;
+  at: string;
+  source: "chain" | "record";
+}
+
+export interface PublicPassport {
+  reference: string;
+  source: "capture" | "upload";
+  anchorMode: "file" | "manifest";
+  locationCommitted: boolean;
+  digest: string | null;
+  digestSource: "chain" | "record";
+  registeredAt: string | null;
+  network: { name: string; chainId: number } | null;
+  transaction: { hash: string | null; explorer: string | null; block: number | null };
+  state: VerificationState;
+  verified: boolean;
+  explanation: { heading: string; text: string };
+  agreement: "AGREES" | "DISAGREES" | "UNKNOWN";
+  flags: string[];
+  custody: PublicCustodyEvent[];
+  limits: string;
+  checkedAt: string;
+}
+
+export interface FileCheckResult {
+  matched: boolean;
+  comparedAgainst: "chain";
+  anchorMode: "file" | "manifest";
+  fileMatchesRecordedManifest: boolean | null;
+  explanation: string;
+}
+
+export interface CaptureDetail {
+  source: string;
+  purpose: string;
+  kind: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  fileSha256: string;
+  manifestHash: string | null;
+  deviceTime: string | null;
+  serverReceivedAt: string | null;
+  clockSkewSeconds: number | null;
+  clockSkewFlagged: boolean;
+  gps: { status: string | null; accuracyMetres: number | null; mocked: boolean | null; lat: number | null; lng: number | null };
+  signatureStatus: string;
+  durationMs: number | null;
+  deviceId: string | null;
+  appVersion: string | null;
+  manifest: unknown;
+}
+
+export interface TimelineEntry {
+  id: string;
+  at: string;
+  action: string;
+  label: string;
+  actorRole: string | null;
+  outcome: "ok" | "refused" | "failed";
+  subject: string | null;
+  detail: Record<string, unknown>;
 }

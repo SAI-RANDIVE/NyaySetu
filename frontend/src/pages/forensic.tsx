@@ -69,7 +69,7 @@ export function ForensicInbox() {
                       <div className="min-w-0">
                         <p className="truncate font-ui text-sm font-semibold text-text">{item.file_name}</p>
                         <p className="mt-0.5 font-ui text-2xs text-muted">
-                          {item.cases?.fir_number ?? "unknown case"} · collected{" "}
+                          {item.cases?.case_reference ?? "unknown case"} · collected{" "}
                           {formatDateTime(item.collected_at)} · {relativeTime(item.collected_at)}
                         </p>
                       </div>

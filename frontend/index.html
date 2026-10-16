@@ -1,16 +1,29 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#05120c" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#f4f8f5" media="(prefers-color-scheme: light)" />
+    <!-- Light by default whatever the device prefers; the app updates this when a
+         person chooses the dark theme. -->
+    <meta name="theme-color" content="#f5f7fa" />
     <meta
       name="description"
-      content="NyaySetu anchors evidence, summons and bail conditions to a public blockchain, so integrity is something anyone can verify rather than something a party asserts."
+      content="NyaySetu records evidence, summons and bail conditions with fingerprints anchored to a public blockchain, so integrity is something anyone can check rather than something a party asserts."
     />
 
     <title>NyaySetu — Bridge of Justice</title>
+    <script>
+      // Before first paint: the saved theme, language and text size, so nothing
+      // flashes. Light is the default whatever the operating system prefers.
+      try {
+        var d = document.documentElement;
+        var t = localStorage.getItem("nyaysetu.theme");
+        d.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+        var l = localStorage.getItem("nyaysetu.lang");
+        if (l === "hi" || l === "mr") d.setAttribute("lang", l);
+        if (localStorage.getItem("nyaysetu.textSize") === "large") d.setAttribute("data-text-size", "large");
+      } catch (e) {}
+    </script>
 
     <!--
       The logo's white strokes are negative space, so a transparent favicon
@@ -37,19 +50,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..700&family=Montserrat:ital,wght@0,300..800;1,300..700&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..700&family=Montserrat:ital,wght@0,300..800;1,300..700&family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@500;700&display=swap"
       rel="stylesheet"
     />
 
-    <!--
-      Retro dot-matrix face for the landing page stat glyphs only. Served by
-      OnlineWebFonts; if it fails the display stack falls back to Geist Pixel
-      Circle and then to monospace, so nothing breaks.
-    -->
-    <link
-      href="https://db.onlinewebfonts.com/c/8cb707a9b8a73f8a7403336b861c3074?family=BubbledotICG-FinePos"
-      rel="stylesheet"
-    />
   </head>
   <body>
     <div id="root"></div>

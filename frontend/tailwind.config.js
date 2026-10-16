@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: ["class", '[data-theme="dark"]'],
+  darkMode: ["selector", '[data-theme="dark"]'],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
@@ -16,6 +16,8 @@ export default {
         "bg-elevated": "var(--bg-elevated)",
         surface: "var(--surface)",
         "surface-2": "var(--surface-2)",
+        "surface-3": "var(--surface-3)",
+        sidebar: "var(--sidebar)",
         border: "var(--border)",
         "border-strong": "var(--border-strong)",
         text: "var(--text)",
@@ -53,11 +55,13 @@ export default {
       },
       fontFamily: {
         // Per the brief: an elegant serif for display, a geometric sans for body.
-        display: ['"Playfair Display"', "Georgia", "serif"],
-        body: ["Montserrat", "system-ui", "-apple-system", "sans-serif"],
+        // Every stack falls back to Noto Sans Devanagari, so Hindi and Marathi
+        // render in a face designed for them rather than a system substitute.
+        display: ['"Playfair Display"', '"Noto Serif Devanagari"', "Georgia", "serif"],
+        body: ["Montserrat", '"Noto Sans Devanagari"', "system-ui", "-apple-system", "sans-serif"],
         // Inter carries data, numerals and dense UI, where Montserrat is too wide.
-        ui: ["Inter", "system-ui", "-apple-system", "sans-serif"],
-        jakarta: ['"Plus Jakarta Sans"', "Inter", "sans-serif"],
+        ui: ["Inter", '"Noto Sans Devanagari"', "system-ui", "-apple-system", "sans-serif"],
+        jakarta: ['"Plus Jakarta Sans"', "Inter", '"Noto Sans Devanagari"', "sans-serif"],
         accent: ['"Instrument Serif"', "Georgia", "serif"],
         // Retro dot-matrix, for the stat glyphs on the landing page only.
         dot: ['"BubbledotICG-FinePos"', '"Geist Pixel Circle"', "monospace"],
@@ -83,6 +87,7 @@ export default {
         "grad-primary": "var(--grad-brand)",
         "grad-brand": "var(--grad-brand)",
         "grad-surface": "linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%)",
+        "grad-hero": "var(--grad-hero)",
         "grad-sheen":
           "linear-gradient(110deg, transparent 20%, rgba(255,255,255,0.13) 45%, transparent 70%)",
       },

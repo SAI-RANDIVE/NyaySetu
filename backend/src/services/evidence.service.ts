@@ -979,3 +979,40 @@ export async function relinkRegistrations(limit = 200): Promise<number> {
   }
   return linked;
 }
+
+/**
+ * Verification states across every case the user is assigned to (the registry:
+ * every case), plus the items that need someone's attention. Feeds the police
+ * and prosecution dashboards (F15).
+ */
+export async function verificationSummary(user: SessionUser) {
+  let caseIds: string[] | null = null;
+  if (user.role !== "court_admin") {
+    caseIds = (unwrapList(await db.from("case_assignments").select("case_id").eq("user_id", user.id)) as { case_id: string }[]).map(
+      (a) => a.case_id
+    );
+    if (caseIds.length === 0) return { counts: emptyCounts(), attention: [], total: 0 };
+  }
+
+  let query = db
+    .from("evidence_items")
+    .select(
+      "id, case_id, file_name, kind, source, current_stage, collected_at, public_ref, mismatch_count, anchor_id, cases(case_reference, title), " +
+        "anchors(id, state, tx_hash, block_number, confirmations, required_confirmations, failure_code, failure_reason, submitted_at, confirmed_at, last_checked_at)"
+    )
+    .order("collected_at", { ascending: false })
+    .limit(500);
+  if (caseIds) query = query.in("case_id", caseIds);
+  const rows = (unwrapList(await query) as any[]).map(withVerification);
+
+  const counts = emptyCounts();
+  for (const row of rows) counts[row.verification.state as VerificationState] += 1;
+  const attention = rows
+    .filter((row) => ["SYNC_ERROR", "REVIEW_REQUIRED", "INTEGRITY_MISMATCH"].includes(row.verification.state))
+    .slice(0, 25);
+  return { counts, attention, total: rows.length, recent: rows.slice(0, 8) };
+}
+
+function emptyCounts(): Record<VerificationState, number> {
+  return { LOCAL_ONLY: 0, SUBMITTED: 0, CONFIRMED: 0, INTEGRITY_MISMATCH: 0, SYNC_ERROR: 0, REVIEW_REQUIRED: 0 };
+}

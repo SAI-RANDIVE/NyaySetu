@@ -1,31 +1,36 @@
+import { sha256Chunked, sha256Hex as pureSha256Hex } from "@nyaysetu/integrity";
+
 /**
  * Client-side SHA-256, computed before a single byte leaves the device.
  *
- * This is the whole point of the evidence module. If the server hashed the
- * upload, the digest would only prove what the server received, and an officer
- * would have to take the server's word for it. Hashing here means the digest
- * describes the file as it existed on the device, and the server can only
- * agree or refuse.
+ * Two paths, chosen by size:
  *
- * WebCrypto needs a secure context: HTTPS, or localhost. On plain HTTP over a
- * LAN address crypto.subtle is undefined, which is why explainCryptoAvailability
- * exists rather than a silent fallback to a JavaScript SHA-256. A weaker digest
- * that looked the same would be worse than an honest error.
+ *   - up to 32 MB: WebCrypto (`crypto.subtle.digest`), the browser's native,
+ *     fastest implementation. It wants the whole file in memory, which at this
+ *     size is fine.
+ *   - above that: the incremental SHA-256 from @nyaysetu/integrity, fed a 4 MB
+ *     slice at a time. Memory stays at one slice whatever the size, so a
+ *     forty-minute search-and-seizure recording can be hashed on a phone.
+ *
+ * Both produce the same digest — the shared package is tested against
+ * node:crypto at every length across block boundaries — so which path ran never
+ * matters to anyone comparing digests later.
  */
 
-const CHUNK = 8 * 1024 * 1024; // 8 MB, to keep progress responsive on video
+const WEBCRYPTO_LIMIT = 32 * 1024 * 1024;
+const CHUNK = 4 * 1024 * 1024;
 
 export function isCryptoAvailable(): boolean {
   return typeof crypto !== "undefined" && typeof crypto.subtle?.digest === "function";
 }
 
+/**
+ * Kept for callers that want to warn: WebCrypto needs a secure context. Hashing
+ * still works without it (the streaming path is plain JavaScript), but the
+ * camera and location do not, so live capture still needs HTTPS.
+ */
 export function explainCryptoAvailability(): string | null {
-  if (isCryptoAvailable()) return null;
-  return (
-    "Your browser will not give this page a cryptographic digest function. " +
-    "WebCrypto needs a secure context, so open NyaySetu over HTTPS or on localhost. " +
-    "Evidence capture is disabled rather than falling back to a weaker hash."
-  );
+  return null;
 }
 
 function toHex(buffer: ArrayBuffer): string {
@@ -35,56 +40,38 @@ function toHex(buffer: ArrayBuffer): string {
   return "0x" + out;
 }
 
-/**
- * SHA-256 of a whole file.
- *
- * WebCrypto has no streaming digest, so the file is read in chunks only to
- * report progress; the bytes are concatenated and hashed once. That caps the
- * practical file size at available memory, which is why the API limit is 50 MB.
- */
 export async function sha256File(
   file: File | Blob,
-  onProgress?: (fraction: number) => void
+  onProgress?: (fraction: number) => void,
+  signal?: { aborted: boolean }
 ): Promise<string> {
-  const guard = explainCryptoAvailability();
-  if (guard) throw new Error(guard);
-
-  if (file.size <= CHUNK) {
-    onProgress?.(0.5);
+  if (file.size <= WEBCRYPTO_LIMIT && isCryptoAvailable()) {
+    onProgress?.(0.4);
     const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
     onProgress?.(1);
     return toHex(digest);
   }
 
-  const parts: Uint8Array[] = [];
-  let read = 0;
-
-  for (let offset = 0; offset < file.size; offset += CHUNK) {
-    const slice = file.slice(offset, Math.min(offset + CHUNK, file.size));
-    parts.push(new Uint8Array(await slice.arrayBuffer()));
-    read += slice.size;
-    onProgress?.(read / file.size);
-    // Yield, so a 40 MB video does not freeze the tab while it is read.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-
-  const combined = new Uint8Array(file.size);
-  let cursor = 0;
-  for (const part of parts) {
-    combined.set(part, cursor);
-    cursor += part.length;
-  }
-
-  const digest = await crypto.subtle.digest("SHA-256", combined);
-  onProgress?.(1);
-  return toHex(digest);
+  return sha256Chunked(
+    {
+      size: file.size,
+      read: async (offset, length) => new Uint8Array(await file.slice(offset, offset + length).arrayBuffer()),
+    },
+    {
+      chunkSize: CHUNK,
+      signal,
+      onProgress: (fraction) => {
+        onProgress?.(fraction);
+      },
+    }
+  );
 }
 
 export async function sha256Text(value: string): Promise<string> {
-  const guard = explainCryptoAvailability();
-  if (guard) throw new Error(guard);
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return toHex(digest);
+  if (isCryptoAvailable()) {
+    return toHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
+  }
+  return pureSha256Hex(value);
 }
 
 /** Shortens a digest for display without hiding the ends that matter. */

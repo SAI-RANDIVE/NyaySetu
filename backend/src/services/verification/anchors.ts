@@ -265,6 +265,11 @@ export async function transition(
   ) as AnchorRow[];
 
   if (updated.length === 0) {
+    // Someone else moved it first — usually the tracker confirming the same
+    // transaction this request was confirming. If they reached the same state,
+    // that is agreement, not a conflict.
+    const current = await loadAnchor(anchor.id);
+    if (current.state === to) return current;
     throw new AppError(409, "STATE_CHANGED", "This record changed state while the update was in progress. Reload and retry.");
   }
 
@@ -478,9 +483,17 @@ export async function sendAnchor(anchor: AnchorRow, actor: Actor): Promise<SendO
     current = await recheck(current, actor, receipt);
     return { anchor: current, event: events[0] ?? null, txHash, error: null };
   } catch (error) {
+    // Sent but not mined in time: it stays SUBMITTED and the tracker takes over.
+    if (error instanceof AppError && error.code === "CHAIN_PENDING") {
+      const latest = await loadAnchor(current.id);
+      return { anchor: latest, event: null, txHash: latest.tx_hash, error: null };
+    }
     const { code, reason, appError } = classify(error);
     // Reload: onSent may have moved it to SUBMITTED before the failure.
     const latest = await loadAnchor(current.id);
+    // The tracker may have confirmed it meanwhile; a late local error must not
+    // drag a confirmed anchor backwards.
+    if (latest.state === "CONFIRMED") return { anchor: latest, event: null, txHash: latest.tx_hash, error: null };
     if (latest.state !== "SYNC_ERROR") {
       current = await transition(latest, "SYNC_ERROR", { code, reason, actor });
     } else {

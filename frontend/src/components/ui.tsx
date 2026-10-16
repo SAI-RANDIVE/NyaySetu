@@ -36,7 +36,7 @@ const SIZE: Record<Size, string> = {
  * not a second, drifting copy of the same styles.
  */
 function buttonClass(variant: Variant, size: Size, full?: boolean, extra = ""): string {
-  return `inline-flex items-center justify-center rounded-full font-ui font-semibold uppercase
+  return `inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full font-ui font-semibold uppercase
     tracking-wide transition-all duration-200 ease-smooth
     active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45
     ${VARIANT[variant]} ${SIZE[size]} ${full ? "w-full" : ""} ${extra}`;

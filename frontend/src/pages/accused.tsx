@@ -87,7 +87,7 @@ export function AccusedHome() {
                       You have a summons to acknowledge
                     </h2>
                     <p className="mt-1.5 font-ui text-xs leading-relaxed text-muted">
-                      {row.cases?.court_name ?? "The court"} in {row.cases?.fir_number}.{" "}
+                      {row.cases?.court_name ?? "The court"} in {row.cases?.case_reference}.{" "}
                       <strong className="text-text">{formatDuration(secondsLeft)} left.</strong> If the
                       window closes without your acknowledgement, the court is told it could not be
                       served and may proceed on that basis.
@@ -146,7 +146,7 @@ export function AccusedHome() {
                     className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-3.5 py-3"
                   >
                     <div className="min-w-0">
-                      <p className="font-ui text-sm font-medium text-text">{row.cases?.fir_number}</p>
+                      <p className="font-ui text-sm font-medium text-text">{row.cases?.case_reference}</p>
                       <p className="mt-0.5 font-ui text-2xs text-muted">
                         {row.hearing_at ? `Hearing ${formatDateTime(row.hearing_at)}` : "No hearing date set"}
                       </p>
@@ -185,7 +185,7 @@ export function AccusedHome() {
                       />
                     </div>
                     <dl className="mt-3 space-y-2">
-                      <Row label="Case" value={order.cases?.fir_number ?? "—"} />
+                      <Row label="Case" value={order.cases?.case_reference ?? "—"} />
                       <Row
                         label="Next check-in"
                         value={
@@ -314,8 +314,8 @@ export function AccusedSummons() {
               return (
                 <Card
                   key={row.id}
-                  title={row.cases?.title ?? row.cases?.fir_number ?? "Court notice"}
-                  subtitle={`${row.cases?.fir_number ?? ""} · ${row.cases?.court_name ?? "Court"}`}
+                  title={row.cases?.title ?? row.cases?.case_reference ?? "Court notice"}
+                  subtitle={`${row.cases?.case_reference ?? ""} · ${row.cases?.court_name ?? "Court"}`}
                   actions={<SummonsStatusChip status={row.status} />}
                   className={row.status === "PENDING" ? "border-warning-soft" : ""}
                 >
@@ -462,7 +462,7 @@ export function AccusedSummons() {
 
 interface ComplianceResponse {
   bail: BailRow;
-  case: { fir_number: string; title: string };
+  case: { case_reference: string; title: string };
   compliance: { score: number; flags: boolean[]; overdue: boolean; secondsUntilNextCheckIn: number } | null;
   conditionStates: { label: string; tagHash: string; violated: boolean }[];
   checkins: CheckInRow[];
@@ -605,7 +605,7 @@ export function AccusedCheckIn() {
                         />
                       </div>
                       <dl className="mt-4 space-y-2.5">
-                        <Row label="Case" value={data.case.fir_number} />
+                        <Row label="Case" value={data.case.case_reference} />
                         <Row
                           label="Next check-in due"
                           value={

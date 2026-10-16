@@ -12,7 +12,7 @@ import { setChainReader } from "../../src/services/verification/reader";
 
 const hex32 = () => "0x" + randomBytes(32).toString("hex");
 
-type Failure = "rpc-down" | "revert" | "reject" | null;
+type Failure = "rpc-down" | "revert" | "reject" | "pending" | null;
 
 interface Record_ {
   caseId: string;
@@ -138,6 +138,11 @@ export class FakeChain {
     this.head += 1;
     const blockNumber = this.head;
     const blockHash = hex32();
+
+    if (failure === "pending") {
+      // Accepted by the node, not mined within the request's wait.
+      throw new AppError(504, "CHAIN_PENDING", "The transaction was sent but not mined in time. It is being tracked.", { txHash });
+    }
 
     if (failure === "revert") {
       const receipt: ReceiptView = { status: 0, blockNumber, blockHash, events: [] };

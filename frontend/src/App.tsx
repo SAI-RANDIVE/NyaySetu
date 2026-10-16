@@ -11,8 +11,10 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import FirstRun from "./pages/FirstRun";
 import Handbook from "./pages/Handbook";
+import VerifyPage from "./pages/Verify";
 import { CaseDossierPage, CasesPage, EvidenceDetailPage } from "./pages/shared";
-import { CapturePage, PoliceDashboard } from "./pages/police";
+import { NewCasePage, PoliceDashboard } from "./pages/police";
+import { CapturePage } from "./pages/capture";
 import { ForensicInbox } from "./pages/forensic";
 import { ProsecutorDashboard } from "./pages/prosecutor";
 import { BailBoard, JudgeDashboard, SummonsPage } from "./pages/judge";
@@ -142,6 +144,9 @@ export default function App() {
           understand what the system claims about them before they have an
           account, and putting this behind a sign-in would defeat that. */}
       <Route path="/handbook" element={<Handbook />} />
+      {/* The Evidence Integrity Passport: public, no sign-in, no case data. */}
+      <Route path="/verify" element={<VerifyPage />} />
+      <Route path="/verify/:ref" element={<VerifyPage />} />
       {/* Signed in, but not through the gate: deliberately outside Guard, which
           would bounce it straight back here. */}
       <Route path="/first-run" element={<FirstRun />} />
@@ -163,6 +168,14 @@ export default function App() {
           </Guard>
         }
       />
+      <Route
+        path="/police/new-case"
+        element={
+          <Guard roles={["police"]}>
+            <NewCasePage />
+          </Guard>
+        }
+      />
       {caseRoutes("/police", ["police"])}
 
       {/* ------------------------------------------------------ forensic */}
@@ -171,6 +184,14 @@ export default function App() {
         element={
           <Guard roles={["forensic_lab"]}>
             <ForensicInbox />
+          </Guard>
+        }
+      />
+      <Route
+        path="/forensic/capture"
+        element={
+          <Guard roles={["forensic_lab"]}>
+            <CapturePage />
           </Guard>
         }
       />

@@ -123,7 +123,7 @@ export function DefenceVerify() {
                       <option value="">Select a case…</option>
                       {data.cases.map((row) => (
                         <option key={row.id} value={row.id}>
-                          {row.fir_number} — {row.title}
+                          {row.case_reference} — {row.title}
                         </option>
                       ))}
                     </Select>

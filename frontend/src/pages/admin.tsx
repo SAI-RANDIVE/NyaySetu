@@ -1055,7 +1055,7 @@ export function AdminAccess() {
                             : "border-transparent hover:bg-surface-raised"
                         }`}
                       >
-                        <span className="font-mono text-2xs text-muted">{row.fir_number}</span>
+                        <span className="font-mono text-2xs text-muted">{row.case_reference}</span>
                         <span className="line-clamp-2 font-ui text-xs font-medium text-text">
                           {row.title}
                         </span>
@@ -1134,7 +1134,7 @@ function CaseAccessPanel({
     <div className="space-y-5">
       <Card
         title="Who can open this case"
-        subtitle={detail.data ? `${detail.data.case.fir_number} · ${detail.data.case.title}` : undefined}
+        subtitle={detail.data ? `${detail.data.case.case_reference} · ${detail.data.case.title}` : undefined}
         bodyClassName="!px-0 !py-0"
       >
         <AsyncView

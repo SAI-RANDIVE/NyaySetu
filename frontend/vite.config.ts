@@ -9,10 +9,17 @@ const root = path.resolve(import.meta.dirname);
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: { "@": path.resolve(root, "src") },
+    alias: {
+      "@": path.resolve(root, "src"),
+      // The one implementation of canonical JSON, the capture manifest and
+      // SHA-256, shared with the phone app and the API (docs/DECISIONS.md D-07).
+      "@nyaysetu/integrity": path.resolve(root, "..", "packages", "integrity", "src", "index.ts"),
+    },
   },
   server: {
     port: 5173,
+    // The shared package lives outside this folder.
+    fs: { allow: [path.resolve(root, "..")] },
     // Proxying /api in development means the browser sees one origin, so
     // SameSite=Strict cookies work without any CORS relaxation at all.
     proxy: {

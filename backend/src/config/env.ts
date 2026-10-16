@@ -75,6 +75,9 @@ const schema = z.object({
   SUMMONS_CHAIN_ADDRESS: optionalString,
   BAIL_CHAIN_ADDRESS: optionalString,
   CHAIN_CONFIRMATIONS: z.coerce.number().int().min(1).default(1),
+  // How long a request waits for its transaction to be mined before answering
+  // "submitted, being tracked" instead of blocking.
+  SUBMIT_WAIT_SECONDS: z.coerce.number().int().min(5).max(600).default(90),
 
   // ------------------------------------------------- verification (2.0 · F2)
   // Blocks that must sit on top of a registration before it is CONFIRMED.

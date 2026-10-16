@@ -56,6 +56,9 @@ import { FileHashPicker, type HashedFile } from "../components/capture";
 import { CaseReportPanel } from "../components/CaseReport";
 import { CaseProgress } from "../components/CaseProgress";
 import { CasePredictions } from "../components/CasePredictions";
+import { EvidenceVerificationCard, PassportCard } from "../components/evidencePanels";
+import { VerificationBadge } from "../components/verification";
+import { CaseTimelineCard, FirCard } from "../components/casePanels";
 
 /* ==================================================== CasesPage ========== */
 
@@ -74,7 +77,7 @@ export function CasesPage({ basePath }: { basePath: string }) {
     const needle = search.trim().toLowerCase();
     if (!needle) return rows;
     return rows.filter((row) =>
-      [row.fir_number, row.title, row.offence_type, row.police_station]
+      [row.case_reference, row.title, row.offence_type, row.police_station]
         .join(" ")
         .toLowerCase()
         .includes(needle)
@@ -132,7 +135,7 @@ export function CasesPage({ basePath }: { basePath: string }) {
                   className="panel group block p-5 transition duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-lift"
                 >
                   <div className="mb-3 flex items-start justify-between gap-3">
-                    <code className="font-mono text-2xs text-primary">{row.fir_number}</code>
+                    <code className="font-mono text-2xs text-primary">{row.case_reference}</code>
                     <StatusChip
                       tone={row.status === "disposed" ? "neutral" : "info"}
                       label={CASE_STATUS_LABEL[row.status] ?? row.status}
@@ -243,7 +246,7 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
       {(data) => (
         <>
           <PageHeader
-            eyebrow={data.case.fir_number}
+            eyebrow={data.case.case_reference}
             title={data.case.title}
             description={
               <>
@@ -291,7 +294,7 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
             <div className="space-y-5">
               {/* ---------------------------------------- final report */}
               {caseId && (
-                <CaseReportPanel caseId={caseId} firNumber={data.case.fir_number} />
+                <CaseReportPanel caseId={caseId} firNumber={data.case.case_reference} />
               )}
 
               {/* -------------------------------------------- evidence */}
@@ -325,15 +328,20 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
                             </div>
                             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                               <StageChip stage={item.current_stage} />
-                              <IntegrityBadge
-                                anchored={item.chain_evidence_id !== null}
-                                mismatchCount={item.mismatch_count}
-                              />
+                              {item.verification ? (
+                                <VerificationBadge state={item.verification.state} short />
+                              ) : (
+                                <IntegrityBadge
+                                  anchored={item.chain_evidence_id !== null}
+                                  mismatchCount={item.mismatch_count}
+                                />
+                              )}
                             </div>
                           </div>
 
                           <code className="mt-2.5 block font-mono text-2xs text-faint">
                             {shortHash(item.file_hash, 22, 12)}
+                            {item.source === "capture" && " · live capture"}
                           </code>
 
                           {item.anomaly_flagged && (
@@ -347,6 +355,8 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
                   </ul>
                 )}
               </Card>
+
+              {caseId && <CaseTimelineCard caseId={caseId} />}
 
               {/* -------------------------------------------- summons */}
               {user?.role !== "defence_lawyer" && (
@@ -452,6 +462,8 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
                 </Card>
               )}
 
+              <FirCard caseRow={data.case} onChanged={() => state.refetch()} />
+
               {data.case.summary && (
                 <Card title="Case summary" subtitle="Stored off chain, editable, never anchored.">
                   <p className="whitespace-pre-line font-ui text-sm leading-relaxed text-muted">
@@ -470,10 +482,15 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
               />
 
               <Card title="On-chain case id">
-                <HashBadge hash={data.case.case_id_hash} label="keccak256(FIR number)" full />
+                <HashBadge
+                  hash={data.case.case_id_hash}
+                  label={data.case.case_key_scheme === "salted_v2" ? "keccak256(reference + salt)" : "keccak256(FIR number)"}
+                  full
+                />
                 <p className="mt-2.5 font-ui text-2xs leading-relaxed text-faint">
-                  All three contracts address this case by this value, which is why no shared registry
-                  contract is needed.
+                  {data.case.case_key_scheme === "salted_v2"
+                    ? "Salted: nothing about the case — not the FIR, not the reference — can be recovered from the blockchain. All three contracts address the case by this value."
+                    : "Created before NyaySetu 2.0, so this case is keyed by its FIR number, which a determined reader could guess. All three contracts address the case by this value."}
                 </p>
               </Card>
             </div>
@@ -654,9 +671,12 @@ export function EvidenceDetailPage() {
             title={data.evidence.file_name}
             description={
               <>
-                Collected {formatDateTime(data.evidence.collected_at)} at{" "}
-                {formatCoords(data.evidence.gps_lat, data.evidence.gps_lng)} ·{" "}
-                {formatBytes(data.evidence.size_bytes)}
+                Collected {formatDateTime(data.evidence.collected_at)}
+                {data.evidence.gps_lat !== null && data.evidence.gps_lng !== null
+                  ? ` at ${formatCoords(data.evidence.gps_lat, data.evidence.gps_lng)}`
+                  : " · no location recorded"}{" "}
+                · {formatBytes(data.evidence.size_bytes)}
+                {data.evidence.source === "capture" && " · live capture"}
               </>
             }
             actions={
@@ -742,10 +762,13 @@ export function EvidenceDetailPage() {
             </div>
 
             <div className="space-y-5">
+              {evidenceId && <EvidenceVerificationCard evidenceId={evidenceId} onChanged={() => state.refetch()} />}
+              {evidenceId && <PassportCard evidenceId={evidenceId} />}
+
               {canAccept && nextStage && (
                 <Card
                   title={`Accept custody at ${STAGE_LABEL[nextStage]}`}
-                  subtitle="Re-hash the item you were handed. A mismatch is anchored on chain and the transfer is refused."
+                  subtitle="Re-hash the item you were handed. A mismatch is recorded on chain by a separate integrity-check transaction, and no transfer is attempted."
                 >
                   <FileHashPicker value={picked} onChange={setPicked} disabled={accept.pending} />
 
@@ -758,8 +781,8 @@ export function EvidenceDetailPage() {
                       }`}
                     >
                       {picked.hash === data.evidence.file_hash
-                        ? "This matches the registered digest. Accepting will move custody forward."
-                        : "This does not match the registered digest. Submitting it will record a mismatch on chain and the transfer will be refused. That is the correct outcome if the file really has been altered."}
+                        ? "This matches the registered file digest. The chain makes the final comparison when you accept."
+                        : "This does not match the registered digest. Submitting it records the mismatch on chain through an integrity-check transaction, and custody does not move. That is the correct outcome if the file really has been altered."}
                     </p>
                   )}
 
@@ -802,7 +825,10 @@ export function EvidenceDetailPage() {
                 }
               >
                 <div className="space-y-2.5">
-                  <HashBadge hash={data.evidence.file_hash} label="Registered file digest" full />
+                  <HashBadge hash={data.evidence.file_hash} label="File digest (SHA-256)" full />
+                  {data.evidence.anchor_mode === "manifest" && data.evidence.anchored_digest && (
+                    <HashBadge hash={data.evidence.anchored_digest} label="Anchored capture-manifest digest" full />
+                  )}
                   {data.evidence.forensic_report_hash && (
                     <HashBadge hash={data.evidence.forensic_report_hash} label="Forensic report (latest)" full />
                   )}

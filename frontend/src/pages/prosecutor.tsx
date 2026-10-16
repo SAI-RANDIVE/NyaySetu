@@ -85,7 +85,7 @@ export function ProsecutorDashboard() {
                         <div className="min-w-0">
                           <p className="truncate font-ui text-sm font-medium text-text">{item.file_name}</p>
                           <p className="mt-0.5 font-ui text-2xs text-muted">
-                            {item.cases?.fir_number} · {relativeTime(item.collected_at)}
+                            {item.cases?.case_reference} · {relativeTime(item.collected_at)}
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
@@ -124,7 +124,7 @@ export function ProsecutorDashboard() {
                     <div className="min-w-0">
                       <p className="font-ui text-sm font-medium text-text">{row.recipient_name}</p>
                       <p className="mt-0.5 font-ui text-2xs text-muted">
-                        {row.cases?.fir_number} ·{" "}
+                        {row.cases?.case_reference} ·{" "}
                         {row.effectiveStatus === "PENDING"
                           ? `${formatDuration((row.hoursRemaining ?? 0) * 3600)} left`
                           : formatDateTime(row.delivered_at ?? row.expiry_at)}
@@ -237,7 +237,7 @@ export function DelayEstimateModal({
             <option value="">Not attached to a case</option>
             {cases.map((row) => (
               <option key={row.id} value={row.id}>
-                {row.fir_number} — {row.title}
+                {row.case_reference} — {row.title}
               </option>
             ))}
           </Select>

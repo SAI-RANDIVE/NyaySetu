@@ -105,7 +105,7 @@ export function JudgeDashboard() {
                   <ul className="mt-3 space-y-1.5">
                     {failedSummons.slice(0, 4).map((row) => (
                       <li key={row.id} className="font-ui text-xs text-text">
-                        {row.recipient_name} · {row.cases?.fir_number} · closed{" "}
+                        {row.recipient_name} · {row.cases?.case_reference} · closed{" "}
                         {formatDateTime(row.expiry_at)}
                       </li>
                     ))}
@@ -132,7 +132,7 @@ export function JudgeDashboard() {
                   <ul className="mt-3 space-y-1.5">
                     {breaching.slice(0, 4).map((order) => (
                       <li key={order.id} className="font-ui text-xs text-text">
-                        {order.accused_name} · {order.cases?.fir_number} · score{" "}
+                        {order.accused_name} · {order.cases?.case_reference} · score{" "}
                         {order.live?.score ?? order.compliance_score}
                         {order.live?.overdue && " · check-in overdue"}
                       </li>
@@ -223,7 +223,7 @@ export function JudgeDashboard() {
                     <div className="min-w-0">
                       <p className="font-ui text-sm font-medium text-text">{order.accused_name}</p>
                       <p className="mt-0.5 font-ui text-2xs text-muted">
-                        {order.cases?.fir_number}
+                        {order.cases?.case_reference}
                         {order.live && ` · next check-in ${formatDuration(order.live.secondsUntilNextCheckIn)}`}
                       </p>
                     </div>
@@ -263,7 +263,7 @@ function SummonsList({ rows }: { rows: SummonsRow[] }) {
             <div className="min-w-0">
               <p className="font-ui text-sm font-medium text-text">{row.recipient_name}</p>
               <p className="mt-0.5 font-ui text-2xs text-muted">
-                {row.cases?.fir_number} ·{" "}
+                {row.cases?.case_reference} ·{" "}
                 {status === "PENDING"
                   ? `${formatDuration(secondsLeft)} left to acknowledge`
                   : status === "DELIVERED"
@@ -431,7 +431,7 @@ function IssueSummonsModal({
             <option value="">Select a case…</option>
             {cases.map((row) => (
               <option key={row.id} value={row.id}>
-                {row.fir_number} — {row.title}
+                {row.case_reference} — {row.title}
               </option>
             ))}
           </Select>
@@ -695,7 +695,7 @@ function BailCard({ order, onChanged }: { order: BailRow; onChanged: () => void 
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-display text-lg leading-tight text-text">{order.accused_name}</p>
-          <code className="mt-0.5 block font-mono text-2xs text-muted">{order.cases?.fir_number}</code>
+          <code className="mt-0.5 block font-mono text-2xs text-muted">{order.cases?.case_reference}</code>
         </div>
         {order.risk_band && (
           <StatusChip
@@ -937,7 +937,7 @@ function GrantBailModal({
             <option value="">Select a case…</option>
             {cases.map((row) => (
               <option key={row.id} value={row.id}>
-                {row.fir_number} — {row.title}
+                {row.case_reference} — {row.title}
               </option>
             ))}
           </Select>

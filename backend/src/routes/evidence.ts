@@ -21,6 +21,7 @@ import {
   stripEnvelope,
   verificationFor,
   presentVerification,
+  verificationSummary,
 } from "../services/evidence.service";
 import { anchorHistory, loadAnchor, recheck } from "../services/verification/anchors";
 import { parseManifestField, parseSignatureField } from "../services/capture.service";
@@ -178,6 +179,14 @@ router.post(
     // 200 for a replay of a request already handled; 201 for a new record,
     // whatever state its anchoring reached. The body always says which state.
     res.status(result.replayed ? 200 : 201).json(result);
+  })
+);
+
+/** Verification states across the caller's cases, and what needs attention. */
+router.get(
+  "/summary",
+  asyncRoute(async (req, res) => {
+    res.json(await verificationSummary(req.user!));
   })
 );
 
