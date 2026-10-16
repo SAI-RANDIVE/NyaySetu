@@ -21,6 +21,8 @@ import { BailBoard, JudgeDashboard, SummonsPage } from "./pages/judge";
 import { DefenceVerify } from "./pages/defence";
 import { AccusedCheckIn, AccusedHome, AccusedSummons } from "./pages/accused";
 import { AdminAccess, AdminAudit, AdminChain, AdminOverview, AdminUsers } from "./pages/admin";
+import { AlertsPage } from "./pages/alerts";
+import { MalkhanaPage, SeizuresPage } from "./pages/policeWorkflow";
 
 /**
  * Routing.
@@ -134,9 +136,34 @@ function caseRoutes(basePath: string, roles: Role[]) {
   ];
 }
 
+/**
+ * Workflow pages added in 2.0. Each portal's navigation (PortalShell) links
+ * to these paths; keeping them in one table makes a missing route easy to spot.
+ */
+const WORKFLOW_PAGES: { path: string; roles: Role[]; element: React.ReactNode }[] = [
+  { path: "/police/seizures", roles: ["police"], element: <SeizuresPage /> },
+  { path: "/police/malkhana", roles: ["police"], element: <MalkhanaPage /> },
+  { path: "/police/alerts", roles: ["police"], element: <AlertsPage /> },
+  { path: "/prosecutor/alerts", roles: ["prosecutor"], element: <AlertsPage /> },
+  { path: "/judge/alerts", roles: ["judge"], element: <AlertsPage /> },
+  { path: "/admin/alerts", roles: ["court_admin"], element: <AlertsPage /> },
+];
+
 export default function App() {
   return (
     <Routes>
+      {WORKFLOW_PAGES.map((p) => (
+        <Route
+          key={p.path}
+          path={p.path}
+          element={
+            <Guard roles={p.roles}>
+              {p.element}
+            </Guard>
+          }
+        />
+      ))}
+
       {/* ------------------------------------------------------- public */}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
