@@ -59,7 +59,8 @@ import { CasePredictions } from "../components/CasePredictions";
 import { EvidenceVerificationCard, PassportCard } from "../components/evidencePanels";
 import { DocumentsCard, GovernanceCard, LabWorkPanel } from "../components/workflowPanels";
 import { VerificationBadge } from "../components/verification";
-import { CaseTimelineCard, FirCard } from "../components/casePanels";
+import { FirCard } from "../components/casePanels";
+import { AiInsightsCard, AuditTimelineCard, CaseGovernanceCard } from "../components/dossierPanels";
 import { CourtRecordCard } from "./court";
 
 /* ==================================================== CasesPage ========== */
@@ -358,7 +359,7 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
                 )}
               </Card>
 
-              {caseId && <CaseTimelineCard caseId={caseId} />}
+              {caseId && <AuditTimelineCard caseId={caseId} />}
               {caseId && <CourtRecordCard caseId={caseId} />}
 
               {/* -------------------------------------------- summons */}
@@ -474,6 +475,10 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
                   </p>
                 </Card>
               )}
+
+              <CaseGovernanceCard caseRow={data.case} />
+
+              <AiInsightsCard caseId={data.case.id} />
 
               <CasePredictions caseId={data.case.id} />
 
@@ -750,6 +755,9 @@ export function EvidenceDetailPage() {
                   </ul>
                 )}
               </Card>
+
+              {item && <DocumentsCard item={item} />}
+              {item && <GovernanceCard item={item} onChanged={() => state.refetch()} />}
             </div>
 
             <div className="space-y-5">
@@ -890,8 +898,6 @@ export function EvidenceDetailPage() {
                   }}
                 />
               )}
-              {item && <DocumentsCard item={item} />}
-              {item && <GovernanceCard item={item} onChanged={() => state.refetch()} />}
             </div>
           </div>
 

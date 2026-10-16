@@ -150,6 +150,22 @@ for (const [role, prefix] of Object.entries(ROLES)) {
     continue;
   }
   for (const path of links.filter((l) => l === `/${prefix}` || l.startsWith(`/${prefix}/`))) await check(page, path, role);
+
+  // The dossier and evidence pages are reached from lists, not the navigation:
+  // open the first case and the first item the role can see.
+  if (role !== "accused") {
+    const target = await page.evaluate(async () => {
+      const cases = await (await fetch("/api/cases", { credentials: "include" })).json();
+      const first = cases.cases?.[0];
+      if (!first) return null;
+      const items = await (await fetch(`/api/evidence/case/${first.id}`, { credentials: "include" })).json();
+      return { caseId: first.id, evidenceId: items.items?.[0]?.id ?? null };
+    });
+    if (target) {
+      await check(page, `/${prefix}/cases/${target.caseId}`, role);
+      if (target.evidenceId) await check(page, `/${prefix}/cases/evidence/${target.evidenceId}`, role);
+    }
+  }
   await context.close();
 }
 
