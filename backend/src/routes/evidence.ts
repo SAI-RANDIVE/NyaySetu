@@ -13,7 +13,6 @@ import {
   transferCustody,
   verifyAgainstChain,
   custodyTimeline,
-  anchorForensicReport,
   fetchPlaintext,
   listCaseEvidence,
   loadEvidence,
@@ -56,6 +55,7 @@ function parseChecklist(raw: string | undefined) {
 import { authorisedPassport, canSeeCaptureDetail, verifyUrl } from "../services/passport/passport.service";
 import { buildPassportPdf } from "../lib/pdf/passport";
 import { renderCertificate } from "../services/certificate.service";
+import { fileReport } from "../services/lab.service";
 import { canonicalJson } from "../shared/integrity";
 import { forbidden } from "../lib/errors";
 import { recordAction } from "../services/audit";
@@ -121,7 +121,9 @@ const registerSchema = z
  */
 router.post(
   "/",
-  requireRole("police"),
+  // The laboratory registers only its own packaging photographs (F14), as live
+  // captures with purpose lab_intake; everything else is police.
+  requireRole("police", "forensic_lab"),
   writeLimiter,
   upload.single("file"),
   asyncRoute(async (req, res) => {
@@ -150,6 +152,9 @@ router.post(
 
     const manifest = parseManifestField(parsed.data.manifest);
     const signature = parseSignatureField(parsed.data.signature);
+    if (req.user!.role === "forensic_lab" && (parsed.data.source !== "capture" || (manifest as any)?.purpose !== "lab_intake")) {
+      throw forbidden("The laboratory registers only live packaging photographs taken at intake (purpose lab_intake).");
+    }
     if (parsed.data.source === "upload" && manifest) {
       throw badRequest("An uploaded file is anchored by its own digest; send source=capture with a manifest for a live capture.");
     }
@@ -314,27 +319,30 @@ router.post(
   })
 );
 
+/** Kept for 1.0 clients; now the versioned report workflow (F14). See /api/lab/evidence/:id/reports. */
 router.post(
   "/:id/forensic-report",
   requireRole("forensic_lab"),
+  writeLimiter,
   validate(z.object({ id: uuid }), "params"),
   validate(
     z.object({
-      conclusion: safeText(500),
+      conclusion: safeText(500).pipe(z.string().min(10)),
       detail: safeText(20000).optional().nullable(),
+      tool: safeText(160).optional(),
+      method: safeText(1000).optional(),
     })
   ),
   asyncRoute(async (req, res) => {
     const item = await loadEvidence(req.params.id);
     await assertCaseAccess(req, item.case_id, "write");
-
-    const result = await anchorForensicReport(
-      req,
-      req.user!,
-      req.params.id,
-      req.body.conclusion,
-      req.body.detail ?? null
-    );
+    const result = await fileReport(req, req.user!, req.params.id, {
+      conclusion: req.body.conclusion,
+      detail: req.body.detail ?? null,
+      analystName: req.user!.fullName,
+      tool: req.body.tool ?? "not stated",
+      method: req.body.method ?? "not stated",
+    });
     res.status(201).json(result);
   })
 );

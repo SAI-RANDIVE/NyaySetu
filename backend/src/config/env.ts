@@ -90,6 +90,10 @@ const schema = z.object({
   DROPPED_AFTER_MINUTES: z.coerce.number().int().min(1).default(10),
   // How long after confirmation the tracker keeps checking for a reorg.
   REORG_WATCH_MINUTES: z.coerce.number().int().min(1).default(60),
+  // Discrepancy detection (F4). Thresholds for raising an alert, never for acting on it.
+  DELAYED_TX_MINUTES: z.coerce.number().int().min(1).default(10),
+  CUSTODY_GAP_HOURS: z.coerce.number().int().min(1).default(72),
+  INDEXER_LAG_BLOCKS: z.coerce.number().int().min(1).default(500),
   // Write raw micro-degree coordinates into registerEvidence. Off by default:
   // the fix is committed inside the capture manifest instead. See DECISIONS D-03.
   // Live capture (F10). The device enforces these before capture; the server

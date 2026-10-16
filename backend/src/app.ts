@@ -24,6 +24,8 @@ import deviceRoutes from "./routes/devices";
 import uploadRoutes from "./routes/uploads";
 import templateRoutes from "./routes/templates";
 import policeRoutes from "./routes/police";
+import labRoutes from "./routes/lab";
+import alertRoutes from "./routes/alerts";
 
 /**
  * The Express application, without a listening socket or background jobs, so the
@@ -107,6 +109,8 @@ app.use("/api/devices", requirePasswordSettled, deviceRoutes);
 app.use("/api/uploads", requirePasswordSettled, uploadRoutes);
 app.use("/api/templates", requirePasswordSettled, templateRoutes);
 app.use("/api/police", requirePasswordSettled, policeRoutes);
+app.use("/api/lab", requirePasswordSettled, labRoutes);
+app.use("/api/alerts", requirePasswordSettled, alertRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

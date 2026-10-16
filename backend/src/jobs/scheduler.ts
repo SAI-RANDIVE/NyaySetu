@@ -5,6 +5,7 @@ import { sweepNonDelivery } from "../services/summons.service";
 import { sweepMissedCheckIns } from "../services/bail.service";
 import { trackAnchors } from "../services/verification/anchors";
 import { relinkRegistrations } from "../services/evidence.service";
+import { detectDiscrepancies } from "../services/alerts.service";
 
 /**
  * The two jobs that make non-events visible.
@@ -35,6 +36,12 @@ export async function runSweeps(): Promise<{
   const tracked = await trackAnchors();
   const relinked = await relinkRegistrations();
   const anchors = { ...tracked, relinked };
+  // Alerts for whatever could not be verified. Raised once each; never acted on automatically.
+  const alerts = await detectDiscrepancies().catch((error) => {
+    logger.warn("Discrepancy detection failed", { error: error instanceof Error ? error.message : error });
+    return { raised: 0 };
+  });
+  if (alerts.raised > 0) logger.info("Discrepancy alerts raised", alerts);
 
   if (summons.marked > 0 || bail.flagged > 0) {
     logger.info("Sweep completed", {
