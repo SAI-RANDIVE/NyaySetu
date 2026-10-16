@@ -6,6 +6,8 @@ import { asyncRoute } from "../middleware/error";
 import { validate, safeText, uuid, pagination } from "../middleware/validate";
 import { requireAuth, requireRole, assertCaseAccess } from "../middleware/auth";
 import { predictDelay, health as aiHealth, recordPrediction } from "../lib/ai";
+import { writeLimiter } from "../middleware/rateLimit";
+import { caseInsights, explainDelay, flagCase, reviewOutput, DECISION_SUPPORT_BANNER, TRAINING_CAVEAT } from "../services/aiExplain.service";
 
 const router = Router();
 router.use(requireAuth);
@@ -62,7 +64,12 @@ router.post(
       });
     }
 
-    res.json({ prediction });
+    res.json({
+      prediction,
+      explanation: prediction.available ? explainDelay(prediction) : null,
+      banner: DECISION_SUPPORT_BANNER,
+      trainingCaveat: TRAINING_CAVEAT,
+    });
   })
 );
 
@@ -85,6 +92,33 @@ router.get(
           .range(offset, offset + limit - 1)
       ),
     });
+  })
+);
+
+/**
+ * Every model output for a case, explained: rule findings first, statistical
+ * outliers labelled as such, estimates with their intervals, limitations, and
+ * the reviews people have recorded (F5).
+ */
+router.get(
+  "/cases/:caseId/insights",
+  validate(z.object({ caseId: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    await assertCaseAccess(req, req.params.caseId);
+    res.json(await caseInsights(req.user!, req.params.caseId));
+  })
+);
+
+/** Agree, contest or dismiss an output, with a reason. Changes nothing else. */
+router.post(
+  "/flags/:id/review",
+  writeLimiter,
+  validate(z.object({ id: uuid }), "params"),
+  validate(z.object({ decision: z.enum(["agree", "contest", "dismiss"]), reason: safeText(2000).pipe(z.string().min(10)) })),
+  asyncRoute(async (req, res) => {
+    const caseId = await flagCase(req.params.id);
+    if (caseId) await assertCaseAccess(req, caseId);
+    res.status(201).json({ review: await reviewOutput(req, req.user!, req.params.id, req.body) });
   })
 );
 

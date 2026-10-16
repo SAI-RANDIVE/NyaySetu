@@ -247,6 +247,7 @@ export async function checkIn(
     gpsLng: number;
     deviceId?: string | null;
     platform?: string | null;
+    accuracyMetres?: number | null;
   }
 ) {
   const bail = await loadBailByCase(input.caseId);
@@ -307,6 +308,7 @@ export async function checkIn(
     gps_lng: input.gpsLng,
     distance_metres: distanceMetres,
     within_fence: withinFence,
+    accuracy_metres: input.accuracyMetres ?? null,
     occurred_at: new Date().toISOString(),
     device_fingerprint: deviceFingerprint({
       userAgent: req.get("user-agent") ?? undefined,

@@ -50,8 +50,8 @@ const PRIMARY_KEY: Record<string, string> = { indexer_state: "contract", user_pi
 const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
 
 function singular(name: string): string {
+  // Only the plurals this schema uses: "summonses" does not occur, "cases" does.
   if (name.endsWith("ies")) return name.slice(0, -3) + "y";
-  if (name.endsWith("ses")) return name.slice(0, -2);
   if (name.endsWith("s")) return name.slice(0, -1);
   return name;
 }

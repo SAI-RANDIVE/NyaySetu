@@ -90,6 +90,9 @@ const schema = z.object({
   DROPPED_AFTER_MINUTES: z.coerce.number().int().min(1).default(10),
   // How long after confirmation the tracker keeps checking for a reorg.
   REORG_WATCH_MINUTES: z.coerce.number().int().min(1).default(60),
+  // Reminders (F18): sandbox records them without sending; email sends them.
+  NOTIFY_PROVIDER: z.enum(["sandbox", "email"]).default("sandbox"),
+  REMINDER_LEAD_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   // Discrepancy detection (F4). Thresholds for raising an alert, never for acting on it.
   DELAYED_TX_MINUTES: z.coerce.number().int().min(1).default(10),
   CUSTODY_GAP_HOURS: z.coerce.number().int().min(1).default(72),

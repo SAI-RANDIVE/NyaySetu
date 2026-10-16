@@ -879,3 +879,28 @@ export async function mailerHealth(): Promise<{
         "timeout, that is the cause and an HTTP provider is the fix.",
   };
 }
+
+/** A plain reminder (F18). Names the obligation and the deadline; never the case's content. */
+export async function sendPlainNotice(args: {
+  to: string;
+  userId?: string | null;
+  subject: string;
+  body: string;
+  purpose: string;
+}): Promise<SendResult> {
+  const portalUrl = env.PUBLIC_APP_URL.replace(/\/$/, "");
+  return send({
+    to: args.to,
+    userId: args.userId,
+    purpose: args.purpose,
+    subject: args.subject,
+    text: `${args.body}\n\n${portalUrl}`,
+    html: shell({
+      title: args.subject,
+      kicker: "Reminder",
+      tone: "green",
+      body: paragraph(escapeHtml(args.body)) + button(portalUrl, "Open NyaySetu", "green"),
+      footnote: "This reminder does not contain any detail of your case.",
+    }),
+  });
+}

@@ -6,6 +6,7 @@ import { sweepMissedCheckIns } from "../services/bail.service";
 import { trackAnchors } from "../services/verification/anchors";
 import { relinkRegistrations } from "../services/evidence.service";
 import { detectDiscrepancies } from "../services/alerts.service";
+import { sendReminders } from "../services/notify.service";
 
 /**
  * The two jobs that make non-events visible.
@@ -29,11 +30,14 @@ export async function runSweeps(): Promise<{
   bail: { flagged: number; cases: string[] };
   anchors: { checked: number; changed: number; relinked: number };
 }> {
-  const summons = await sweepNonDelivery();
-  const bail = await sweepMissedCheckIns();
+  // The chain sweeps need the chain; the detector and reminders do not — and an
+  // outage is exactly when the detector matters most.
+  const ready = chain.isReady;
+  const summons = ready ? await sweepNonDelivery() : { marked: 0, ids: [] };
+  const bail = ready ? await sweepMissedCheckIns() : { flagged: 0, cases: [] };
   // Verification: advance SUBMITTED anchors by confirmation depth, catch drops,
   // reverts and reorgs, then copy any newly learned chain ids onto evidence rows.
-  const tracked = await trackAnchors();
+  const tracked = ready ? await trackAnchors() : { checked: 0, changed: 0 };
   const relinked = await relinkRegistrations();
   const anchors = { ...tracked, relinked };
   // Alerts for whatever could not be verified. Raised once each; never acted on automatically.
@@ -42,6 +46,8 @@ export async function runSweeps(): Promise<{
     return { raised: 0 };
   });
   if (alerts.raised > 0) logger.info("Discrepancy alerts raised", alerts);
+  // Reminders for summons and check-ins, once per deadline (sandbox unless NOTIFY_PROVIDER=email).
+  await sendReminders().catch((error) => logger.warn("Reminders failed", { error: error instanceof Error ? error.message : error }));
 
   if (summons.marked > 0 || bail.flagged > 0) {
     logger.info("Sweep completed", {
@@ -63,7 +69,6 @@ export function startScheduler(): void {
 
   const tick = async () => {
     if (running) return;
-    if (!chain.isReady) return;
     running = true;
     try {
       await runSweeps();

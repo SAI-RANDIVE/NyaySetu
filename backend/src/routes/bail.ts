@@ -231,6 +231,8 @@ router.post(
       gpsLng: longitude,
       deviceId: safeText(200).optional().nullable(),
       platform: safeText(80).optional().nullable(),
+      // The fix's accuracy radius, so the court can tell GPS drift from a breach (F17).
+      accuracyMetres: z.coerce.number().min(0).max(100_000).optional().nullable(),
     })
   ),
   asyncRoute(async (req, res) => {
@@ -244,6 +246,7 @@ router.post(
       gpsLng: req.body.gpsLng,
       deviceId: req.body.deviceId ?? null,
       platform: req.body.platform ?? null,
+      accuracyMetres: req.body.accuracyMetres ?? null,
     });
 
     res.json(result);

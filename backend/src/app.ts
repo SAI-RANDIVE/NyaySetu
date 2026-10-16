@@ -27,6 +27,7 @@ import policeRoutes from "./routes/police";
 import labRoutes from "./routes/lab";
 import alertRoutes from "./routes/alerts";
 import governanceRoutes from "./routes/governance";
+import courtRoutes from "./routes/court";
 
 /**
  * The Express application, without a listening socket or background jobs, so the
@@ -113,6 +114,7 @@ app.use("/api/police", requirePasswordSettled, policeRoutes);
 app.use("/api/lab", requirePasswordSettled, labRoutes);
 app.use("/api/alerts", requirePasswordSettled, alertRoutes);
 app.use("/api/governance", requirePasswordSettled, governanceRoutes);
+app.use("/api/court", requirePasswordSettled, courtRoutes);
 
 app.get("/", (_req, res) => {
   res.json({
