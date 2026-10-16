@@ -23,6 +23,7 @@ import publicRoutes from "./routes/public";
 import deviceRoutes from "./routes/devices";
 import uploadRoutes from "./routes/uploads";
 import templateRoutes from "./routes/templates";
+import policeRoutes from "./routes/police";
 
 /**
  * The Express application, without a listening socket or background jobs, so the
@@ -105,6 +106,7 @@ app.use("/api/admin", requirePasswordSettled, adminRoutes);
 app.use("/api/devices", requirePasswordSettled, deviceRoutes);
 app.use("/api/uploads", requirePasswordSettled, uploadRoutes);
 app.use("/api/templates", requirePasswordSettled, templateRoutes);
+app.use("/api/police", requirePasswordSettled, policeRoutes);
 
 app.get("/", (_req, res) => {
   res.json({

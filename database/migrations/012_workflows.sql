@@ -59,6 +59,7 @@ create table if not exists public.seizures (
   id               uuid primary key default gen_random_uuid(),
   case_id          uuid not null references public.cases (id) on delete restrict,
   memo_number      text not null,
+  memo_digest      public.hash32,
   seized_at        timestamptz not null,
   -- Off chain, role-gated: where and from whom.
   place            text not null,
@@ -95,6 +96,9 @@ create table if not exists public.malkhana_movements (
   counterparty  text,
   performed_by  uuid references public.users (id) on delete set null,
   occurred_at   timestamptz not null default now(),
+  -- The movement's canonical digest, anchored like a custody transfer (D-06).
+  movement_digest public.hash32 not null,
+  anchor_id     uuid references public.anchors (id) on delete set null,
   created_at    timestamptz not null default now()
 );
 comment on table public.malkhana_movements is '2.0: the malkhana (property room) register. Append-only.';
