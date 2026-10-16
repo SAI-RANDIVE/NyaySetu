@@ -18,6 +18,7 @@ import { formatDateTime, formatDuration, formatMetres, violationLabel } from "..
 import { AsyncView, EmptyState } from "../components/DataState";
 import { Button, Card, LinkButton, PageHeader, Stat } from "../components/ui";
 import { GpsCapture, OtpPanel } from "../components/capture";
+import { NotificationsCard, ObligationsCard } from "./court";
 import { ComplianceGauge, ConditionList, StatusChip, SummonsStatusChip, TxLink } from "../components/trust";
 import { deviceHint, type Fix } from "../lib/geo";
 
@@ -241,6 +242,10 @@ export function AccusedHome() {
           </ul>
         </Card>
       )}
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <ObligationsCard />
+        <NotificationsCard />
+      </div>
     </>
   );
 }

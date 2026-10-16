@@ -60,6 +60,7 @@ import { EvidenceVerificationCard, PassportCard } from "../components/evidencePa
 import { DocumentsCard, GovernanceCard, LabWorkPanel } from "../components/workflowPanels";
 import { VerificationBadge } from "../components/verification";
 import { CaseTimelineCard, FirCard } from "../components/casePanels";
+import { CourtRecordCard } from "./court";
 
 /* ==================================================== CasesPage ========== */
 
@@ -358,6 +359,7 @@ export function CaseDossierPage({ basePath }: { basePath: string }) {
               </Card>
 
               {caseId && <CaseTimelineCard caseId={caseId} />}
+              {caseId && <CourtRecordCard caseId={caseId} />}
 
               {/* -------------------------------------------- summons */}
               {user?.role !== "defence_lawyer" && (

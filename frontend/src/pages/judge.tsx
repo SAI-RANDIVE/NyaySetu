@@ -14,6 +14,7 @@ import {
 import { api, type BailRow, type CaseRow, type SummonsRow } from "../lib/api";
 import { useMutation, useQuery, useTicker } from "../lib/useApi";
 import { useToast } from "../context/ToastContext";
+import { BailComplianceCard } from "./court";
 import { formatDateTime, formatDuration, formatMetres, violationLabel } from "../lib/format";
 import { AsyncView, EmptyState } from "../components/DataState";
 import {
@@ -551,6 +552,10 @@ export function BailBoard() {
           tone={(board.data?.counts.overdue ?? 0) > 0 ? "warning" : "default"}
           icon={<Timer size={14} />}
         />
+      </div>
+
+      <div className="mb-6">
+        <BailComplianceCard />
       </div>
 
       <AsyncView

@@ -8,6 +8,7 @@ import { Button, Card, Field, Input, Modal, PageHeader, Select, Stat } from "../
 import { IntegrityBadge, StageChip, SummonsStatusChip, TxLink } from "../components/trust";
 import { useState } from "react";
 import { useToast } from "../context/ToastContext";
+import { ProsecutionReadiness } from "./court";
 
 /**
  * The prosecutor's view.
@@ -53,6 +54,10 @@ export function ProsecutorDashboard() {
           tone={(summons.data?.counts.failed ?? 0) > 0 ? "danger" : "default"}
           icon={<ScrollText size={14} />}
         />
+      </div>
+
+      <div className="mb-6">
+        <ProsecutionReadiness basePath="/prosecutor/cases" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">

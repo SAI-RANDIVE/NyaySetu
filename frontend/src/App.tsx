@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { ROLE_HOME } from "./lib/format";
@@ -9,20 +10,47 @@ import { LogoMark } from "./components/Logo";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
-import FirstRun from "./pages/FirstRun";
-import Handbook from "./pages/Handbook";
-import VerifyPage from "./pages/Verify";
-import { CaseDossierPage, CasesPage, EvidenceDetailPage } from "./pages/shared";
-import { NewCasePage, PoliceDashboard } from "./pages/police";
-import { CapturePage } from "./pages/capture";
-import { ForensicInbox } from "./pages/forensic";
-import { ProsecutorDashboard } from "./pages/prosecutor";
-import { BailBoard, JudgeDashboard, SummonsPage } from "./pages/judge";
-import { DefenceVerify } from "./pages/defence";
-import { AccusedCheckIn, AccusedHome, AccusedSummons } from "./pages/accused";
-import { AdminAccess, AdminAudit, AdminChain, AdminOverview, AdminUsers } from "./pages/admin";
-import { AlertsPage } from "./pages/alerts";
-import { MalkhanaPage, SeizuresPage } from "./pages/policeWorkflow";
+
+/**
+ * Portal pages load on demand: a citizen checking in never downloads the
+ * laboratory or registry screens. The landing and sign-in pages stay in the
+ * main bundle so the first paint needs one request.
+ */
+function lazyNamed<M extends Record<string, unknown>, K extends keyof M>(load: () => Promise<M>, name: K) {
+  return lazy(async () => ({ default: (await load())[name] as React.ComponentType<any> }));
+}
+
+const FirstRun = lazy(() => import("./pages/FirstRun"));
+const Handbook = lazy(() => import("./pages/Handbook"));
+const VerifyPage = lazy(() => import("./pages/Verify"));
+const CaseDossierPage = lazyNamed(() => import("./pages/shared"), "CaseDossierPage");
+const CasesPage = lazyNamed(() => import("./pages/shared"), "CasesPage");
+const EvidenceDetailPage = lazyNamed(() => import("./pages/shared"), "EvidenceDetailPage");
+const NewCasePage = lazyNamed(() => import("./pages/police"), "NewCasePage");
+const PoliceDashboard = lazyNamed(() => import("./pages/police"), "PoliceDashboard");
+const CapturePage = lazyNamed(() => import("./pages/capture"), "CapturePage");
+const ForensicInbox = lazyNamed(() => import("./pages/forensic"), "ForensicInbox");
+const ProsecutorDashboard = lazyNamed(() => import("./pages/prosecutor"), "ProsecutorDashboard");
+const BailBoard = lazyNamed(() => import("./pages/judge"), "BailBoard");
+const JudgeDashboard = lazyNamed(() => import("./pages/judge"), "JudgeDashboard");
+const SummonsPage = lazyNamed(() => import("./pages/judge"), "SummonsPage");
+const DefenceVerify = lazyNamed(() => import("./pages/defence"), "DefenceVerify");
+const AccusedCheckIn = lazyNamed(() => import("./pages/accused"), "AccusedCheckIn");
+const AccusedHome = lazyNamed(() => import("./pages/accused"), "AccusedHome");
+const AccusedSummons = lazyNamed(() => import("./pages/accused"), "AccusedSummons");
+const AdminAccess = lazyNamed(() => import("./pages/admin"), "AdminAccess");
+const AdminAudit = lazyNamed(() => import("./pages/admin"), "AdminAudit");
+const AdminChain = lazyNamed(() => import("./pages/admin"), "AdminChain");
+const AdminOverview = lazyNamed(() => import("./pages/admin"), "AdminOverview");
+const AdminUsers = lazyNamed(() => import("./pages/admin"), "AdminUsers");
+const AlertsPage = lazyNamed(() => import("./pages/alerts"), "AlertsPage");
+const MalkhanaPage = lazyNamed(() => import("./pages/policeWorkflow"), "MalkhanaPage");
+const SeizuresPage = lazyNamed(() => import("./pages/policeWorkflow"), "SeizuresPage");
+const AccessRequestsPage = lazyNamed(() => import("./pages/court"), "AccessRequestsPage");
+const AccusedHelpPage = lazyNamed(() => import("./pages/court"), "AccusedHelpPage");
+const ApprovalsPage = lazyNamed(() => import("./pages/court"), "ApprovalsPage");
+const HearingsPage = lazyNamed(() => import("./pages/court"), "HearingsPage");
+const TemplatesPage = lazyNamed(() => import("./pages/templates"), "TemplatesPage");
 
 /**
  * Routing.
@@ -41,6 +69,14 @@ function FullPageSpinner() {
         <Spinner />
         <p className="font-ui text-xs text-muted">Restoring your session…</p>
       </div>
+    </div>
+  );
+}
+
+function PageSpinner() {
+  return (
+    <div className="grid min-h-[40vh] place-items-center">
+      <Spinner />
     </div>
   );
 }
@@ -76,7 +112,11 @@ function Guard({ roles, children }: { roles?: Role[]; children: React.ReactNode 
     return <Navigate to={ROLE_HOME[user.role]} replace />;
   }
 
-  return <PortalShell>{children}</PortalShell>;
+  return (
+    <PortalShell>
+      <Suspense fallback={<PageSpinner />}>{children}</Suspense>
+    </PortalShell>
+  );
 }
 
 function NotFound() {
@@ -147,202 +187,211 @@ const WORKFLOW_PAGES: { path: string; roles: Role[]; element: React.ReactNode }[
   { path: "/prosecutor/alerts", roles: ["prosecutor"], element: <AlertsPage /> },
   { path: "/judge/alerts", roles: ["judge"], element: <AlertsPage /> },
   { path: "/admin/alerts", roles: ["court_admin"], element: <AlertsPage /> },
+  { path: "/judge/hearings", roles: ["judge"], element: <HearingsPage /> },
+  { path: "/judge/access", roles: ["judge"], element: <AccessRequestsPage /> },
+  { path: "/judge/approvals", roles: ["judge"], element: <ApprovalsPage /> },
+  { path: "/defence/access", roles: ["defence_lawyer"], element: <AccessRequestsPage /> },
+  { path: "/admin/approvals", roles: ["court_admin"], element: <ApprovalsPage /> },
+  { path: "/admin/templates", roles: ["court_admin"], element: <TemplatesPage /> },
+  { path: "/accused/help", roles: ["accused"], element: <AccusedHelpPage /> },
 ];
 
 export default function App() {
   return (
-    <Routes>
-      {WORKFLOW_PAGES.map((p) => (
+    <Suspense fallback={<FullPageSpinner />}>
+      <Routes>
+        {WORKFLOW_PAGES.map((p) => (
+          <Route
+            key={p.path}
+            path={p.path}
+            element={
+              <Guard roles={p.roles}>
+                {p.element}
+              </Guard>
+            }
+          />
+        ))}
+
+        {/* ------------------------------------------------------- public */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        {/* Public on purpose: a defence lawyer or an accused person needs to
+            understand what the system claims about them before they have an
+            account, and putting this behind a sign-in would defeat that. */}
+        <Route path="/handbook" element={<Handbook />} />
+        {/* The Evidence Integrity Passport: public, no sign-in, no case data. */}
+        <Route path="/verify" element={<VerifyPage />} />
+        <Route path="/verify/:ref" element={<VerifyPage />} />
+        {/* Signed in, but not through the gate: deliberately outside Guard, which
+            would bounce it straight back here. */}
+        <Route path="/first-run" element={<FirstRun />} />
+
+        {/* -------------------------------------------------------- police */}
         <Route
-          key={p.path}
-          path={p.path}
+          path="/police"
           element={
-            <Guard roles={p.roles}>
-              {p.element}
+            <Guard roles={["police"]}>
+              <PoliceDashboard />
             </Guard>
           }
         />
-      ))}
+        <Route
+          path="/police/capture"
+          element={
+            <Guard roles={["police"]}>
+              <CapturePage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/police/new-case"
+          element={
+            <Guard roles={["police"]}>
+              <NewCasePage />
+            </Guard>
+          }
+        />
+        {caseRoutes("/police", ["police"])}
 
-      {/* ------------------------------------------------------- public */}
-      <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Login />} />
-      {/* Public on purpose: a defence lawyer or an accused person needs to
-          understand what the system claims about them before they have an
-          account, and putting this behind a sign-in would defeat that. */}
-      <Route path="/handbook" element={<Handbook />} />
-      {/* The Evidence Integrity Passport: public, no sign-in, no case data. */}
-      <Route path="/verify" element={<VerifyPage />} />
-      <Route path="/verify/:ref" element={<VerifyPage />} />
-      {/* Signed in, but not through the gate: deliberately outside Guard, which
-          would bounce it straight back here. */}
-      <Route path="/first-run" element={<FirstRun />} />
+        {/* ------------------------------------------------------ forensic */}
+        <Route
+          path="/forensic"
+          element={
+            <Guard roles={["forensic_lab"]}>
+              <ForensicInbox />
+            </Guard>
+          }
+        />
+        <Route
+          path="/forensic/capture"
+          element={
+            <Guard roles={["forensic_lab"]}>
+              <CapturePage />
+            </Guard>
+          }
+        />
+        {caseRoutes("/forensic", ["forensic_lab"])}
 
-      {/* -------------------------------------------------------- police */}
-      <Route
-        path="/police"
-        element={
-          <Guard roles={["police"]}>
-            <PoliceDashboard />
-          </Guard>
-        }
-      />
-      <Route
-        path="/police/capture"
-        element={
-          <Guard roles={["police"]}>
-            <CapturePage />
-          </Guard>
-        }
-      />
-      <Route
-        path="/police/new-case"
-        element={
-          <Guard roles={["police"]}>
-            <NewCasePage />
-          </Guard>
-        }
-      />
-      {caseRoutes("/police", ["police"])}
+        {/* ---------------------------------------------------- prosecutor */}
+        <Route
+          path="/prosecutor"
+          element={
+            <Guard roles={["prosecutor"]}>
+              <ProsecutorDashboard />
+            </Guard>
+          }
+        />
+        {caseRoutes("/prosecutor", ["prosecutor"])}
 
-      {/* ------------------------------------------------------ forensic */}
-      <Route
-        path="/forensic"
-        element={
-          <Guard roles={["forensic_lab"]}>
-            <ForensicInbox />
-          </Guard>
-        }
-      />
-      <Route
-        path="/forensic/capture"
-        element={
-          <Guard roles={["forensic_lab"]}>
-            <CapturePage />
-          </Guard>
-        }
-      />
-      {caseRoutes("/forensic", ["forensic_lab"])}
+        {/* --------------------------------------------------------- judge */}
+        <Route
+          path="/judge"
+          element={
+            <Guard roles={["judge"]}>
+              <JudgeDashboard />
+            </Guard>
+          }
+        />
+        <Route
+          path="/judge/summons"
+          element={
+            <Guard roles={["judge"]}>
+              <SummonsPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/judge/bail"
+          element={
+            <Guard roles={["judge"]}>
+              <BailBoard />
+            </Guard>
+          }
+        />
+        {caseRoutes("/judge", ["judge"])}
 
-      {/* ---------------------------------------------------- prosecutor */}
-      <Route
-        path="/prosecutor"
-        element={
-          <Guard roles={["prosecutor"]}>
-            <ProsecutorDashboard />
-          </Guard>
-        }
-      />
-      {caseRoutes("/prosecutor", ["prosecutor"])}
+        {/* ------------------------------------------------------- defence */}
+        <Route
+          path="/defence"
+          element={
+            <Guard roles={["defence_lawyer"]}>
+              <DefenceVerify />
+            </Guard>
+          }
+        />
+        {caseRoutes("/defence", ["defence_lawyer"])}
 
-      {/* --------------------------------------------------------- judge */}
-      <Route
-        path="/judge"
-        element={
-          <Guard roles={["judge"]}>
-            <JudgeDashboard />
-          </Guard>
-        }
-      />
-      <Route
-        path="/judge/summons"
-        element={
-          <Guard roles={["judge"]}>
-            <SummonsPage />
-          </Guard>
-        }
-      />
-      <Route
-        path="/judge/bail"
-        element={
-          <Guard roles={["judge"]}>
-            <BailBoard />
-          </Guard>
-        }
-      />
-      {caseRoutes("/judge", ["judge"])}
+        {/* ------------------------------------------------------- accused */}
+        <Route
+          path="/accused"
+          element={
+            <Guard roles={["accused"]}>
+              <AccusedHome />
+            </Guard>
+          }
+        />
+        <Route
+          path="/accused/summons"
+          element={
+            <Guard roles={["accused"]}>
+              <AccusedSummons />
+            </Guard>
+          }
+        />
+        <Route
+          path="/accused/checkin"
+          element={
+            <Guard roles={["accused"]}>
+              <AccusedCheckIn />
+            </Guard>
+          }
+        />
 
-      {/* ------------------------------------------------------- defence */}
-      <Route
-        path="/defence"
-        element={
-          <Guard roles={["defence_lawyer"]}>
-            <DefenceVerify />
-          </Guard>
-        }
-      />
-      {caseRoutes("/defence", ["defence_lawyer"])}
+        {/* --------------------------------------------------- court admin */}
+        <Route
+          path="/admin"
+          element={
+            <Guard roles={["court_admin"]}>
+              <AdminOverview />
+            </Guard>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <Guard roles={["court_admin"]}>
+              <AdminUsers />
+            </Guard>
+          }
+        />
+        <Route
+          path="/admin/access"
+          element={
+            <Guard roles={["court_admin"]}>
+              <AdminAccess />
+            </Guard>
+          }
+        />
+        <Route
+          path="/admin/audit"
+          element={
+            <Guard roles={["court_admin"]}>
+              <AdminAudit />
+            </Guard>
+          }
+        />
+        <Route
+          path="/admin/chain"
+          element={
+            <Guard roles={["court_admin"]}>
+              <AdminChain />
+            </Guard>
+          }
+        />
+        {caseRoutes("/admin", ["court_admin"])}
 
-      {/* ------------------------------------------------------- accused */}
-      <Route
-        path="/accused"
-        element={
-          <Guard roles={["accused"]}>
-            <AccusedHome />
-          </Guard>
-        }
-      />
-      <Route
-        path="/accused/summons"
-        element={
-          <Guard roles={["accused"]}>
-            <AccusedSummons />
-          </Guard>
-        }
-      />
-      <Route
-        path="/accused/checkin"
-        element={
-          <Guard roles={["accused"]}>
-            <AccusedCheckIn />
-          </Guard>
-        }
-      />
-
-      {/* --------------------------------------------------- court admin */}
-      <Route
-        path="/admin"
-        element={
-          <Guard roles={["court_admin"]}>
-            <AdminOverview />
-          </Guard>
-        }
-      />
-      <Route
-        path="/admin/users"
-        element={
-          <Guard roles={["court_admin"]}>
-            <AdminUsers />
-          </Guard>
-        }
-      />
-      <Route
-        path="/admin/access"
-        element={
-          <Guard roles={["court_admin"]}>
-            <AdminAccess />
-          </Guard>
-        }
-      />
-      <Route
-        path="/admin/audit"
-        element={
-          <Guard roles={["court_admin"]}>
-            <AdminAudit />
-          </Guard>
-        }
-      />
-      <Route
-        path="/admin/chain"
-        element={
-          <Guard roles={["court_admin"]}>
-            <AdminChain />
-          </Guard>
-        }
-      />
-      {caseRoutes("/admin", ["court_admin"])}
-
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 }
