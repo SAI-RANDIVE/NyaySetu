@@ -51,6 +51,9 @@ export async function seedMemoryDatabase(): Promise<void> {
     db.table("roles").push({ role: role[0], label: role[1], description: role[2], portal_path: role[3] });
   }
 
+  const { DEFAULT_SECTION63 } = await import("../services/certificate.service");
+  db.table("document_templates").push({ id: randomUUID(), ...DEFAULT_SECTION63 });
+
   const lines: string[] = [];
   for (const entry of ROLES) {
     const id = randomUUID();

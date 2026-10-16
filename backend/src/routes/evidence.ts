@@ -55,6 +55,7 @@ function parseChecklist(raw: string | undefined) {
 }
 import { authorisedPassport, canSeeCaptureDetail, verifyUrl } from "../services/passport/passport.service";
 import { buildPassportPdf } from "../lib/pdf/passport";
+import { renderCertificate } from "../services/certificate.service";
 import { canonicalJson } from "../shared/integrity";
 import { forbidden } from "../lib/errors";
 import { recordAction } from "../services/audit";
@@ -508,6 +509,43 @@ router.get(
       .setHeader("content-type", "application/json; charset=utf-8")
       .setHeader("content-disposition", `attachment; filename="manifest-${item.public_ref}.json"`)
       .send(canonicalJson(item.capture_manifest));
+  })
+);
+
+/**
+ * The Section 63 certificate (F11), auto-filled from the record. Refuses with a
+ * list of what is missing rather than printing a blank that looks filled.
+ * A TEMPLATE to be verified with a legal practitioner; the PDF says so.
+ */
+router.post(
+  "/:id/certificate",
+  requireRole("police", "forensic_lab", "prosecutor", "judge", "court_admin"),
+  writeLimiter,
+  validate(z.object({ id: uuid }), "params"),
+  validate(
+    z.object({
+      custodianName: safeText(160).optional().nullable(),
+      custodianDesignation: safeText(160).optional().nullable(),
+      deviceDescription: safeText(1000).optional().nullable(),
+      productionMethod: safeText(2000).optional().nullable(),
+    })
+  ),
+  asyncRoute(async (req, res) => {
+    const item = await loadEvidence(req.params.id);
+    await assertCaseAccess(req, item.case_id);
+    const result = await renderCertificate(item.id, req.user!, req.body);
+    await recordAction(req, {
+      action: "evidence.certificate",
+      subject: item.id,
+      caseId: item.case_id,
+      detail: { pdfSha256: result.pdfSha, templateVersion: result.templateVersion },
+    });
+    res
+      .status(200)
+      .setHeader("content-type", "application/pdf")
+      .setHeader("content-disposition", `inline; filename="section63-${item.public_ref}.pdf"`)
+      .setHeader("x-nyaysetu-sha256", result.pdfSha)
+      .send(result.pdf);
   })
 );
 
