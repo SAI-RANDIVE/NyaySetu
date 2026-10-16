@@ -57,6 +57,7 @@ import { CaseReportPanel } from "../components/CaseReport";
 import { CaseProgress } from "../components/CaseProgress";
 import { CasePredictions } from "../components/CasePredictions";
 import { EvidenceVerificationCard, PassportCard } from "../components/evidencePanels";
+import { DocumentsCard, GovernanceCard, LabWorkPanel } from "../components/workflowPanels";
 import { VerificationBadge } from "../components/verification";
 import { CaseTimelineCard, FirCard } from "../components/casePanels";
 
@@ -567,11 +568,8 @@ export function EvidenceDetailPage() {
   );
 
   const [verifyOpen, setVerifyOpen] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
   const [picked, setPicked] = useState<HashedFile | null>(null);
   const [result, setResult] = useState<VerifyResult | null>(null);
-  const [conclusion, setConclusion] = useState("");
-  const [detail, setDetail] = useState("");
 
   const item = state.data?.evidence;
 
@@ -582,8 +580,6 @@ export function EvidenceDetailPage() {
       ]
     : null;
   const canAccept = Boolean(item && nextStage && user && STAGE_RECEIVER[nextStage] === user.role);
-  const canReport =
-    Boolean(item) && user?.role === "forensic_lab" && item?.current_stage === "FORENSIC_LAB";
   const canDownload = user?.role !== "defence_lawyer";
 
   const accept = useMutation(async (hash: string) =>
@@ -595,13 +591,6 @@ export function EvidenceDetailPage() {
 
   const verify = useMutation(async (hash: string) =>
     api.post<VerifyResult>(`/api/evidence/${evidenceId}/verify`, { submittedHash: hash, anchor: true })
-  );
-
-  const report = useMutation(async () =>
-    api.post(`/api/evidence/${evidenceId}/forensic-report`, {
-      conclusion,
-      detail: detail || null,
-    })
   );
 
   const handleAccept = async () => {
@@ -860,13 +849,20 @@ export function EvidenceDetailPage() {
                       <li key={report.id} className="rounded-card border border-border bg-surface-2 p-3.5">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="font-ui text-2xs uppercase tracking-wider text-faint">
+                            {report.version ? `v${report.version} · ` : ""}
                             {formatDateTime(report.created_at)}
+                            {report.analyst_name ? ` · ${report.analyst_name}` : ""}
                           </span>
                           <TxLink txHash={report.tx_hash} />
                         </div>
                         <p className="mt-1.5 font-ui text-sm leading-relaxed text-text">
                           {report.conclusion}
                         </p>
+                        {(report.tool || report.method) && (
+                          <p className="mt-1 font-ui text-2xs text-muted">
+                            {[report.tool, report.method].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
                         {report.detail && (
                           <p className="mt-1 whitespace-pre-line font-ui text-xs leading-relaxed text-muted">
                             {report.detail}
@@ -881,16 +877,19 @@ export function EvidenceDetailPage() {
                 </Card>
               )}
 
-              {canReport && (
-                <Card
-                  title="Anchor a forensic report"
-                  subtitle="The report hash is anchored write-once. Only the lab can do this, and only while the item is in its custody."
-                >
-                  <Button full variant="secondary" icon={<FlaskConical size={14} />} onClick={() => setReportOpen(true)}>
-                    Anchor a report
-                  </Button>
-                </Card>
+              {item && (
+                <LabWorkPanel
+                  item={item}
+                  reports={reports.data?.reports ?? []}
+                  onChanged={() => {
+                    state.refetch();
+                    reports.refetch();
+                    checks.refetch();
+                  }}
+                />
               )}
+              {item && <DocumentsCard item={item} />}
+              {item && <GovernanceCard item={item} onChanged={() => state.refetch()} />}
             </div>
           </div>
 
@@ -968,61 +967,6 @@ export function EvidenceDetailPage() {
             )}
           </Modal>
 
-          {/* ---------------------------------------------- report modal */}
-          <Modal
-            open={reportOpen}
-            onClose={() => setReportOpen(false)}
-            title="Anchor a forensic report"
-            description="The report text stays off chain. Its digest is anchored, write-once, so a conclusion cannot be revised silently."
-            footer={
-              <>
-                <Button variant="ghost" onClick={() => setReportOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  disabled={conclusion.trim().length < 10}
-                  loading={report.pending}
-                  onClick={async () => {
-                    const outcome = await report.run(undefined as never);
-                    if (outcome) {
-                      toast.success("Report anchored", "Its digest is now on chain and cannot be replaced.");
-                      setReportOpen(false);
-                      setConclusion("");
-                      setDetail("");
-                      state.refetch();
-                    }
-                  }}
-                >
-                  Anchor report
-                </Button>
-              </>
-            }
-          >
-            <div className="space-y-4">
-              <Field label="Conclusion" required hint="One or two sentences. This is what the court reads first.">
-                <Textarea
-                  rows={3}
-                  value={conclusion}
-                  onChange={(event) => setConclusion(event.target.value)}
-                  placeholder="Frame is unaltered. Container and EXIF timestamps are internally consistent."
-                />
-              </Field>
-              <Field label="Detail" hint="The full write-up. Stored off chain and covered by the same digest.">
-                <Textarea
-                  rows={6}
-                  value={detail}
-                  onChange={(event) => setDetail(event.target.value)}
-                  placeholder="Method, tooling, versions, and anything that would let another lab reproduce this."
-                />
-              </Field>
-
-              {report.error && (
-                <p role="alert" className="font-ui text-xs text-danger">
-                  {report.error.message}
-                </p>
-              )}
-            </div>
-          </Modal>
         </>
       )}
     </AsyncView>

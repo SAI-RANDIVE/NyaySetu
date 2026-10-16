@@ -358,7 +358,7 @@ router.get(
     const reports = unwrapList(
       await db
         .from("forensic_reports")
-        .select("id, report_hash, conclusion, detail, created_at, tx_hash, lab_id")
+        .select("id, report_hash, conclusion, detail, created_at, tx_hash, lab_id, version, supersedes_id, analyst_name, tool, method")
         .eq("evidence_id", req.params.id)
         .order("created_at", { ascending: false })
     );
