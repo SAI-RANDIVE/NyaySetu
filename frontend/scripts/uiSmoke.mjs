@@ -69,6 +69,16 @@ async function check(page, path, label) {
     // Let lazy chunks and first queries settle.
     await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), { timeout: 15_000 }).catch(() => {});
     await new Promise((r) => setTimeout(r, 400));
+    // Scroll through once so content revealed on scroll is rendered, then
+    // checked by axe and captured in the screenshot.
+    await page.evaluate(async () => {
+      for (let y = 0; y < document.documentElement.scrollHeight; y += window.innerHeight / 2) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      window.scrollTo(0, 0);
+    });
+    await new Promise((r) => setTimeout(r, 700));
 
     const landed = new URL(page.url()).pathname;
     const state = await page.evaluate(() => ({

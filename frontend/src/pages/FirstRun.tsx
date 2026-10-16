@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { api, ApiError } from "../lib/api";
 import { ROLE_HOME, ROLE_LABEL } from "../lib/format";
 import { Button, Field, Input } from "../components/ui";
-import { HeroBackdrop } from "../components/landing";
+import { AuthBackdrop } from "../components/AuthBackdrop";
 import { LogoMark } from "../components/Logo";
 
 /**
@@ -77,40 +77,39 @@ export default function FirstRun() {
 
   return (
     <div
-      data-surface="cinematic"
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-5 py-10"
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-bg px-5 py-10"
       style={{ minHeight: "100dvh" }}
     >
-      <HeroBackdrop />
+      <AuthBackdrop />
 
       <div className="relative z-10 mb-7 flex items-center gap-3">
         <LogoMark size={46} shape="circle" glow />
         <span>
-          <span className="block font-display text-xl leading-none text-white">NyaySetu</span>
-          <span className="block font-ui text-2xs leading-tight text-white/55">न्यायसेतु</span>
+          <span className="block font-display text-xl leading-none text-text">NyaySetu</span>
+          <span className="block font-ui text-2xs leading-tight text-muted">न्यायसेतु</span>
         </span>
       </div>
 
       <form
         onSubmit={submit}
-        className="anim relative z-10 w-full max-w-[440px] rounded-panel border border-white/12 bg-[#071a10]/88 p-6 shadow-lift backdrop-blur-xl"
+        className="anim relative z-10 w-full max-w-[440px] rounded-panel border border-border bg-surface/95 p-6 shadow-card backdrop-blur-xl"
       >
         <div className="mb-5 flex items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
             <KeyRound size={18} />
           </span>
           <div className="min-w-0">
-            <h1 className="font-display text-xl leading-tight text-white">
+            <h1 className="font-display text-xl leading-tight text-text">
               Choose your own password
             </h1>
-            <p className="mt-1 font-ui text-xs leading-relaxed text-white/55">
-              Signed in as <strong className="text-white">{user.fullName}</strong> ·{" "}
+            <p className="mt-1 font-ui text-xs leading-relaxed text-muted">
+              Signed in as <strong className="text-text">{user.fullName}</strong> ·{" "}
               {ROLE_LABEL[user.role]}
             </p>
           </div>
         </div>
 
-        <p className="mb-5 rounded-lg border border-accent-soft bg-accent-soft px-3 py-2.5 font-ui text-xs leading-relaxed text-white/80">
+        <p className="mb-5 rounded-lg border border-accent-soft bg-accent-soft px-3 py-2.5 font-ui text-xs leading-relaxed text-text">
           The password you were emailed works once. It is in an inbox, so it stops being a secret the
           moment anyone else reaches that mailbox. Nothing else on the platform will open until this
           is replaced.
@@ -121,7 +120,7 @@ export default function FirstRun() {
             <div className="relative">
               <Lock
                 size={15}
-                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/35"
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint"
               />
               <Input
                 type="password"
@@ -130,7 +129,7 @@ export default function FirstRun() {
                 autoFocus
                 value={temporary}
                 onChange={(event) => setTemporary(event.target.value)}
-                className="border-white/15 bg-white/5 pl-10 font-mono text-white placeholder:text-white/30"
+                className="border-border bg-surface pl-10 font-mono text-text placeholder:text-faint"
                 placeholder="XXXX-XXXX-XXXX-XXXX"
               />
             </div>
@@ -143,7 +142,7 @@ export default function FirstRun() {
               autoComplete="new-password"
               value={next}
               onChange={(event) => setNext(event.target.value)}
-              className="border-white/15 bg-white/5 text-white placeholder:text-white/30"
+              className="border-border bg-surface text-text placeholder:text-faint"
               placeholder="••••••••••••"
             />
           </Field>
@@ -153,7 +152,7 @@ export default function FirstRun() {
               <li
                 key={rule.label}
                 className={`flex items-center gap-1.5 font-ui text-2xs transition-colors duration-300 ${
-                  met[index] ? "text-primary" : "text-white/40"
+                  met[index] ? "text-primary" : "text-faint"
                 }`}
               >
                 {met[index] ? <Check size={11} /> : <X size={11} />}
@@ -179,7 +178,7 @@ export default function FirstRun() {
               autoComplete="new-password"
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}
-              className={`border-white/15 bg-white/5 text-white placeholder:text-white/30 ${
+              className={`border-border bg-surface text-text placeholder:text-faint ${
                 confirm.length > 0 && !matches ? "border-danger" : ""
               }`}
               placeholder="••••••••••••"
@@ -190,7 +189,7 @@ export default function FirstRun() {
         {error && (
           <p
             role="alert"
-            className="mt-4 rounded-lg border border-danger-soft bg-danger-soft px-3 py-2.5 font-ui text-xs leading-relaxed text-white"
+            className="mt-4 rounded-lg border border-danger-soft bg-danger-soft px-3 py-2.5 font-ui text-xs leading-relaxed text-text"
           >
             {error}
           </p>
@@ -208,7 +207,7 @@ export default function FirstRun() {
           Set my password and continue
         </Button>
 
-        <p className="mt-4 flex items-start gap-1.5 font-ui text-2xs leading-relaxed text-white/40">
+        <p className="mt-4 flex items-start gap-1.5 font-ui text-2xs leading-relaxed text-faint">
           <ShieldCheck size={11} className="mt-0.5 shrink-0" />
           Every other session on this account is signed out when you do this, so an invitation email
           that was forwarded or intercepted cannot be used afterwards.

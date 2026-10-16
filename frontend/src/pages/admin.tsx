@@ -1487,7 +1487,7 @@ export function AdminAudit() {
                     </div>
                     <p className="mt-1 font-ui text-2xs text-faint">{formatDateTime(entry.occurred_at)}</p>
                     {entry.detail && (
-                      <pre className="mt-1.5 overflow-x-auto rounded bg-surface px-2.5 py-2 font-mono text-2xs leading-relaxed text-muted">
+                      <pre tabIndex={0} className="mt-1.5 overflow-x-auto rounded bg-surface px-2.5 py-2 font-mono text-2xs leading-relaxed text-muted">
                         {JSON.stringify(entry.detail, null, 2)}
                       </pre>
                     )}

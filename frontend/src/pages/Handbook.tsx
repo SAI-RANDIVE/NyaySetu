@@ -548,7 +548,7 @@ export default function Handbook() {
       {/* ------------------------------------------------------------ header */}
       <header className="sticky top-0 z-40 border-b border-border bg-bg-elevated/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
-          <Link to={user ? ROLE_HOME[user.role] : "/"} className="group flex shrink-0 items-center gap-2.5">
+          <Link to={user ? ROLE_HOME[user.role] : "/"} aria-label={user ? "Back to your portal" : "NyaySetu home"} className="group flex shrink-0 items-center gap-2.5">
             <LogoMark
               size={38}
               className="transition-transform duration-300 ease-smooth group-hover:scale-105 group-hover:rotate-[-4deg]"
@@ -1133,7 +1133,7 @@ export default function Handbook() {
                     className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 font-ui text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-border-strong hover:text-text"
                   >
                     <ArrowLeft size={14} />
-                    About the project
+                    About NyaySetu
                   </Link>
                 </div>
               </div>

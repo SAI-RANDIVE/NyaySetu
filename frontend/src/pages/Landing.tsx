@@ -1,461 +1,416 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  Boxes,
+  BadgeCheck,
   Camera,
+  CheckCircle2,
+  Clock3,
   Database,
   FileCheck2,
+  FlaskConical,
   Gavel,
+  Languages,
   Link2,
   Lock,
+  Menu,
+  QrCode,
   Scale,
   ScrollText,
+  ShieldAlert,
   ShieldCheck,
-  Sparkles,
+  Smartphone,
+  UserRound,
+  Users,
+  X,
 } from "lucide-react";
-import {
-  HeroBackdrop,
-  HeroCta,
-  LandingHeader,
-  LiquidGlassCard,
-  StatsFooter,
-  TrustRow,
-} from "../components/landing";
 import { Reveal } from "../components/ui";
 import { LogoMark } from "../components/Logo";
-import { Parallax, PointerGlow, ScrollCue, ScrollProgress, ScrollToTop } from "../components/scroll";
 
 /**
- * The public entry point.
- *
- * Structure: a full-bleed cinematic first viewport, then the explanatory
- * sections on the ordinary themed surface. The hero opts out of the light theme
- * with data-surface="cinematic" because it sits over a video, where a light
- * palette would be unreadable whatever the user's preference.
+ * The public entry point: what NyaySetu records, who uses it, what goes on the
+ * blockchain and what deliberately does not, and what it cannot prove. Every
+ * claim here should match the code; the "Limits" section is part of the page,
+ * not a footnote.
  */
 
-const MODULES = [
+const NAV = [
+  { href: "#how", label: "How it works" },
+  { href: "#roles", label: "Who uses it" },
+  { href: "#privacy", label: "On and off chain" },
+  { href: "#limits", label: "Limits" },
+];
+
+const STEPS = [
   {
     icon: Camera,
-    name: "SaakshyaSetu",
-    devanagari: "साक्ष्यसेतु",
-    tagline: "Evidence Bridge",
-    body:
-      "The digest is computed on the officer's device before a byte is uploaded. Custody is then " +
-      "confirmed by each receiving party, who re-hashes what they were handed. A mismatch is " +
-      "anchored on chain and the transfer is refused, so a rejected tamper attempt leaves a " +
-      "permanent record rather than a server log.",
-    points: [
-      "SHA-256 in the browser, before upload",
-      "Scene → lab → prosecutor → court, each hop hash-confirmed",
-      "Refused transfers anchored, not just denied",
-    ],
+    title: "Capture",
+    body: "A photo or video is taken in the app, or a file is chosen. Its SHA-256 fingerprint is computed on the device before anything is uploaded, together with the time, the GPS fix and its accuracy.",
   },
   {
-    icon: ScrollText,
-    name: "SammansSetu",
-    devanagari: "समन्ससेतु",
-    tagline: "Summons Bridge",
-    body:
-      "A summons acknowledgement is an Aadhaar-OTP-authenticated transaction carrying the time, the " +
-      "coordinates and a device fingerprint. It cannot be produced without the recipient and cannot " +
-      "be back-dated, because the timestamp is the block's. After 72 hours without one, the court " +
-      "dashboard shows FAILED on its own.",
-    points: [
-      "OTP-authenticated acknowledgement with GPS",
-      "72 hour window, enforced by the contract",
-      "Non-delivery surfaces without anyone noticing",
-    ],
+    icon: Link2,
+    title: "Anchor",
+    body: "The fingerprint of a capture manifest is written to an Ethereum contract. The record says honestly where that has got to: saved locally, submitted, or confirmed after enough blocks.",
   },
   {
-    icon: Scale,
-    name: "JaminSetu",
-    devanagari: "जमानतसेतु",
-    tagline: "Bail Bridge",
-    body:
-      "Bail conditions are stored on chain, and every check-in is a transaction carrying coordinates. " +
-      "The geo-fence arithmetic runs in the contract, so a breach is reproducible by anyone reading " +
-      "the chain rather than asserted by a server. A missed check-in is computed lazily in a view, " +
-      "because a chain cannot react to nothing happening.",
-    points: [
-      "Conditions encoded, not filed as a PDF",
-      "Geo-fence checked on chain, in integer maths",
-      "Live compliance score for the court, read-only view for the surety",
-    ],
+    icon: FlaskConical,
+    title: "Hand over",
+    body: "Police, laboratory, prosecution and court each re-hash what they receive before accepting it. A mismatch is recorded on chain and the transfer does not happen.",
+  },
+  {
+    icon: Gavel,
+    title: "Produce in court",
+    body: "Anyone can check an item on its public Integrity Passport. The Section 63 certificate template, custody form and an export bundle are generated from the same record.",
   },
 ];
 
-const SPLIT = {
-  onChain: [
-    "Evidence digest, GPS and collection timestamp",
-    "Every custody transfer, with the confirming party",
-    "Integrity checks, including the ones that failed",
-    "Summons issuance hash and acknowledgement event",
-    "Bail conditions, check-ins and violation alerts",
-    "Forensic result hash and the AI anomaly verdict",
-  ],
-  offChain: [
-    "The evidence files themselves, AES-256-GCM encrypted",
-    "FIR content, case notes and the full bail order",
-    "Officer and accused personal data, in a separate schema",
-    "Summons document text and hearing schedules",
-    "Dashboards, reports and the detailed forensic write-up",
-  ],
-};
-
-const STACK = [
-  { label: "Chain", value: "Solidity 0.8.24 · Sepolia · Hardhat · OpenZeppelin 5" },
-  { label: "API", value: "Node 20 · Express · TypeScript · Ethers v6" },
-  { label: "Data", value: "Supabase Postgres · RLS on every table · trigger audit" },
-  { label: "Storage", value: "IPFS via Pinata · AES-256-GCM before pinning" },
-  { label: "Models", value: "Python · scikit-learn · Flask microservice" },
-  { label: "Clients", value: "React · Tailwind · React Native (Expo)" },
+const STATES = [
+  { tone: "bg-surface-2 text-muted", label: "Saved locally", body: "Recorded here; not yet sent to the blockchain." },
+  { tone: "bg-info-soft text-info", label: "Submitted", body: "Sent; waiting for the network to include it." },
+  { tone: "bg-success-soft text-success", label: "Confirmed on chain", body: "Included and buried under enough blocks to rely on." },
+  { tone: "bg-warning-soft text-warning", label: "Review required", body: "Something unexpected happened; a person must look." },
+  { tone: "bg-danger-soft text-danger", label: "Integrity mismatch", body: "A file did not match its anchored fingerprint." },
 ];
+
+const ROLES = [
+  { icon: ShieldCheck, name: "Police", body: "Register cases, capture evidence with GPS, record seizure memos and malkhana movements." },
+  { icon: FlaskConical, name: "Forensic laboratory", body: "Re-hash on arrival, check the seal, record working copies and file versioned reports." },
+  { icon: Scale, name: "Prosecution", body: "See which cases are ready: what is confirmed, what is pending, and every open alert." },
+  { icon: Gavel, name: "Judge", body: "Hearings and orders, access requests, objections, ranked bail compliance and approvals." },
+  { icon: BadgeCheck, name: "Defence", body: "Request access through the court and verify disclosed files against the chain, not the database." },
+  { icon: UserRound, name: "Accused or witness", body: "Summons and check-ins explained plainly in English, Hindi or Marathi, with a way to give reasons." },
+  { icon: Users, name: "Court registry", body: "Participants, case access, document templates, the audit trail and the chain's health." },
+];
+
+const ON_CHAIN = [
+  "A salted case key, from which neither the FIR nor the case reference can be recovered",
+  "The fingerprint of each evidence item's capture manifest",
+  "Custody transfers and integrity checks, including the ones that failed",
+  "Fingerprints of seizure memos, malkhana movements, working copies and forensic reports",
+  "Summons issue and acknowledgement events",
+  "Bail conditions and check-ins, whose coordinates the contract needs to check the permitted area",
+];
+
+const OFF_CHAIN = [
+  "The evidence files, encrypted with AES-256-GCM before storage",
+  "Names, FIR details, addresses and witnesses",
+  "Exact evidence coordinates (kept in the manifest, which only assigned roles may see)",
+  "Report text, court orders, comments and case notes",
+  "Accounts, sessions and the role-based access rules, enforced in the API and by row-level security",
+];
+
+const LIMITS = [
+  "A matching fingerprint proves a file is unchanged since it was anchored. It does not prove what the file shows is true, or how it was collected.",
+  "GPS can be wrong or spoofed. Accuracy is recorded with every fix, and a poor fix is flagged rather than hidden.",
+  "The AI screening and estimates are decision support. They are labelled with their limitations and never decide anything.",
+  "Generated certificates and forms are templates filled from the record, to be checked by a legal practitioner before filing.",
+  "One-time codes use a sandbox provider by default. Real Aadhaar authentication needs a licensed provider and is not part of this build.",
+  "Hindi and Marathi text has not yet been reviewed by native speakers.",
+];
+
+function Header() {
+  const [open, setOpen] = useState(false);
+  return (
+    <header className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+        <Link to="/" className="flex items-center gap-2.5" aria-label="NyaySetu home">
+          <LogoMark size={34} />
+          <span>
+            <span className="block font-display text-lg leading-none text-text">NyaySetu</span>
+            <span className="block font-ui text-2xs leading-tight text-muted">न्यायसेतु</span>
+          </span>
+        </Link>
+        <nav aria-label="Sections" className="hidden flex-1 items-center gap-1 md:flex">
+          {NAV.map((item) => (
+            <a key={item.href} href={item.href} className="rounded-full px-3 py-2 font-ui text-sm text-muted transition hover:bg-surface-2 hover:text-text">
+              {item.label}
+            </a>
+          ))}
+        </nav>
+        <div className="ml-auto flex items-center gap-2">
+          <Link to="/verify" className="hidden rounded-full border border-border px-4 py-2 font-ui text-sm font-semibold text-text transition hover:border-primary sm:inline-flex">
+            Verify evidence
+          </Link>
+          <Link to="/login" className="inline-flex rounded-full bg-primary-fill px-4 py-2 font-ui text-sm font-semibold text-on-primary transition hover:opacity-90">
+            Sign in
+          </Link>
+          <button
+            type="button"
+            className="grid h-10 w-10 place-items-center rounded-full border border-border text-text md:hidden"
+            aria-label="Menu"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            {open ? <X size={17} aria-hidden /> : <Menu size={17} aria-hidden />}
+          </button>
+        </div>
+      </div>
+      {open && (
+        <nav aria-label="Sections" className="border-t border-border bg-surface px-4 pb-4 pt-2 md:hidden">
+          {[...NAV, { href: "/verify", label: "Verify evidence" }].map((item) =>
+            item.href.startsWith("#") ? (
+              <a key={item.href} href={item.href} onClick={() => setOpen(false)} className="block rounded-xl px-3 py-3 font-ui text-base text-text hover:bg-surface-2">
+                {item.label}
+              </a>
+            ) : (
+              <Link key={item.href} to={item.href} onClick={() => setOpen(false)} className="block rounded-xl px-3 py-3 font-ui text-base text-text hover:bg-surface-2">
+                {item.label}
+              </Link>
+            )
+          )}
+        </nav>
+      )}
+    </header>
+  );
+}
+
+function PassportPreview() {
+  return (
+    <div className="panel relative mx-auto w-full max-w-sm p-5 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-ui text-2xs font-semibold uppercase tracking-[0.14em] text-muted">Evidence Integrity Passport</p>
+          <p className="mt-1 font-mono text-xs text-text">NSE-92519SYK3AD82N3R5A3EH83YRG</p>
+        </div>
+        <span className="grid h-12 w-12 place-items-center rounded-xl bg-surface-2 text-text">
+          <QrCode size={26} aria-hidden />
+        </span>
+      </div>
+      <span className="chip mt-4 border-success-soft bg-success-soft text-success">
+        <CheckCircle2 size={11} aria-hidden /> Confirmed on chain
+      </span>
+      <dl className="mt-4 space-y-2.5 font-ui text-xs">
+        {[
+          ["Fingerprint", "0x87012c45…28df6e"],
+          ["Captured", "17 Oct 2026, 01:09"],
+          ["GPS accuracy", "± 8 m"],
+          ["Custody", "Scene → Laboratory"],
+        ].map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-3 border-b border-border pb-2 last:border-0">
+            <dt className="text-muted">{k}</dt>
+            <dd className="font-medium text-text">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 font-ui text-2xs leading-relaxed text-muted">Drop the file on the public page: it is hashed in your browser and compared with the chain.</p>
+      <p className="absolute -bottom-3 right-4 rounded-full border border-border bg-surface px-3 py-1 font-ui text-2xs text-muted shadow-card">Illustration</p>
+    </div>
+  );
+}
+
+function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string; body?: string }) {
+  return (
+    <Reveal>
+      <p className="mb-2 font-ui text-xs font-bold uppercase tracking-[0.16em] text-primary">{eyebrow}</p>
+      <h2 className="max-w-3xl font-display text-3xl leading-tight text-text sm:text-4xl">{title}</h2>
+      {body && <p className="mt-3 max-w-3xl font-ui text-base leading-relaxed text-muted">{body}</p>}
+    </Reveal>
+  );
+}
 
 export default function Landing() {
   return (
-    <div className="relative min-h-screen bg-bg">
-      <ScrollProgress />
-      <PointerGlow />
-      <ScrollToTop />
+    <div className="min-h-screen bg-bg">
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2">
+        Skip to content
+      </a>
+      <Header />
 
-      {/* ================================================ cinematic hero */}
-      <section
-        data-surface="cinematic"
-        className="relative flex min-h-[100vh] flex-col overflow-hidden px-[clamp(14px,3vw,32px)] py-[clamp(16px,2.4vh,28px)]"
-        style={{ minHeight: "100dvh" }}
-      >
-        <HeroBackdrop />
-
-        <LandingHeader />
-
-        <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center">
-          <LiquidGlassCard />
-
-          {/* The card is lifted 50px, so pull the copy back up to close the gap. */}
-          <div className="-mt-[26px] flex flex-col items-center">
-            <TrustRow />
-
-            <p
-              className="anim mb-3 font-jakarta text-[11px] font-bold uppercase tracking-[0.18em]"
-              style={{ color: "#10b45f", ["--d" as any]: "0.1s" }}
-            >
-              Justice infrastructure · न्यायसेतु
-            </p>
-
-            <h1 className="max-w-[16ch] font-ui font-extrabold uppercase leading-[1.04] tracking-tight text-white sm:max-w-none">
-              <span
-                className="block animate-headline-fade"
-                style={{
-                  animationDelay: "0.12s",
-                  fontSize: "clamp(34px,6.2vw,72px)",
-                  letterSpacing: "-0.03em",
-                }}
-              >
-                Proof, not
-              </span>
-              <span
-                className="block animate-headline-fade"
-                style={{
-                  animationDelay: "0.3s",
-                  fontSize: "clamp(34px,6.2vw,72px)",
-                  letterSpacing: "-0.03em",
-                }}
-              >
-                paperwork<span style={{ color: "#ff751f" }}>.</span>
-              </span>
-            </h1>
-
-            <p
-              className="anim mt-5 max-w-[min(520px,92%)] font-ui text-[clamp(13.5px,1.55vw,16.5px)] leading-[1.6]"
-              style={{ color: "#d4ded8", opacity: 0.88, ["--d" as any]: "0.28s" }}
-            >
-              NyaySetu anchors evidence digests, summons acknowledgements and bail conditions to a
-              public blockchain, so integrity is something anyone can check rather than something a
-              party asserts.
-            </p>
-
-            <div className="mt-7">
-              <HeroCta />
-            </div>
-          </div>
-        </div>
-
-        <div className="pb-2 pt-6">
-          <StatsFooter />
-          <div className="mt-5 flex justify-center">
-            <ScrollCue />
-          </div>
-        </div>
-      </section>
-
-      {/* =================================================== the problem */}
-      <section className="mx-auto max-w-5xl px-5 py-20 sm:px-8 sm:py-28">
-        <Reveal>
-          <p className="mb-3 font-jakarta text-2xs font-bold uppercase tracking-[0.16em] text-primary">
-            The problem
-          </p>
-          <h2 className="max-w-3xl font-display text-3xl leading-tight text-text sm:text-4xl">
-            Three places where the record is only as good as somebody&apos;s word
-          </h2>
-        </Reveal>
-
-        <Reveal delay={0.1}>
-          <div className="mt-8 grid gap-5 sm:grid-cols-3">
-            {[
-              {
-                q: "Was this evidence altered?",
-                a: "A custody register is a book. It records that a transfer happened, not that the item is the same item.",
-              },
-              {
-                q: "Were you served?",
-                a: "A process server's endorsement against a flat denial. Cases adjourn for months on exactly this.",
-              },
-              {
-                q: "Did they comply with bail?",
-                a: "The order is a PDF nobody monitors until something has already gone wrong.",
-              },
-            ].map((item) => (
-              <div key={item.q} className="panel edge-brand p-5 transition-transform duration-300 ease-smooth hover:-translate-y-1">
-                <p className="font-display text-lg leading-snug text-text">{item.q}</p>
-                <p className="mt-2.5 font-ui text-sm leading-relaxed text-muted">{item.a}</p>
+      <main id="main">
+        {/* ------------------------------------------------------------ hero */}
+        <section className="relative overflow-hidden border-b border-border">
+          <div aria-hidden className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-primary-soft blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute -right-24 top-24 h-80 w-80 rounded-full bg-accent-soft blur-3xl" />
+          <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.15fr_1fr]">
+            <div>
+              <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 font-ui text-xs font-semibold text-muted">
+                <ShieldCheck size={13} className="text-primary" aria-hidden /> Evidence · Summons · Bail
+              </p>
+              <h1 className="font-display text-4xl leading-[1.08] text-text sm:text-5xl lg:text-6xl">
+                A record anyone can check, from the scene to the courtroom.
+              </h1>
+              <p className="mt-5 max-w-xl font-ui text-base leading-relaxed text-muted sm:text-lg">
+                NyaySetu fingerprints evidence on the device that captures it, anchors those fingerprints to a public blockchain, and makes every
+                hand-over prove it received the same thing. Personal details stay off chain.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link to="/verify" className="inline-flex items-center gap-2 rounded-full bg-primary-fill px-6 py-3 font-ui text-sm font-semibold text-on-primary shadow-card transition hover:-translate-y-0.5">
+                  Verify a piece of evidence <ArrowRight size={15} aria-hidden />
+                </Link>
+                <Link to="/login" className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3 font-ui text-sm font-semibold text-text transition hover:border-primary">
+                  Sign in to your portal
+                </Link>
               </div>
+              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 font-ui text-sm text-muted">
+                <li className="flex items-center gap-1.5"><Languages size={14} className="text-primary" aria-hidden /> English, हिन्दी, मराठी</li>
+                <li className="flex items-center gap-1.5"><Smartphone size={14} className="text-primary" aria-hidden /> Works on phones</li>
+                <li className="flex items-center gap-1.5"><Lock size={14} className="text-primary" aria-hidden /> No sign-in to verify</li>
+              </ul>
+            </div>
+            <Reveal delay={0.1}>
+              <PassportPreview />
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ----------------------------------------------------- problems */}
+        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+          <SectionHead eyebrow="Why" title="Three questions a court should not have to take on trust" />
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {[
+              { icon: FileCheck2, q: "Is this the evidence that was collected?", a: "A register records that a transfer happened, not that the item is unchanged. A fingerprint checked at every hand-over does." },
+              { icon: ScrollText, q: "Was the summons received?", a: "The recipient acknowledges with a one-time code, and the acknowledgement is a timestamped blockchain event." },
+              { icon: Scale, q: "Are bail conditions being kept?", a: "Check-ins are recorded against the permitted area, ranked for the court with the reason for each rank and any explanation given." },
+            ].map((item, i) => (
+              <Reveal key={item.q} delay={i * 0.06}>
+                <div className="panel h-full p-6">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary-soft text-primary">
+                    <item.icon size={18} aria-hidden />
+                  </span>
+                  <h3 className="mt-4 font-display text-xl leading-snug text-text">{item.q}</h3>
+                  <p className="mt-2 font-ui text-sm leading-relaxed text-muted">{item.a}</p>
+                </div>
+              </Reveal>
             ))}
           </div>
-        </Reveal>
-      </section>
+        </section>
 
-      {/* ==================================================== the modules */}
-      <section id="modules" className="border-y border-border bg-surface px-5 py-20 sm:px-8 sm:py-28">
-        <div className="mx-auto max-w-6xl">
-          <Reveal>
-            <p className="mb-3 font-jakarta text-2xs font-bold uppercase tracking-[0.16em] text-primary">
-              Three bridges
-            </p>
-            <h2 className="max-w-3xl font-display text-3xl leading-tight text-text sm:text-4xl">
-              Each one replaces an assertion with a verifiable record
-            </h2>
-          </Reveal>
+        {/* ---------------------------------------------------- how it works */}
+        <section id="how" className="scroll-mt-20 border-y border-border bg-surface">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+            <SectionHead eyebrow="How it works" title="Four steps, each one checkable" />
+            <ol className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              {STEPS.map((step, i) => (
+                <li key={step.title} className="h-full">
+                  <Reveal delay={i * 0.06} className="relative h-full rounded-panel border border-border bg-bg p-6">
+                    <span className="font-mono text-xs text-faint">0{i + 1}</span>
+                    <step.icon size={22} className="mt-2 text-primary" aria-hidden />
+                    <h3 className="mt-3 font-display text-xl text-text">{step.title}</h3>
+                    <p className="mt-2 font-ui text-sm leading-relaxed text-muted">{step.body}</p>
+                  </Reveal>
+                </li>
+              ))}
+            </ol>
 
-          <Parallax strength={18} className="mt-11 space-y-5">
-            {MODULES.map((module, index) => (
-              <Reveal key={module.name} delay={index * 0.08} className="group">
-                <article className="panel edge-brand grid gap-7 p-6 transition-transform duration-300 ease-smooth hover:-translate-y-1 sm:p-8 lg:grid-cols-[1fr_1.35fr]">
-                  <div>
-                    <span
-                      className={`mb-4 inline-grid h-11 w-11 place-items-center rounded-2xl transition-transform duration-300 group-hover:scale-105 ${
-                        index === 1
-                          ? "bg-accent-soft text-accent"
-                          : "bg-primary-soft text-primary"
-                      }`}
-                    >
-                      <module.icon size={20} />
-                    </span>
-                    <h3 className="font-display text-2xl leading-tight text-text">{module.name}</h3>
-                    <p className="mt-1 font-body text-lg text-muted">{module.devanagari}</p>
-                    <p className="mt-2 font-jakarta text-2xs font-bold uppercase tracking-[0.14em] text-primary">
-                      {module.tagline}
-                    </p>
-                  </div>
+            <Reveal delay={0.1}>
+              <div className="mt-10 rounded-panel border border-border bg-bg p-6">
+                <div className="flex items-center gap-2">
+                  <Clock3 size={16} className="text-primary" aria-hidden />
+                  <h3 className="font-display text-lg text-text">Every record says where it has got to</h3>
+                </div>
+                <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  {STATES.map((s) => (
+                    <li key={s.label}>
+                      <span className={`inline-block rounded-full px-2.5 py-1 font-ui text-xs font-semibold ${s.tone}`}>{s.label}</span>
+                      <p className="mt-1.5 font-ui text-xs leading-relaxed text-muted">{s.body}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+          </div>
+        </section>
 
-                  <div>
-                    <p className="font-ui text-sm leading-relaxed text-muted">{module.body}</p>
-                    <ul className="mt-5 space-y-2.5">
-                      {module.points.map((point) => (
-                        <li key={point} className="flex gap-2.5">
-                          <FileCheck2 size={15} className="mt-0.5 shrink-0 text-primary" />
-                          <span className="font-ui text-xs leading-relaxed text-text">{point}</span>
+        {/* ---------------------------------------------------------- roles */}
+        <section id="roles" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-24">
+          <SectionHead eyebrow="Who uses it" title="Seven roles, one record" body="Each role sees and can do only what its part of the process needs. The API enforces it, and so does the database." />
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {ROLES.map((role, i) => (
+              <Reveal key={role.name} delay={(i % 4) * 0.05}>
+                <div className="panel h-full p-5 transition hover:-translate-y-0.5 hover:border-primary-ring">
+                  <role.icon size={19} className="text-primary" aria-hidden />
+                  <h3 className="mt-3 font-ui text-base font-semibold text-text">{role.name}</h3>
+                  <p className="mt-1.5 font-ui text-sm leading-relaxed text-muted">{role.body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------- privacy */}
+        <section id="privacy" className="scroll-mt-20 border-y border-border bg-surface">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+            <SectionHead
+              eyebrow="On and off chain"
+              title="What goes on a public blockchain, and what never does"
+              body="A blockchain is public and permanent. That suits a fingerprint, and is exactly wrong for a photograph, a name or an address."
+            />
+            <div className="mt-10 grid gap-5 lg:grid-cols-2">
+              {[
+                { title: "On chain", icon: Link2, items: ON_CHAIN, dot: "bg-primary" },
+                { title: "Off chain", icon: Database, items: OFF_CHAIN, dot: "bg-accent" },
+              ].map((col, i) => (
+                <Reveal key={col.title} delay={i * 0.06}>
+                  <div className="h-full rounded-panel border border-border bg-bg p-6">
+                    <div className="flex items-center gap-2">
+                      <col.icon size={17} className="text-primary" aria-hidden />
+                      <h3 className="font-display text-xl text-text">{col.title}</h3>
+                    </div>
+                    <ul className="mt-4 space-y-3">
+                      {col.items.map((item) => (
+                        <li key={item} className="flex gap-2.5">
+                          <span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${col.dot}`} aria-hidden />
+                          <span className="font-ui text-sm leading-relaxed text-text">{item}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
-                </article>
-              </Reveal>
-            ))}
-          </Parallax>
-        </div>
-      </section>
-
-      {/* =============================================== the split */}
-      <section id="architecture" className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-        <Reveal>
-          <p className="mb-3 font-jakarta text-2xs font-bold uppercase tracking-[0.16em] text-primary">
-            Architecture
-          </p>
-          <h2 className="max-w-3xl font-display text-3xl leading-tight text-text sm:text-4xl">
-            What goes on the chain, and what deliberately does not
-          </h2>
-          <p className="mt-4 max-w-3xl font-ui text-sm leading-relaxed text-muted">
-            A blockchain is expensive, public and permanent. Those are the properties you want for a
-            digest and the properties you must never give to an evidence photograph or a person&apos;s
-            Aadhaar number. So the split is strict, and it is the design decision the rest of the
-            system is built around.
-          </p>
-        </Reveal>
-
-        <div className="mt-9 grid gap-5 lg:grid-cols-2">
-          <Reveal delay={0.06}>
-            <div className="panel h-full p-6">
-              <div className="mb-4 flex items-center gap-2.5">
-                <Link2 size={17} className="text-primary" />
-                <h3 className="font-display text-xl text-text">On chain</h3>
-              </div>
-              <p className="mb-4 font-ui text-xs leading-relaxed text-faint">
-                Small, permanent, and worth paying gas for. Nothing here is a secret, because
-                everything here is already public.
-              </p>
-              <ul className="space-y-2.5">
-                {SPLIT.onChain.map((item) => (
-                  <li key={item} className="flex gap-2.5">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                    <span className="font-ui text-sm leading-relaxed text-text">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.12}>
-            <div className="panel h-full p-6">
-              <div className="mb-4 flex items-center gap-2.5">
-                <Database size={17} className="text-accent" />
-                <h3 className="font-display text-xl text-text">Off chain</h3>
-              </div>
-              <p className="mb-4 font-ui text-xs leading-relaxed text-faint">
-                Large, private, or subject to correction and erasure. Postgres with row level
-                security on every table, and IPFS for encrypted blobs.
-              </p>
-              <ul className="space-y-2.5">
-                {SPLIT.offChain.map((item) => (
-                  <li key={item} className="flex gap-2.5">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                    <span className="font-ui text-sm leading-relaxed text-text">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Reveal>
-        </div>
-
-        <Reveal delay={0.18}>
-          <div className="mt-5 panel border-primary-ring p-6">
-            <div className="flex gap-3">
-              <Sparkles size={18} className="mt-0.5 shrink-0 text-primary" />
-              <div>
-                <h3 className="font-display text-lg text-text">
-                  Why not just use Postgres, then?
-                </h3>
-                <p className="mt-2 font-ui text-sm leading-relaxed text-muted">
-                  Because a database is only as trustworthy as whoever administers it, and in a
-                  criminal matter that party is not neutral. A prosecution-run database asking the
-                  defence to accept its own audit log is the problem, not the solution. Anchoring the
-                  digest to a chain nobody in the case controls means integrity can be checked by a
-                  party who trusts neither the server nor its operator. Everything that does not need
-                  that property stays in Postgres, where it can be indexed, corrected and erased.
-                </p>
-              </div>
+                </Reveal>
+              ))}
             </div>
           </div>
-        </Reveal>
-      </section>
+        </section>
 
-      {/* ===================================================== verify */}
-      <section id="verify" className="border-y border-border bg-surface px-5 py-20 sm:px-8 sm:py-28">
-        <div className="mx-auto max-w-4xl text-center">
+        {/* --------------------------------------------------------- limits */}
+        <section id="limits" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-24">
+          <SectionHead eyebrow="Limits" title="What NyaySetu does not prove" body="Saying so plainly is part of the design." />
+          <ul className="mt-8 grid gap-4 md:grid-cols-2">
+            {LIMITS.map((limit, i) => (
+              <li key={limit} className="h-full">
+                <Reveal delay={(i % 2) * 0.05} className="flex h-full gap-3 rounded-panel border border-border bg-surface p-5">
+                  <ShieldAlert size={17} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                  <span className="font-ui text-sm leading-relaxed text-text">{limit}</span>
+                </Reveal>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {/* ------------------------------------------------------------ cta */}
+        <section className="px-4 pb-20 sm:px-6">
           <Reveal>
-            <span className="mb-5 inline-grid h-12 w-12 place-items-center rounded-2xl bg-primary-soft text-primary">
-              <ShieldCheck size={22} />
-            </span>
-            <h2 className="font-display text-3xl leading-tight text-text sm:text-4xl">
-              The defence gets the same answer, from the same source
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl font-ui text-sm leading-relaxed text-muted">
-              Counsel uploads the file they were disclosed. The browser hashes it, and the result is
-              compared against the chain, not against the prosecution&apos;s database. If the database
-              had been altered, a comparison against it would agree with the alteration. A comparison
-              against the chain would not. The verification itself is then anchored, so the fact that
-              it was performed is part of the record too.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                to="/login"
-                className="btn-sheen inline-flex items-center gap-2 rounded-full bg-primary-fill px-6 py-3 font-ui text-sm font-bold uppercase tracking-wide text-on-primary shadow-glow transition-all duration-300 ease-smooth hover:-translate-y-0.5 hover:shadow-glow-strong"
-              >
-                Open the verification portal
-                <ArrowRight size={15} />
-              </Link>
+            <div className="mx-auto max-w-6xl rounded-[28px] border border-primary-ring bg-primary-soft px-6 py-12 text-center sm:px-12">
+              <h2 className="font-display text-3xl leading-tight text-text sm:text-4xl">Have a reference or a file? Check it now.</h2>
+              <p className="mx-auto mt-3 max-w-2xl font-ui text-base leading-relaxed text-muted">
+                The public verification page needs no account. It shows what the blockchain holds for an item, never who or where.
+              </p>
+              <div className="mt-7 flex flex-wrap justify-center gap-3">
+                <Link to="/verify" className="inline-flex items-center gap-2 rounded-full bg-primary-fill px-6 py-3 font-ui text-sm font-semibold text-on-primary transition hover:-translate-y-0.5">
+                  Open verification <ArrowRight size={15} aria-hidden />
+                </Link>
+                <Link to="/handbook" className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3 font-ui text-sm font-semibold text-text transition hover:border-primary">
+                  Read the handbook
+                </Link>
+              </div>
             </div>
           </Reveal>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* ====================================================== stack */}
-      <section id="stack" className="mx-auto max-w-5xl px-5 py-20 sm:px-8 sm:py-24">
-        <Reveal>
-          <p className="mb-3 font-jakarta text-2xs font-bold uppercase tracking-[0.16em] text-primary">
-            Built with
-          </p>
-          <h2 className="font-display text-3xl leading-tight text-text">The stack, in full</h2>
-        </Reveal>
-
-        <Reveal delay={0.08}>
-          <dl className="mt-8 grid gap-px overflow-hidden rounded-panel border border-border bg-border sm:grid-cols-2">
-            {STACK.map((row) => (
-              <div key={row.label} className="group bg-surface p-5 transition-colors duration-300 hover:bg-surface-2">
-                <dt className="font-jakarta text-2xs font-bold uppercase tracking-[0.14em] text-primary">
-                  {row.label}
-                </dt>
-                <dd className="mt-1.5 font-ui text-sm leading-relaxed text-text">{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </Reveal>
-
-        <Reveal delay={0.14}>
-          <div className="mt-6 flex flex-wrap gap-3">
-            {[
-              { icon: Lock, text: "RLS on every table, default deny" },
-              { icon: Boxes, text: "No raw Aadhaar number stored anywhere" },
-              { icon: Gavel, text: "53 contract tests, all passing" },
-            ].map((item) => (
-              <span
-                key={item.text}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-4 py-2 font-ui text-xs text-muted"
-              >
-                <item.icon size={13} className="text-primary" />
-                {item.text}
-              </span>
-            ))}
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ===================================================== footer */}
-      <footer className="border-t border-border px-5 py-9 sm:px-8">
+      <footer className="border-t border-border bg-surface px-4 py-8 sm:px-6">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <LogoMark size={38} />
+            <LogoMark size={32} />
             <div>
               <p className="font-display text-base leading-none text-text">NyaySetu</p>
-              <p className="mt-1 font-ui text-2xs text-faint">
-                Vishwakarma Institute of Technology, Pune · 2026
-              </p>
+              <p className="mt-1 font-ui text-xs text-muted">Evidence, summons and bail records you can verify.</p>
             </div>
           </div>
-          <div className="flex items-center gap-5">
-            <Link
-              to="/handbook"
-              className="font-ui text-xs font-semibold uppercase tracking-wider text-muted transition hover:text-primary"
-            >
-              Handbook
-            </Link>
-            <Link
-              to="/login"
-              className="font-ui text-xs font-semibold uppercase tracking-wider text-primary hover:underline"
-            >
-              Sign in
-            </Link>
-          </div>
+          <nav aria-label="Footer" className="flex flex-wrap items-center gap-5 font-ui text-sm">
+            <Link to="/verify" className="text-muted hover:text-primary">Verify</Link>
+            <Link to="/handbook" className="text-muted hover:text-primary">Handbook</Link>
+            <Link to="/login" className="font-semibold text-primary hover:underline">Sign in</Link>
+          </nav>
         </div>
       </footer>
     </div>

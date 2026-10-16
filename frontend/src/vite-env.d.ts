@@ -6,8 +6,6 @@
  */
 interface ImportMetaEnv {
   readonly VITE_API_BASE?: string;
-  readonly VITE_HERO_VIDEO?: string;
-  readonly VITE_HERO_HLS?: string;
 }
 
 interface ImportMeta {
