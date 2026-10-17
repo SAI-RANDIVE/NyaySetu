@@ -65,3 +65,27 @@ export async function pingDatabase(): Promise<boolean> {
   const { error } = await db.from("roles").select("role").limit(1);
   return !error;
 }
+
+/**
+ * Which 2.0 migrations the connected database appears to have, judged by one
+ * table each creates. A missing one means the matching features answer
+ * SCHEMA_OUT_OF_DATE rather than failing obscurely.
+ */
+const MIGRATION_PROBES: [migration: string, table: string][] = [
+  ["008_case_intake", "fir_records"],
+  ["009_verification_state", "anchors"],
+  ["010_passport_capture", "device_keys"],
+  ["011_chunked_uploads", "upload_sessions"],
+  ["012_workflows", "approval_requests"],
+];
+
+export async function schemaStatus(): Promise<{ upToDate: boolean; missing: string[] }> {
+  const results = await Promise.all(
+    MIGRATION_PROBES.map(async ([migration, table]) => {
+      const { error } = await db.from(table).select("id").limit(0);
+      return error ? migration : null;
+    })
+  );
+  const missing = results.filter((m): m is string => m !== null);
+  return { upToDate: missing.length === 0, missing };
+}

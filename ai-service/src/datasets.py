@@ -6,7 +6,7 @@ WHY SYNTHETIC
 Real case data cannot be used, and pretending otherwise would be the single
 most dishonest thing this project could do:
 
-  * Evidence metadata from live investigations is protected material. A student
+  * Evidence metadata from live investigations is protected material, and this
     project has no lawful route to it.
   * Bail outcome data linked to individuals is personal data under the DPDP Act
     2023 and is not published in a linkable form.

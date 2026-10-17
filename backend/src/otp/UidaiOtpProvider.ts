@@ -16,7 +16,7 @@ import {
  * ===========================================================================
  *
  * This class is where an authorised deployment plugs in. It is complete as far
- * as a student project can legally take it, and it deliberately refuses to
+ * as a deployment without a UIDAI licence can legally take it, and it deliberately refuses to
  * fake the part it cannot do.
  *
  * WHAT IS MISSING AND WHY
@@ -33,7 +33,7 @@ import {
  *   5. An audited deployment. UIDAI mandates the ASA link, log retention rules
  *      and a security audit before production traffic is allowed.
  *
- * None of that can be obtained by a college project, and UIDAI does not issue
+ * None of that is held by this deployment, and UIDAI does not issue
  * a public sandbox that returns real OTPs. Inventing credentials here would be
  * a security theatre: it would look integrated and authenticate nobody.
  *

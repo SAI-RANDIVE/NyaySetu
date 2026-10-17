@@ -1002,8 +1002,8 @@ export default function Handbook() {
                     <Bullet>Five minutes, three attempts, then dead.</Bullet>
                     <Bullet>
                       On this deployment it is <strong className="text-text">simulated</strong>. Reaching
-                      the real Aadhaar service needs a government licence that a student project cannot
-                      obtain, and the interface says so wherever a code appears.
+                      the real Aadhaar service needs a government licence that this deployment does not
+                      hold, and the interface says so wherever a code appears.
                     </Bullet>
                   </ul>
                 </div>

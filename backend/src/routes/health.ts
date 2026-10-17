@@ -2,7 +2,7 @@ import { Router } from "express";
 import { env, capabilities } from "../config/env";
 import { productionFindings } from "../config/posture";
 import { chain } from "../lib/chain";
-import { pingDatabase } from "../lib/supabase";
+import { pingDatabase, schemaStatus } from "../lib/supabase";
 import { health as aiHealth } from "../lib/ai";
 import { loginOtpProvider, otpProvider } from "../otp";
 import { mailerHealth } from "../lib/mailer";
@@ -15,6 +15,10 @@ import { runOnce as indexOnce } from "../indexer/eventIndexer";
 
 const router = Router();
 
+/** From package.json, two levels up from both src/routes and dist/routes. */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { version } = require("../../package.json") as { version: string };
+
 /**
  * Honest health reporting. Every subsystem says whether it is configured and
  * whether it is actually reachable, and the OTP provider says out loud whether
@@ -24,8 +28,9 @@ const router = Router();
 router.get(
   "/",
   asyncRoute(async (_req, res) => {
-    const [database, ai, blockNumber, keeperBalance, mail] = await Promise.all([
+    const [database, schema, ai, blockNumber, keeperBalance, mail] = await Promise.all([
       pingDatabase(),
+      schemaStatus(),
       aiHealth(),
       chain.blockNumber(),
       chain.keeperBalance(),
@@ -36,7 +41,7 @@ router.get(
 
     res.status(healthy ? 200 : 503).json({
       status: healthy ? "ok" : "degraded",
-      version: "1.0.0",
+      version,
       environment: env.NODE_ENV,
       /**
        * The origins this instance will accept credentialed requests from.
@@ -49,7 +54,13 @@ router.get(
        */
       allowedOrigins: env.corsOrigins,
       subsystems: {
-        database: { configured: true, reachable: database },
+        database: {
+          configured: true,
+          reachable: database,
+          schema: database
+            ? { upToDate: schema.upToDate, missingMigrations: schema.missing, note: schema.upToDate ? undefined : "Run the listed migrations in order; the features they add will refuse with SCHEMA_OUT_OF_DATE until then." }
+            : null,
+        },
         blockchain: {
           configured: capabilities.chain,
           ready: chain.isReady,

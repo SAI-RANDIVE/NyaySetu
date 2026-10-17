@@ -385,7 +385,7 @@ export function OtpPanel({
               <p className="mt-1 font-mono text-xl font-bold tracking-[0.3em] text-text">{dispatch.otp}</p>
               <p className="mt-1.5 font-ui text-2xs leading-relaxed text-muted">
                 A real deployment sends this by SMS through a licensed AUA. It is shown here because
-                NyaySetu cannot obtain UIDAI authorisation as a student project.
+                this deployment does not hold UIDAI authorisation.
               </p>
             </div>
           )}

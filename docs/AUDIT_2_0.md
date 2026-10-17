@@ -187,7 +187,7 @@ Notes:
 
 ## 9. Other findings
 
-- Several strings describe the project as a "student project" (OTP providers,
+- Several strings described the project in terms of its origin rather than its licence status (OTP providers,
   Handbook, OTP panels). They are reworded to describe the licensing constraint
   itself.
 - `users.theme` defaults to `dark`; 2.0 makes the light theme the default

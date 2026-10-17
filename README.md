@@ -43,7 +43,7 @@
 
 <br>
 
-Final year project · Vishwakarma Institute of Technology, Pune · AI & Data Science · 2026
+Evidence, summons and bail records you can verify
 
 </div>
 
@@ -512,7 +512,7 @@ This distinction matters more than anything else in the honesty of the project.
 
 Read these before the viva; they are the questions an examiner will ask.
 
-**Aadhaar OTP is simulated; email OTP is not.** Sign-in uses a real code delivered by a real mail server. Citizen actions on a case use a simulated Aadhaar channel, because the live UIDAI API requires AUA/KUA registration, an ASA route, a licence key and a digital signature certificate. UIDAI grants that to government departments, not to student projects, and there is no public sandbox that issues real OTPs. `backend/src/otp/UidaiOtpProvider.ts` writes out the real protocol and refuses to run without credentials, rather than pretending. The sandbox provider matches the real lifecycle exactly: a six digit code, a short TTL, a capped attempt count, single use, bound to one action. `/api/health` reports `authorisedForProduction: false` so a demo deployment can never be mistaken for an authenticated one.
+**Aadhaar OTP is simulated; email OTP is not.** Sign-in uses a real code delivered by a real mail server. Citizen actions on a case use a simulated Aadhaar channel, because the live UIDAI API requires AUA/KUA registration, an ASA route, a licence key and a digital signature certificate. UIDAI grants that to government departments and the entities they authorise; this deployment holds no such licence, and there is no public sandbox that issues real OTPs. `backend/src/otp/UidaiOtpProvider.ts` writes out the real protocol and refuses to run without credentials, rather than pretending. The sandbox provider matches the real lifecycle exactly: a six digit code, a short TTL, a capped attempt count, single use, bound to one action. `/api/health` reports `authorisedForProduction: false` so a demo deployment can never be mistaken for an authenticated one.
 
 **The models are trained on synthetic data.** Evidence metadata from live investigations is protected. Bail outcomes linked to individuals are personal data under the DPDP Act 2023. NJDG publishes aggregate pendency, not the per-case features a delay regressor needs. Every distribution is written out in `ai-service/src/datasets.py` so a reviewer can judge what the models learned. The outputs are decision support, never findings of fact.
 

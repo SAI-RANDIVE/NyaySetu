@@ -7,7 +7,7 @@
  * Authenticating against the live UIDAI Aadhaar OTP API requires being a
  * licensed AUA/KUA. That licence is granted by UIDAI to government departments
  * and to entities they authorise, under the Aadhaar Act 2016 and the
- * Authentication Regulations. A student project cannot obtain it, and there is
+ * Authentication Regulations. This deployment does not hold it, and there is
  * no sandbox that issues real OTPs to real Aadhaar holders.
  *
  * NyaySetu therefore ships two implementations of one interface:

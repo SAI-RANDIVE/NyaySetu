@@ -228,7 +228,7 @@ Three design points worth making when this comes up:
 
 Saying these first is stronger than being caught by them.
 
-**Aadhaar OTP is simulated.** The live UIDAI API needs AUA/KUA registration, an ASA route, a licence key and a signing certificate, granted to government departments and not to student projects. `UidaiOtpProvider.ts` writes out the real endpoints and request shapes and **refuses to run without credentials** rather than pretending to work. The sandbox matches the real lifecycle exactly. `/api/health` reports `authorisedForProduction: false` so no deployment can be mistaken for an authenticated one. Swapping providers is one environment variable.
+**Aadhaar OTP is simulated.** The live UIDAI API needs AUA/KUA registration, an ASA route, a licence key and a signing certificate, granted to government departments and the entities they authorise, which this deployment is not. `UidaiOtpProvider.ts` writes out the real endpoints and request shapes and **refuses to run without credentials** rather than pretending to work. The sandbox matches the real lifecycle exactly. `/api/health` reports `authorisedForProduction: false` so no deployment can be mistaken for an authenticated one. Swapping providers is one environment variable.
 
 **Citizen actions are relayed by the keeper.** An accused does not hold a funded Sepolia wallet. Their OTP-verified action is submitted by the backend's keeper, and the Aadhaar token in the transaction binds it to them. Production would want account abstraction or a custodial wallet per citizen. The contracts already permit either: `weeklyCheckIn` accepts `KEEPER_ROLE` **or** `ACCUSED_ROLE`, so a citizen with their own wallet can sign directly today.
 

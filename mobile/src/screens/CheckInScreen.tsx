@@ -292,7 +292,7 @@ export function CheckInScreen() {
                   <Notice
                     tone="warning"
                     title={`Sandbox code: ${dispatch.otp}`}
-                    body="A real deployment sends this by SMS through a licensed AUA. It is shown here because NyaySetu cannot obtain UIDAI authorisation as a student project."
+                    body="A real deployment sends this by SMS through a licensed AUA. It is shown here because this deployment does not hold UIDAI authorisation."
                   />
                 ) : null}
 
