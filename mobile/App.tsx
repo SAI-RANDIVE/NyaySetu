@@ -57,7 +57,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" backgroundColor={colours.bg} />
+      <StatusBar style="dark" backgroundColor={colours.bg} />
       <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
         {restoring ? (
           <Loading label="Restoring your session" />
@@ -110,7 +110,7 @@ export default function App() {
                   </Text>
                 </View>
               ) : tab === "capture" ? (
-                <CaptureScreen />
+                <CaptureScreen user={user} />
               ) : (
                 <CheckInScreen />
               )}

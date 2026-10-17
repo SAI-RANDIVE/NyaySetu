@@ -57,6 +57,7 @@ Run on 17 October 2026, production dependencies only:
 | frontend | `npm audit --omit=dev` | 0 vulnerabilities |
 | contracts | `npm audit --omit=dev` | 0 vulnerabilities |
 | ai-service | `pip-audit -r requirements.txt` | No known vulnerabilities |
+| mobile | `npm audit --omit=dev` | 8 advisories (1 critical, 5 high, 2 moderate) in `tar`, `node-forge`, `@xmldom/xmldom`, `braces`, `image-size`, `postcss`, `sprintf-js` and `uuid`, all pulled in by the `expo` package's build tooling (CLI, Metro, config plugins). They run on the developer's machine during a build, not in the app on the phone. Clearing them needs an Expo SDK upgrade, deferred under decision D-01. |
 
 Re-run these before every deployment; the result above is a snapshot.
 

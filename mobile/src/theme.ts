@@ -1,36 +1,36 @@
 import { StyleSheet } from "react-native";
 
 /**
- * The palette from the logo, which uses exactly two colours: #009245 green and
- * #ff751f orange. Dark only, because the app is used outdoors at a scene and a
- * light theme on a phone screen in daylight is no easier to read.
- *
- * Two greens, as on the web: `primary` is a lifted green that reads as text on
- * the dark canvas, `primaryFill` is deepened so white text on a button clears
- * AA. The raw brand value is kept for chrome that must not drift.
+ * The light palette, with the same values as the web portal's light theme
+ * (frontend/src/styles/tokens.css), so the two clients read as one product and
+ * share its contrast checks: every text colour here meets WCAG AA on the
+ * backgrounds it is used on. Light because it is easier to read outdoors in
+ * daylight, and so a phone matches the web portal an officer also uses.
  */
 export const colours = {
-  bg: "#05120c",
-  surface: "#0a1d13",
-  surface2: "#0e2418",
-  border: "rgba(255,255,255,0.10)",
-  borderStrong: "rgba(255,255,255,0.20)",
-  text: "#eef5f0",
-  muted: "#93a69b",
-  faint: "#647469",
+  bg: "#f5f7fa",
+  surface: "#ffffff",
+  surface2: "#f1f5f9",
+  border: "rgba(15,27,45,0.12)",
+  borderStrong: "rgba(15,27,45,0.22)",
+  text: "#0f1b2d",
+  muted: "#475569",
+  faint: "#5b6b80",
   brandGreen: "#009245",
   brandOrange: "#ff751f",
-  primary: "#10b45f",
-  primaryFill: "#00803c",
-  primaryStrong: "#00c063",
-  primarySoft: "rgba(16,180,95,0.13)",
+  primary: "#04694c",
+  primaryFill: "#04694c",
+  primaryStrong: "#034e39",
+  primarySoft: "rgba(5,150,105,0.10)",
   onPrimary: "#ffffff",
-  success: "#10b45f",
-  successSoft: "rgba(16,180,95,0.14)",
-  warning: "#ff751f",
-  warningSoft: "rgba(255,117,31,0.14)",
-  danger: "#f4545f",
-  dangerSoft: "rgba(244,84,95,0.14)",
+  success: "#04694c",
+  successSoft: "rgba(5,150,105,0.12)",
+  warning: "#8a4b00",
+  warningSoft: "rgba(217,119,6,0.14)",
+  danger: "#b91c1c",
+  dangerSoft: "rgba(220,38,38,0.10)",
+  info: "#4338ca",
+  infoSoft: "rgba(79,70,229,0.10)",
 };
 
 export const styles = StyleSheet.create({

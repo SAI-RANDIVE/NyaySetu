@@ -43,10 +43,10 @@ type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 async function request<T>(
   path: string,
-  options: { method?: Method; body?: unknown; form?: FormData } = {}
+  options: { method?: Method; body?: unknown; form?: FormData; headers?: Record<string, string> } = {}
 ): Promise<T> {
   const method = options.method ?? "GET";
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...(options.headers ?? {}) };
 
   if (method !== "GET" && csrfToken) headers["x-csrf-token"] = csrfToken;
   if (options.body !== undefined && !options.form) headers["content-type"] = "application/json";
@@ -93,7 +93,7 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
-  upload: <T>(path: string, form: FormData) => request<T>(path, { method: "POST", form }),
+  upload: <T>(path: string, form: FormData, headers?: Record<string, string>) => request<T>(path, { method: "POST", form, headers }),
 };
 
 /* ------------------------------------------------------------------ types */
@@ -115,7 +115,7 @@ export interface User {
 
 export interface CaseRow {
   id: string;
-  fir_number: string;
+  case_reference: string;
   title: string;
   offence_type: string;
   access?: "read" | "write";
@@ -131,7 +131,7 @@ export interface BailOrder {
   checkin_interval_seconds: number;
   expiry_at: string;
   compliance_score: number | null;
-  cases?: { fir_number: string; title?: string };
+  cases?: { case_reference: string; title?: string };
   live?: {
     score: number;
     overdue: boolean;

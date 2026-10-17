@@ -188,7 +188,7 @@ export function CheckInScreen() {
             </Card>
           ) : null}
 
-          <Card title="Your order" subtitle={order.cases?.fir_number}>
+          <Card title="Your order" subtitle={order.cases?.case_reference}>
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
               <Chip
                 tone={
