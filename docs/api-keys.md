@@ -1,283 +1,406 @@
-# What I need from you
+# Keys, wallet and environment: step by step
 
-Every credential this project uses, where to get it, and what breaks without it.
+Every credential NyaySetu uses, which free service it comes from, and exactly
+which line of which `.env` file it goes into.
 
-**Only one is mandatory: Supabase.** Everything else degrades gracefully — the affected feature reports itself unavailable on `/api/health` instead of crashing, so you can add keys one at a time and watch each subsystem come up.
+**Nothing here is needed to try the system.** `npm run local` runs everything
+on your machine with no accounts at all (see `docs/DEMO.md`). The steps below
+are for a shared deployment on Supabase and the Sepolia test network.
 
-Paste the values into **`backend/.env`**. That file is git-ignored and already exists with the two cryptographic secrets generated and a local chain wired up, so you are filling in blanks rather than starting over.
+**Only Supabase is required.** Everything else degrades gracefully: the
+affected feature reports itself unavailable on `/api/health` instead of
+crashing, so you can add keys one at a time and watch each subsystem come up.
 
----
-
-## Priority order
-
-Work top to bottom. Each row says what you lose by skipping it.
-
-| # | Credential | Required? | Without it |
-|---|---|---|---|
-| 1 | Supabase URL + secret key | **Yes** | Nothing works. No accounts, no cases, no sessions. |
-| 2 | Gmail App Password | For email OTP | Sign-in is password-only. No summons notices. |
-| 3 | Sepolia RPC URL + wallet key | For a public chain | Falls back to a local chain, which works fully but only on your machine. |
-| 4 | Pinata JWT | For real IPFS | Encrypted files go to `backend/storage/` instead. |
-| 5 | Etherscan API key | Optional | Contract source is not published. Everything else identical. |
+All the services below have a free tier that is enough. Sepolia test ETH has no
+monetary value.
 
 ---
 
-## 1 · Supabase — the only mandatory one
+## Overview
 
-**What it is:** managed Postgres. Holds accounts, cases, evidence metadata, sessions and the audit trail.
+| # | What | Free from | Goes into | Required? |
+|---|---|---|---|---|
+| 1 | Three generated secrets | your own computer | `backend/.env` | **Yes** |
+| 2 | Supabase URL + service key | supabase.com | `backend/.env` | **Yes** |
+| 3 | Email for sign-in codes | Gmail App Password, or Brevo / Resend | `backend/.env` | Recommended |
+| 4 | Ethereum test wallet | MetaMask | `contracts/.env`, `backend/.env` | For a public chain |
+| 5 | Sepolia RPC URL | Alchemy (or Infura) | `contracts/.env`, `backend/.env` | For a public chain |
+| 6 | Sepolia test ETH | a faucet | your wallet | For a public chain |
+| 7 | Etherscan API key | etherscan.io | `contracts/.env` | Optional |
+| 8 | Pinata JWT | pinata.cloud | `backend/.env` | Optional |
+| 9 | AI service key | your own computer | `backend/.env`, `ai-service/.env` | Only if the AI service is public |
+| 10 | Frontend and mobile URLs | — | `frontend/.env`, `mobile/.env` | For hosting / phones |
 
-**Cost:** free tier is enough.
+Each folder has a `.env.example`. Copy it to `.env` in the same folder and fill
+it in:
 
-### Steps
-
-1. Go to **[supabase.com](https://supabase.com)** → sign in with GitHub → **New project**.
-2. Name it `nyaysetu`. Choose the region closest to you (**Mumbai** if offered). Set a database password and save it somewhere, though this project does not use it directly.
-3. Wait about two minutes for provisioning.
-4. Open the **SQL Editor** and run these six files in order, one at a time. Paste each file's contents, press Run, wait for success, then move to the next.
-
-   ```
-   database/migrations/001_schema.sql        tables, enums, indexes
-   database/migrations/002_rls.sql           row level security, default deny
-   database/migrations/003_audit.sql         audit triggers
-   database/migrations/004_otp_channels.sql  email OTP channel, email log
-   database/migrations/005_pii_access.sql    PII access functions
-   database/seed/reference.sql               role reference rows
-   ```
-
-   `002` prints `RLS verified: every table...` at the end. If it prints a warning instead, stop and tell me.
-
-   There is **no dashboard step**. An earlier version needed `restricted` added under
-   Settings → API → Exposed schemas; migration `005` removes that requirement by
-   reaching the PII table through four `SECURITY DEFINER` functions instead. The
-   schema now stays unreachable over the API entirely, which is both less setup
-   and a smaller surface.
-
-5. Still on **Settings → API**, copy two values:
-
-   | Label on the page | Goes into |
-   |---|---|
-   | **Project URL** | `SUPABASE_URL` |
-   | **`service_role`** secret, or a **secret key** (`sb_secret_…`) on newer projects | `SUPABASE_SERVICE_ROLE_KEY` |
-
-### What to send me
-
-```dotenv
-SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+```bash
+cp backend/.env.example backend/.env
+cp contracts/.env.example contracts/.env
+cp frontend/.env.example frontend/.env
+cp ai-service/.env.example ai-service/.env
+cp mobile/.env.example mobile/.env
 ```
 
-> **Take the secret key, not the publishable/anon one.** The anon key is deliberately powerless here; every request would be refused by row level security. The secret key bypasses RLS, which is why it stays on the server and never reaches the browser or the phone.
+(On Windows PowerShell use `Copy-Item` instead of `cp`.) Every `.env` is
+git-ignored. **Never commit one, paste one into a chat, or put one in a
+screenshot.**
 
 ---
 
-## 2 · Gmail App Password — for emailed sign-in codes
+## 1 · Generate the three secrets
 
-**What it is:** SMTP credentials so the API can send email. Two things use it:
+These protect data at rest, so generate them once, keep a backup somewhere
+safe (a password manager), and do not change them once real data exists:
+changing `EVIDENCE_ENCRYPTION_KEY` makes stored files unreadable, and changing
+`AADHAAR_TOKEN_PEPPER` breaks every existing token and officer pseudonym.
 
-- the six digit code after your password, which is the **real** second factor in this project
-- a notice to a summons recipient that one exists, and an alert to the court when a window closes unanswered
-
-**Cost:** free.
-
-### Steps
-
-1. Go to **[myaccount.google.com/security](https://myaccount.google.com/security)** and turn on **2-Step Verification** if it is not already on. App Passwords do not exist without it.
-2. Go to **[myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)**.
-3. Type `NyaySetu` as the name and press **Create**.
-4. Google shows **16 characters in four groups of four**. Copy it and **remove the spaces**.
-
-### What to send me
-
-```dotenv
-SMTP_USER=yourname@gmail.com
-SMTP_PASSWORD=abcdefghijklmnop
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-> **Your ordinary Google password will not work.** Google answers `Username and Password not accepted`, and that is the single most common setup mistake here. `/api/health` names this cause explicitly when it happens, so you will not be guessing.
-
-### Also worth setting
+Run it three times and put one result on each line of **`backend/.env`**:
 
 ```dotenv
-BOOTSTRAP_ADMIN_EMAIL=yourname@gmail.com
+AADHAAR_TOKEN_PEPPER=<first value>
+EVIDENCE_ENCRYPTION_KEY=<second value>
+LOGIN_CHALLENGE_SECRET=<third value>
+```
+
+---
+
+## 2 · Supabase (required)
+
+1. Go to **supabase.com** → sign in → **New project**. Name it `nyaysetu`,
+   pick the region nearest you (Mumbai if offered), set a database password and
+   keep it safe.
+2. When it is ready, open **SQL Editor** and run these files **in order**, one
+   at a time (paste the file's contents, press **Run**, wait for success):
+
+   ```
+   database/migrations/001_schema.sql
+   database/migrations/002_rls.sql
+   database/migrations/003_audit.sql
+   database/migrations/004_otp_channels.sql
+   database/migrations/005_pii_access.sql
+   database/migrations/006_invitations.sql
+   database/migrations/007_account_removal.sql
+   database/migrations/008_case_intake.sql
+   database/migrations/009_verification_state.sql
+   database/migrations/010_passport_capture.sql
+   database/migrations/011_chunked_uploads.sql
+   database/migrations/012_workflows.sql
+   database/seed/reference.sql
+   ```
+
+   The 2.0 files (008–012) only add tables and columns and are safe to run
+   twice. Before running them on a database with real data, take a backup
+   (**Database → Backups**) and, if you like, check them first locally with
+   `cd backend && npm run db:validate`.
+3. Open **Project Settings → API** (or **API Keys**) and copy:
+
+   ```dotenv
+   SUPABASE_URL=https://<your-project-ref>.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<the service_role secret, or an sb_secret_… key>
+   ```
+
+   into **`backend/.env`**. The service key bypasses row-level security: it
+   belongs only in the backend, never in the frontend or the mobile app (the
+   frontend build fails if it finds one).
+4. Check: `cd backend && npm run check`. It reports Supabase, email and the
+   chain separately and names the fix for anything wrong.
+
+---
+
+## 3 · Email for sign-in codes (recommended)
+
+Used for the six-digit code after the password, invitations, and reminders.
+Pick **one** of these.
+
+### Option A — Gmail App Password
+
+1. **myaccount.google.com/security** → turn on **2-Step Verification**.
+2. **myaccount.google.com/apppasswords** → name it `NyaySetu` → **Create**.
+3. Copy the 16 characters **without spaces** into **`backend/.env`**:
+
+   ```dotenv
+   EMAIL_TRANSPORT=smtp
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=yourname@gmail.com
+   SMTP_PASSWORD=abcdefghijklmnop
+   SMTP_FROM=NyaySetu <yourname@gmail.com>
+   ```
+
+   Your normal Google password will not work here.
+
+### Option B — Brevo or Resend (better on hosts that block SMTP, such as Render's free tier)
+
+- **Brevo:** brevo.com → **SMTP & API → API Keys → Generate**. Verify a sender
+  address under **Senders**.
+  ```dotenv
+  EMAIL_TRANSPORT=brevo
+  BREVO_API_KEY=xkeysib-…
+  SMTP_FROM=NyaySetu <the-verified-sender@example.com>
+  ```
+- **Resend:** resend.com → **API Keys → Create**.
+  ```dotenv
+  EMAIL_TRANSPORT=resend
+  RESEND_API_KEY=re_…
+  SMTP_FROM=NyaySetu <onboarding@resend.dev>
+  ```
+
+### The first administrator
+
+```dotenv
+BOOTSTRAP_ADMIN_EMAIL=you@example.com
 BOOTSTRAP_ADMIN_NAME=Your Name
+PUBLIC_APP_URL=http://localhost:5173
 ```
 
-This is the account `npm run bootstrap` creates: the one court administrator, and
-the only account that is not created from inside the platform. Use the same
-mailbox as `SMTP_USER` or any other address you can read — every sign-in emails a
-six digit code to it.
+Then `npm run bootstrap` (repository root) creates that court-registry account
+and emails its one-time password. Every other account is invited from inside
+the web portal.
 
-**Demonstrating more than one role from one mailbox.** Invite the other accounts
-with plus-addressed aliases of the same inbox — `yourname+judge@gmail.com`,
-`yourname+police@gmail.com`. Gmail, Outlook and Fastmail all deliver those to the
-same place, so one mailbox receives the sign-in codes for every role, and each is
-still a genuinely separate account with its own password and its own audit trail.
-
-**If you would rather not use email at all:** set `LOGIN_OTP_ENABLED=false` and sign-in stays password-only. Everything else works, including invitations — the password is then shown to the administrator in the browser instead of being emailed.
+No email at all? Set `LOGIN_OTP_ENABLED=false`: sign-in becomes password-only
+and invitation passwords are shown to the administrator instead of emailed.
 
 ---
 
-## 3 · Sepolia — for a public blockchain
+## 4 · Create an Ethereum test wallet (MetaMask)
 
-**What it is:** a free Ethereum test network. Without it the project runs on a local chain that works completely but exists only on your machine, so you cannot show a transaction to anyone on Etherscan.
+This wallet deploys the contracts and then acts as the **keeper**: it pays the
+gas for every record the API anchors.
 
-**Cost:** free. Test ETH has no value.
+1. Install **MetaMask** (metamask.io) as a browser extension.
+2. Choose **Create a new wallet**. Set a password. Write the 12-word Secret
+   Recovery Phrase on paper and keep it offline. Use a **new wallet used only
+   for this project**, never one that holds real funds.
+3. Show test networks: **Settings → Advanced → Show test networks → On**. Pick
+   **Sepolia** from the network list.
+4. Copy your **address** (starts with `0x`, 42 characters) from the top of the
+   wallet.
+5. Export the **private key**: account menu **⋮ → Account details → Show
+   private key** → enter your password. It is `0x` followed by 64 hex
+   characters (add the `0x` if MetaMask shows it without).
 
-### 3a · An RPC URL
+The private key controls the wallet. It goes only into the two `.env` files
+below; anyone who sees it can spend the wallet's (test) ETH and sign as your
+keeper.
 
-1. Go to **[alchemy.com](https://www.alchemy.com)** → sign up → **Create new app**.
-2. Chain **Ethereum**, network **Sepolia**.
-3. Copy the **HTTPS** URL. It looks like `https://eth-sepolia.g.alchemy.com/v2/AbC123...`
+---
 
-Infura and QuickNode work identically if you prefer them.
+## 5 · Get a Sepolia RPC URL (Alchemy)
 
-### 3b · A throwaway wallet
+1. **alchemy.com** → sign up → **Create new app** → chain **Ethereum**, network
+   **Sepolia**.
+2. Copy the **HTTPS** endpoint, e.g.
+   `https://eth-sepolia.g.alchemy.com/v2/AbC123…`
 
-1. Install **[MetaMask](https://metamask.io)**, create a **brand new** wallet. Do not reuse one that holds anything.
-2. Switch the network to **Sepolia** (Settings → Advanced → Show test networks, then pick Sepolia from the dropdown).
-3. Copy the address, then export the private key: **⋮ → Account details → Show private key**.
+Infura (infura.io) or QuickNode work the same way.
 
-> This key goes into a plain text file. Create it for this project and never put real funds in it.
+---
 
-### 3c · Fund it
+## 6 · Fund the wallet with test ETH
 
-Paste the address into any of these:
+Paste your **address** (not the private key) into a faucet:
 
-- [sepoliafaucet.com](https://sepoliafaucet.com) (Alchemy, needs the account from 3a)
-- [cloud.google.com/application/web3/faucet/ethereum/sepolia](https://cloud.google.com/application/web3/faucet/ethereum/sepolia)
-- [sepolia-faucet.pk910.de](https://sepolia-faucet.pk910.de) (mines in the browser, no sign-up)
+- Google Cloud Web3 faucet (Ethereum Sepolia)
+- Alchemy's Sepolia faucet (signed in with the account from step 5)
+- sepolia-faucet.pk910.de (proof-of-work in the browser, no sign-up)
 
-**0.05 ETH** covers deploying all three contracts plus a few hundred demo transactions.
+Faucets change their rules often; if one refuses, try another. About
+**0.05 Sepolia ETH** covers deploying the three contracts and a few hundred
+anchored records. Check the balance on **sepolia.etherscan.io** by searching
+your address.
 
-### What to send me
+---
+
+## 7 · Etherscan API key (optional)
+
+Lets you publish the contracts' source code so anyone can read what was
+deployed.
+
+1. **etherscan.io** → sign up → **API Keys → Add**.
+2. Put it in **`contracts/.env`** as `ETHERSCAN_API_KEY=…`.
+
+---
+
+## 8 · Deploy the contracts to Sepolia
+
+Fill in **`contracts/.env`**:
 
 ```dotenv
-SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/AbC123...
-DEPLOYER_PRIVATE_KEY=0xabc123...        # 64 hex characters after the 0x
-WALLET_ADDRESS=0xYourAddress            # so I can check the balance
+SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/AbC123…
+DEPLOYER_PRIVATE_KEY=0x<64 hex characters>
+ETHERSCAN_API_KEY=<optional>
+# Leave the *_ADDRESSES lines blank: the deployer then holds every role,
+# which is what the API's keeper needs.
+BAIL_GRACE_PERIOD_SECONDS=86400
 ```
 
-The same key serves as `CHAIN_PRIVATE_KEY` for the backend. It is the "keeper" wallet that submits transactions for citizens after their OTP is verified, since no ordinary person holds a funded blockchain wallet.
+`BAIL_GRACE_PERIOD_SECONDS=0` makes a missed check-in fire immediately (useful
+for a demonstration); `86400` (24 hours) is the realistic value.
 
----
+Then, from the repository root:
 
-## 4 · Pinata — for real IPFS storage
-
-**What it is:** a pinning service that keeps files available on IPFS. Evidence files are encrypted with AES-256-GCM **before** they go anywhere near it, so Pinata never holds anything readable.
-
-**Cost:** free tier gives 1 GB, far more than a demo needs.
-
-### Steps
-
-1. Go to **[pinata.cloud](https://pinata.cloud)** → sign up.
-2. **API Keys → New Key**.
-3. Under Admin toggles, enable **`pinFileToIPFS`**. That is the only permission needed.
-4. Name it `NyaySetu` and create it. Copy the **JWT** — the long one, not the API key or secret.
-
-### What to send me
-
-```dotenv
-PINATA_JWT=eyJhbGciOiJIUzI1NiIs...
+```bash
+npm run contracts:test        # 53 tests, local only
+npm run deploy:sepolia        # spends a little test ETH
+cd contracts && npm run verify:sepolia   # optional, needs ETHERSCAN_API_KEY
 ```
 
-Skip it and encrypted blobs are written to `backend/storage/blobs/` instead. Every other part of the evidence flow is identical; `/api/health` reports `storage.backend: local-fallback` so nobody mistakes it for production.
+The deploy writes `contracts/deployed/sepolia.json` with the three addresses
+and ABIs. **Commit that file** (it holds no secrets) so the API and every
+teammate use the same contracts.
 
 ---
 
-## 5 · Etherscan — optional
+## 9 · Point the API at Sepolia
 
-Publishes the contract source so anyone can read what was deployed. Nice for a viva, irrelevant to whether anything works.
-
-1. **[etherscan.io/myapikey](https://etherscan.io/myapikey)** → sign up → **Add** an API key.
+In **`backend/.env`**:
 
 ```dotenv
-ETHERSCAN_API_KEY=ABC123...
+CHAIN_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/AbC123…
+CHAIN_PRIVATE_KEY=0x<the same private key as DEPLOYER_PRIVATE_KEY>
+CHAIN_NETWORK=sepolia
+CONFIRMATION_DEPTH=3
+EVIDENCE_CHAIN_ADDRESS=
+SUMMONS_CHAIN_ADDRESS=
+BAIL_CHAIN_ADDRESS=
 ```
 
----
+Leave the three `*_CHAIN_ADDRESS` lines **empty**: the API then reads the
+addresses from `contracts/deployed/sepolia.json`. Fill them only if you need to
+point at different contracts, and then all three must match one deployment —
+a mismatch between these lines and `sepolia.json` is the most common reason
+anchoring fails after a redeploy.
 
-## The fastest path
-
-If you want to see the whole thing working with the least effort:
-
-1. **Supabase** (step 1) — five minutes, and unavoidable.
-2. **Gmail App Password** (step 2) — five minutes, and it is the piece that makes the login genuinely real.
-3. Skip Sepolia and Pinata for now. The local chain and local storage give you every feature; you just cannot link a stranger to a transaction.
-
-Add Sepolia and Pinata later when you want the public-chain demonstration. Nothing needs rewriting; they are environment variables.
+Check with `cd backend && npm run check`, then `npm run chain:check` (repository
+root), which sends about twenty test transactions to Sepolia and confirms each
+behaves as expected.
 
 ---
 
-## Already wired in
+## 10 · Pinata for IPFS storage (optional)
 
-As of the latest commit these are configured in `backend/.env` and verified live:
+Evidence files are encrypted with AES-256-GCM before storage either way.
+Without Pinata they are written to `backend/storage/blobs/`, which is fine on
+one machine but lost on hosts with temporary disks.
 
-| | Status |
-|---|---|
-| Supabase | connected, authenticated, all 16 tables present |
-| Gmail SMTP | authenticated as `apurva.sanpurkar25@vit.edu`, sign-in codes and notices will send |
-| Local blockchain | 3 contracts deployed, keeper funded |
-| AI models | all three loaded |
+1. **pinata.cloud** → sign up → **API Keys → New Key** → enable
+   **pinFileToIPFS** → create.
+2. Copy the **JWT** (the long value) into **`backend/.env`**:
 
-**One step remains, and only you can do it:** run
-`database/migrations/005_pii_access.sql` in the Supabase SQL editor. It creates
-the four functions that reach the Aadhaar table. Until then Aadhaar capture stops
-with a message pointing at it.
-
-Still optional: Sepolia (for a public chain) and Pinata (for real IPFS). The
-local chain and local storage give every feature; you just cannot link a
-stranger to a transaction on Etherscan.
+   ```dotenv
+   PINATA_JWT=eyJhbGciOi…
+   ```
 
 ---
 
-## How to send them
+## 11 · AI service key (only if the AI service is reachable from the internet)
 
-Paste this filled in, in one message:
+Generate one more secret with the command from step 1 and put the **same
+value** in both files:
 
 ```dotenv
-# --- required ---
+# ai-service/.env
+AI_SERVICE_KEY=<value>
+
+# backend/.env
+AI_SERVICE_URL=https://<where-the-ai-service-runs>
+AI_SERVICE_KEY=<same value>
+```
+
+Locally, leave both blank and keep `AI_SERVICE_URL=http://localhost:5001`.
+
+---
+
+## 12 · Frontend and mobile
+
+**`frontend/.env`** (local development needs no changes):
+
+```dotenv
+VITE_API_BASE=                          # blank in development: Vite proxies /api
+VITE_API_PROXY=http://localhost:4000
+```
+
+When hosting the web app separately from the API, set
+`VITE_API_BASE=https://<your-api-host>` and add the web app's address to
+`CORS_ORIGINS` and `PUBLIC_APP_URL` in `backend/.env`. Only `VITE_`-prefixed
+values reach the browser, and every one of them is public: never put a key in
+this file.
+
+**`mobile/.env`**: where the API is, as seen from the phone:
+
+```dotenv
+EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:4000        # Android emulator
+# EXPO_PUBLIC_API_BASE_URL=http://192.168.1.20:4000  # a real phone: your laptop's LAN address
+```
+
+For a real phone, also add that address to `CORS_ORIGINS` in `backend/.env`.
+
+---
+
+## 13 · Start and check
+
+```bash
+npm run ai:serve    # terminal 1 (optional)
+npm run api         # terminal 2
+npm run web         # terminal 3 → http://localhost:5173
+```
+
+Open `http://localhost:4000/api/health`. Each subsystem reports itself:
+`database.schema.upToDate` should be `true` (otherwise it lists the migrations
+still to run), `blockchain.ready` should be `true` with `network.name` set to
+`sepolia`, and `email.reachable` should be `true`.
+
+---
+
+## Complete `backend/.env` checklist
+
+```dotenv
+# required
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+AADHAAR_TOKEN_PEPPER=
+EVIDENCE_ENCRYPTION_KEY=
+LOGIN_CHALLENGE_SECRET=
 
-# --- email (recommended) ---
+# email (pick one transport)
+EMAIL_TRANSPORT=
 SMTP_USER=
 SMTP_PASSWORD=
+BREVO_API_KEY=
+RESEND_API_KEY=
+SMTP_FROM=
+BOOTSTRAP_ADMIN_EMAIL=
+PUBLIC_APP_URL=
 
-# --- public chain (optional) ---
-SEPOLIA_RPC_URL=
-DEPLOYER_PRIVATE_KEY=
+# public chain
+CHAIN_RPC_URL=
+CHAIN_PRIVATE_KEY=
+CHAIN_NETWORK=sepolia
+CONFIRMATION_DEPTH=3
 
-# --- IPFS (optional) ---
+# optional
 PINATA_JWT=
-
-# --- source verification (optional) ---
-ETHERSCAN_API_KEY=
+AI_SERVICE_URL=
+AI_SERVICE_KEY=
+CORS_ORIGINS=
+CRON_SECRET=
 ```
 
-Leave any line blank to skip it. I will wire them in, run the migrations check, create the first administrator, start every service, and report what each subsystem says about itself.
+Every other variable in `backend/.env.example` has a working default and is
+documented there.
 
----
+## If a key leaks
 
-## What happens the moment you send them
-
-1. Values go into `backend/.env` and `contracts/.env`. Neither is ever committed.
-2. `npm run bootstrap` creates one court administrator and prints its password.
-   Every other account is invited from `/admin`; there is no demo cast.
-3. Contracts deploy to Sepolia if you supplied a key, otherwise the local chain.
-4. Everything starts; `/api/health` is checked subsystem by subsystem.
-5. `npm run chain:check` runs its 24 integration checks against the live chain.
-6. You get the sign-in URL and the administrator's credentials, and from `/admin`
-   you invite one account per role and put them on a case.
-
----
-
-## A note on these secrets
-
-Two of the values in `backend/.env` are already generated and should never change once real data exists:
-
-- **`AADHAAR_TOKEN_PEPPER`** is mixed into every stored Aadhaar token. Change it and every existing token becomes unmatchable, so every OTP flow fails permanently. There is no recovery.
-- **`EVIDENCE_ENCRYPTION_KEY`** decrypts every stored evidence file. Lose it and the evidence is gone.
-
-They are in `backend/.env` now, git-ignored. Before anything resembling a real deployment, regenerate both and put them in a secrets manager. `deployment.md` covers that.
-
-And the obvious one: a private key in a text file is fine for a throwaway testnet wallet and unacceptable for anything else. Never reuse a wallet that holds real funds.
+- **Wallet private key:** create a new wallet, move any test ETH, redeploy or
+  grant the new address the keeper role, and update both `.env` files.
+- **Supabase service key:** rotate it under Project Settings → API, then update
+  `backend/.env`.
+- **Email, Pinata, Etherscan, Alchemy:** revoke the key in that service and
+  create a new one.
+- **`EVIDENCE_ENCRYPTION_KEY` or `AADHAAR_TOKEN_PEPPER`:** these cannot simply
+  be rotated without re-encrypting data; treat a leak as a security incident.
