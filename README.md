@@ -290,6 +290,22 @@ Full list of what goes in each, where to get it, and what breaks without it:
 
 ## 🚀 Running it locally
 
+### The quick way: everything on your machine, no accounts
+
+```bash
+npm run install:all
+DEV_SEED_PASSWORD="choose-a-password" npm run local
+```
+
+This starts a local Hardhat chain, deploys the contracts to it, runs the API
+against an in-memory database seeded with one account per role
+(`police@nyaysetu.local`, `forensic.lab@nyaysetu.local`, `prosecutor@…`,
+`judge@…`, `defence.lawyer@…`, `accused@…`, `court.admin@…`), and serves the web
+app at `http://localhost:5173`. Nothing is written to Supabase or any testnet,
+and everything is lost when it stops. `docs/DEMO.md` walks through it.
+
+The steps below set up the full deployment with Supabase and Sepolia.
+
 ### 0 · What you need
 
 - Node 20 or newer, and Python 3.10 or newer
@@ -309,16 +325,30 @@ pip install -r requirements.txt && cd ..
 
 ### 2 · Database
 
-Run these six files, in order, in the Supabase SQL editor:
+Run these files, in order, in the Supabase SQL editor:
 
 ```
-database/migrations/001_schema.sql        tables, enums, indexes
-database/migrations/002_rls.sql           row level security, default deny
-database/migrations/003_audit.sql         audit triggers
-database/migrations/004_otp_channels.sql  email OTP channel, email log
-database/migrations/005_pii_access.sql    PII access functions
-database/seed/reference.sql               role reference rows
+database/migrations/001_schema.sql             tables, enums, indexes
+database/migrations/002_rls.sql                row level security, default deny
+database/migrations/003_audit.sql              audit triggers
+database/migrations/004_otp_channels.sql       email OTP channel, email log
+database/migrations/005_pii_access.sql         PII access functions
+database/migrations/006_invitations.sql        invitations and first-run passwords
+database/migrations/007_account_removal.sql    account removal
+database/migrations/008_case_intake.sql        2.0: case references, FIR records
+database/migrations/009_verification_state.sql 2.0: anchors and the verification state machine
+database/migrations/010_passport_capture.sql   2.0: public references, capture manifests, device keys
+database/migrations/011_chunked_uploads.sql    2.0: resumable uploads
+database/migrations/012_workflows.sql          2.0: seizures, malkhana, lab, court, governance, alerts
+database/seed/reference.sql                    role reference rows
 ```
+
+Every 2.0 migration is idempotent and only adds; none drops or rewrites data.
+`cd backend && npm run db:validate` applies all of them to a throwaway
+in-process Postgres (PGlite) and checks RLS and audit triggers on every table,
+without touching Supabase. Until 008–012 are applied, `/api/health` lists them
+under `database.schema.missingMigrations` and the features they add answer
+`SCHEMA_OUT_OF_DATE`.
 
 No dashboard configuration is needed. Personally identifying data lives in a
 `restricted` schema that is deliberately **not** exposed over the API; migration
@@ -504,13 +534,21 @@ This distinction matters more than anything else in the honesty of the project.
 | Models | Metrics printed at train time, written to `models/metadata.json` | `npm run ai:train` |
 | Dependencies (shipped) | 0 vulnerabilities across all three Node packages | `npm run audit` |
 | Dependencies (Python) | 0 vulnerabilities | `npm run audit:python` |
+| API (2.0) | 111 tests over real HTTP against an in-memory database and a simulated chain: verification states, passport, capture, certificate, seizures, laboratory, court, governance | `cd backend && npm test` |
+| Authorization matrix | Walks all 145 routes: no data to anonymous callers, no case data to unassigned users of any role, CSRF on every write | part of `npm test` (`f08-authorization.test.ts`) |
+| Shared integrity package | 25 tests including golden digests shared by web, mobile and API | `npm run test:integrity` |
+| Database migrations | All migrations applied to PGlite; RLS and audit triggers checked on every 2.0 table | `cd backend && npm run db:validate` |
+| Every page, every role | Signs in as each of 7 roles, opens all 45 pages, fails on script errors, error panels or serious axe accessibility violations; also `--mobile` and `--lang=hi` | `cd frontend && npm run ui:smoke` (with `npm run local` running) |
+| Frontend build | Contrast (WCAG AA, both themes), no dead navigation links, no secrets in the bundle | `cd frontend && npm run build` |
+| Field app | Offline queue: idempotency, backoff, nothing dropped | `cd mobile && npm test` |
+| Evaluation metrics | Tamper detection, check latency, unauthorized access, sync under injected faults | `cd backend && npm run metrics` → `docs/metrics/METRICS.md` |
 | Whole stack boots | Chain, models, API and web all start; health reports each subsystem | see below |
 
 ---
 
 ## ⚠️ Honest limitations
 
-Read these before the viva; they are the questions an examiner will ask.
+These are the questions any careful reviewer should ask; the answers are here rather than left to be discovered.
 
 **Aadhaar OTP is simulated; email OTP is not.** Sign-in uses a real code delivered by a real mail server. Citizen actions on a case use a simulated Aadhaar channel, because the live UIDAI API requires AUA/KUA registration, an ASA route, a licence key and a digital signature certificate. UIDAI grants that to government departments and the entities they authorise; this deployment holds no such licence, and there is no public sandbox that issues real OTPs. `backend/src/otp/UidaiOtpProvider.ts` writes out the real protocol and refuses to run without credentials, rather than pretending. The sandbox provider matches the real lifecycle exactly: a six digit code, a short TTL, a capped attempt count, single use, bound to one action. `/api/health` reports `authorisedForProduction: false` so a demo deployment can never be mistaken for an authenticated one.
 
@@ -522,13 +560,30 @@ Read these before the viva; they are the questions an examiner will ask.
 
 **The Hardhat 2 toolchain carries open advisories.** `npm run audit` checks what ships and reports zero across contracts, backend and frontend. `npm run audit:all` includes dev dependencies and reports 25 findings in `contracts/`, every one of them inside Hardhat 2's own tree (adm-zip, undici, elliptic, tmp and friends). None of it is deployed: what reaches Sepolia is solc output, and the package is devDependencies only. The fix is Hardhat 3, which is a rewrite with a different config format and different plugin names, and would break a green 53-test suite. That trade is stated rather than hidden.
 
+**Bail check-in coordinates are on chain.** Evidence coordinates stay off chain (only a manifest fingerprint is anchored), but `BailChain` performs the geofence check itself, so each check-in's coordinates are in its transaction. Moving that check off chain needs a contract change, deliberately not made in 2.0.
+
+**The Hindi and Marathi text has not been reviewed by native speakers.** See `docs/JAN_SAHAYAK.md`.
+
+**The Section 63 certificate is a template.** It is filled from the record and says on its face that it must be checked by a legal practitioner.
+
+**The field app does not sign captures with a device key yet.** The web client registers a non-extractable device key and signs manifests; the mobile app sends manifests unsigned, and its Expo build tooling carries advisories that need an SDK upgrade (see `docs/SECURITY.md`).
+
 **RLS does not constrain the API.** Supabase's service role bypasses row level security by design, so the policies in `002_rls.sql` do not police API traffic — the RBAC middleware does. RLS is the second wall, and it is what stands between a leaked anon key and the contents of these tables. Every table has it on; see `docs/design-decisions.md`.
 
 ---
 
 ## 📚 Where the reasoning is written down
 
-- **[`docs/`](docs/)** — all five guides, with an index that says which one you want
+- **[`docs/`](docs/)** — all the guides, with an index that says which one you want
+- **`docs/STORY.md`** — why this exists and what 2.0 changes, in plain words
+- **`docs/DEMO.md`** — a twelve-minute demonstration that ends with the Section 63 certificate
+- **`docs/DECISIONS.md`** — the 2.0 decisions (D-01 to D-11) and why
+- **`docs/VERIFICATION_STATES.md`** — the six verification states and every legal transition
+- **`docs/SECURITY.md`** — access control, rate limits, audits and failure modes
+- **`docs/metrics/METRICS.md`** — measured results, and what they do not show
+- **`docs/USER_TESTING.md`** — tasks, SUS questionnaire and practitioner form
+- **`docs/JAN_SAHAYAK.md`** — plain-language help, accessibility, translation review
+- **`docs/INTEGRATION.md`** — how CCTNS, ICJS and e-Courts would connect (design only)
 - **`docs/api-keys.md`** — every credential, where to get it, what breaks without it
 - **`docs/hosting.md`** — Vercel and Render, and the four things that break if you skip it
 - **`docs/production.md`** — the six fallbacks a default deployment still uses, and the checklist before real data
