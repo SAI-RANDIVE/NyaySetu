@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/checkCssAnimations.mjs && node scripts/checkContrast.mjs && node scripts/checkRoutes.mjs",
-    "check:routes": "node scripts/checkRoutes.mjs",
+    "build": "tsc -b && vite build && node scripts/checkCssAnimations.mjs && node scripts/checkContrast.mjs && node scripts/checkRoutes.mjs && node scripts/checkBundleSecrets.mjs",
+    "check:secrets": "node scripts/checkBundleSecrets.mjs",
+    "check:routes": "node scripts/checkRoutes.mjs && node scripts/checkBundleSecrets.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check:css": "node scripts/checkCssAnimations.mjs",
