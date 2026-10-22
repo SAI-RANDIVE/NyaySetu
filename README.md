@@ -12,7 +12,7 @@
 
 [![Live](https://img.shields.io/badge/demo-live-00C853?style=for-the-badge&logo=vercel&logoColor=white)](https://nyaysetu-eta.vercel.app)
 [![Contracts](https://img.shields.io/badge/contracts-on%20Sepolia-627EEA?style=for-the-badge&logo=ethereum&logoColor=white)](https://sepolia.etherscan.io/address/0x39026c8E689a16EfC17561e030c59a5CB78c7133)
-[![Tests](https://img.shields.io/badge/tests-53%20unit%20%2B%2096%20integration-brightgreen?style=for-the-badge)](#-what-is-verified-and-how)
+[![Tests](https://img.shields.io/badge/tests-53%20contract%20%C2%B7%20111%20API%20%C2%B7%2045%20UI%20pages-brightgreen?style=for-the-badge)](#-what-is-verified-and-how)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue?style=for-the-badge)](#-licence)
 
 <br>
@@ -22,12 +22,12 @@
 <img src="https://img.shields.io/badge/OpenZeppelin-5-4E5EE4?style=flat-square&logo=openzeppelin&logoColor=white" />
 <img src="https://img.shields.io/badge/Ethers.js-6-2535A0?style=flat-square&logo=ethers&logoColor=white" />
 <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" />
-<img src="https://img.shields.io/badge/Node.js-22-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" />
-<img src="https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express&logoColor=white" />
+<img src="https://img.shields.io/badge/Node.js-20%2B-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" />
+<img src="https://img.shields.io/badge/Express-4-000000?style=flat-square&logo=express&logoColor=white" />
 <br>
-<img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" />
+<img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" />
 <img src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" />
-<img src="https://img.shields.io/badge/Tailwind-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" />
+<img src="https://img.shields.io/badge/Tailwind-3.4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" />
 <img src="https://img.shields.io/badge/PostgreSQL-RLS%20on%20every%20table-4169E1?style=flat-square&logo=postgresql&logoColor=white" />
 <img src="https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white" />
 <img src="https://img.shields.io/badge/Python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" />
@@ -44,6 +44,8 @@
 <br>
 
 Evidence, summons and bail records you can verify
+
+**Developed by [Sai Randive](https://github.com/SAI-RANDIVE)**
 
 </div>
 
@@ -269,7 +271,7 @@ each has a committed `.env.example` next to it.
 | File | Belongs to | Holds | Secret? |
 |---|---|---|---|
 | **`backend/.env`** | the API | Supabase service key, Aadhaar pepper, evidence AES key, SMTP password, the keeper wallet's private key | **Yes — all of it.** The only file that holds real secrets |
-| **`frontend/.env`** | the website | the API's URL and the hero video URL | **No, and it must never be.** Vite inlines every `VITE_` variable into the bundle, so anything here is readable by anyone who opens the site |
+| **`frontend/.env`** | the website | the API's URL | **No, and it must never be.** Vite inlines every `VITE_` variable into the bundle, so anything here is readable by anyone who opens the site |
 | **`mobile/.env`** | the phone app | the API's URL as seen from the device | No, same reason — `EXPO_PUBLIC_` variables are compiled into the app |
 | **`ai-service/.env`** | the model service | its port and the shared secret the API calls it with | Mildly. It holds no user data and no keys |
 | **`contracts/.env`** | deploying to Sepolia | RPC URL, deployer key, Etherscan key | Yes, but only needed when deploying. Nothing at runtime reads it |
@@ -283,8 +285,70 @@ hand every visitor the whole database.
 contract addresses from `contracts/deployed/<network>.json` or from its own
 `EVIDENCE_CHAIN_ADDRESS` / `SUMMONS_CHAIN_ADDRESS` / `BAIL_CHAIN_ADDRESS`.
 
-Full list of what goes in each, where to get it, and what breaks without it:
+### Setting them up
+
+Each `.env.example` is a ready-to-fill template with step-by-step instructions
+in its comments: where to sign up, which button to press, which value to copy.
+Copy each one to `.env` in the same folder and paste values after the `=`:
+
+```bash
+cp backend/.env.example    backend/.env
+cp contracts/.env.example  contracts/.env
+cp frontend/.env.example   frontend/.env
+cp ai-service/.env.example ai-service/.env
+cp mobile/.env.example     mobile/.env
+```
+
+(PowerShell: `Copy-Item backend\.env.example backend\.env`, and so on.)
+
+| What | Free from | Into | Needed? |
+|---|---|---|---|
+| 3 generated secrets | your computer (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) | `backend/.env` | **Required** |
+| Supabase URL + service-role key | supabase.com | `backend/.env` | **Required** |
+| Gmail App Password, or Brevo / Resend API key | myaccount.google.com/apppasswords · brevo.com · resend.com | `backend/.env` | Recommended (sign-in codes) |
+| Ethereum test wallet (address + private key) | MetaMask | `contracts/.env`, `backend/.env` | For the public test network |
+| Sepolia RPC URL | alchemy.com or infura.io | `contracts/.env`, `backend/.env` | For the public test network |
+| Sepolia test ETH | any Sepolia faucet | your wallet | For the public test network |
+| Etherscan API key | etherscan.io | `contracts/.env` | Optional |
+| Pinata JWT | pinata.cloud | `backend/.env` | Optional |
+| AI service key | your computer | `backend/.env`, `ai-service/.env` | Only if the AI service is public |
+
+Every item above is free; Sepolia test ETH has no monetary value. The longer
+walkthrough, with what each one changes and what to do if one leaks, is
 [docs/api-keys.md](docs/api-keys.md).
+
+### Running once the `.env` files are filled
+
+```bash
+# 1 · install everything (once)
+npm run install:all
+cd ai-service && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt && cd ..
+#    (macOS/Linux: source .venv/bin/activate)
+
+# 2 · database: run migrations 001–012 and seed/reference.sql in the Supabase SQL editor
+cd backend && npm run check && cd ..        # confirms Supabase, email and chain
+
+# 3 · blockchain — EITHER local …
+npm run chain                               # terminal 1, keep it open
+npm run deploy:local                        # once per fresh chain
+#   … OR the public test network (contracts/.env filled):
+npm run deploy:sepolia                      # once; then CHAIN_NETWORK=sepolia in backend/.env
+
+# 4 · first administrator (once)
+npm run bootstrap                           # prints the admin's password
+
+# 5 · start the services, each in its own terminal
+npm run ai:train                            # once
+npm run ai:serve                            # AI service  → http://localhost:5001
+npm run api                                 # API         → http://localhost:4000
+npm run web                                 # web app     → http://localhost:5173
+npm run app                                 # phone app (optional) → scan the QR with Expo Go
+```
+
+Open `http://localhost:4000/api/health`: `database.schema.upToDate`,
+`blockchain.ready` and `email.reachable` should all be `true`. Sign in at
+`http://localhost:5173` with the administrator account and invite the other
+roles from **Participants**.
 
 ---
 
@@ -592,6 +656,14 @@ These are the questions any careful reviewer should ask; the answers are here ra
 - **`ai-service/src/datasets.py`** — every synthetic distribution, in full
 - **`backend/src/otp/UidaiOtpProvider.ts`** — the government-authorisation seam
 - **`database/migrations/002_rls.sql`** — the security model, with its own reasoning in the header
+
+---
+
+## 👤 Developer
+
+**Sai Randive** — design and development of NyaySetu: smart contracts, API, web portal, field app and documentation.
+
+GitHub: [@SAI-RANDIVE](https://github.com/SAI-RANDIVE)
 
 ---
 
