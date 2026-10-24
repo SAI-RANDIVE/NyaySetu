@@ -10,7 +10,7 @@
 
 <br>
 
-[![Live](https://img.shields.io/badge/demo-live-00C853?style=for-the-badge&logo=vercel&logoColor=white)](https://nyaysetu-eta.vercel.app)
+[![Live](https://img.shields.io/badge/demo-live-00C853?style=for-the-badge&logo=vercel&logoColor=white)](https://nyaysetu-project.vercel.app)
 [![Contracts](https://img.shields.io/badge/contracts-on%20Sepolia-627EEA?style=for-the-badge&logo=ethereum&logoColor=white)](https://sepolia.etherscan.io/address/0x383d996De8cd2a19aCC8d66CdEa2F4A3b1E7F6D4)
 [![Tests](https://img.shields.io/badge/tests-53%20contract%20%C2%B7%20111%20API%20%C2%B7%2045%20UI%20pages-brightgreen?style=for-the-badge)](#-what-is-verified-and-how)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue?style=for-the-badge)](#-licence)
@@ -67,8 +67,8 @@ Evidence, summons and bail records you can verify
 
 | | Where | What to look at |
 |---|---|---|
-| **Web application** | [nyaysetu-eta.vercel.app](https://nyaysetu-eta.vercel.app) | The landing page and the public handbook need no account |
-| **API health** | [`/api/health`](https://nyaysetu-api.onrender.com/api/health) | Every subsystem reports itself separately, including what is still a fallback |
+| **Web application** | [nyaysetu-project.vercel.app](https://nyaysetu-project.vercel.app) | The landing page and the public handbook need no account |
+| **API health** | [`/api/health`](https://nyaysetu-project.vercel.app/api/health) | Every subsystem reports itself separately, including what is still a fallback |
 | **EvidenceChain** | [`0x383d996D…F6D4`](https://sepolia.etherscan.io/address/0x383d996De8cd2a19aCC8d66CdEa2F4A3b1E7F6D4) | Live on Sepolia. Every digest below is verifiable here |
 | **SummonsChain** | [`0x18f8D239…8232`](https://sepolia.etherscan.io/address/0x18f8D239653A5542d0cBfA8d13c30E46F3c18232) | Acknowledgements, with time and coordinates |
 | **BailChain** | [`0x90e8B17C…F946`](https://sepolia.etherscan.io/address/0x90e8B17CB82848ad0fE64Eb217c495cb91E8F946) | Conditions, check-ins, and violations the contract found itself |

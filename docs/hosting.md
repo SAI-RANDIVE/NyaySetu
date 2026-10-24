@@ -2,7 +2,7 @@
 
 ## Recommended: everything on Vercel (one project, Services)
 
-The repository root `vercel.json` deploys the whole system as one Vercel project:
+Live at **https://nyaysetu-project.vercel.app**. The repository root `vercel.json` deploys the whole system as one Vercel project:
 
 | Part | Kind | Public path | Notes |
 |---|---|---|---|
