@@ -49,7 +49,7 @@ const ROLES = {
   court_admin: "admin",
 };
 const links = [...shell.matchAll(/\{\s*to:\s*"([^"]+)"/g)].map((m) => m[1]);
-const PUBLIC = ["/", "/login", "/verify", "/handbook"];
+const PUBLIC = ["/", "/about", "/login", "/verify", "/handbook"];
 
 const browser = await puppeteer.launch({
   executablePath: CHROME,
@@ -78,7 +78,8 @@ async function check(page, path, label) {
       }
       window.scrollTo(0, 0);
     });
-    await new Promise((r) => setTimeout(r, 700));
+    // Long enough for staggered reveal animations to finish before contrast is checked.
+    await new Promise((r) => setTimeout(r, 1600));
 
     const landed = new URL(page.url()).pathname;
     const state = await page.evaluate(() => ({

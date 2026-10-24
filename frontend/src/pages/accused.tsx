@@ -70,8 +70,8 @@ export function AccusedHome() {
     <>
       <PageHeader
         eyebrow="Your obligations"
-        title={`Good day, ${user.fullName.split(" ")[0]}`}
-        description="Everything the court currently requires of you, and the deadline on each."
+        title={`Welcome, ${user.fullName.split(" ")[0]}`}
+        description="Everything the court currently requires of you, with the deadline for each."
       />
 
       {/* Anything urgent goes above the routine content. */}
@@ -291,9 +291,9 @@ export function AccusedSummons() {
   return (
     <>
       <PageHeader
-        eyebrow="SammansSetu"
+        eyebrow="Summons"
         title="Your summons"
-        description="Acknowledging a summons records the time, the place and your device on a public chain. It is how the court knows you were served, and how you can prove you responded."
+        description="Acknowledging a summons records the time, your location and a device identifier on the public ledger. It confirms to the court that the summons reached you, and gives you a record that you responded."
       />
 
       <AsyncView
@@ -514,9 +514,9 @@ export function AccusedCheckIn() {
   return (
     <>
       <PageHeader
-        eyebrow="JaminSetu"
+        eyebrow="Bail"
         title="Bail check-in"
-        description="A check-in is a transaction carrying your position. The contract decides whether it is compliant, so the result is the same whoever reads it."
+        description="Each check-in records your position at that moment. Whether it complies with your bail conditions is determined by the same rule for everyone, so the result does not depend on who reviews it."
       />
 
       <AsyncView

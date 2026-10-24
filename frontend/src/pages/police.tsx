@@ -76,7 +76,7 @@ export function PoliceDashboard() {
   return (
     <>
       <PageHeader
-        eyebrow="SaakshyaSetu"
+        eyebrow="Police portal"
         title={t("dash.policeTitle")}
         description={t("dash.policeIntro")}
         actions={

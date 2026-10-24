@@ -194,6 +194,11 @@ const schema = z.object({
   // not mounted at all, rather than mounted and unprotected.
   CRON_SECRET: optionalString,
 
+  // How many proxies sit in front of the API. 1 on Render alone; 2 when the web
+  // host (Vercel or Netlify) forwards /api to it. Decides which address in
+  // X-Forwarded-For is the visitor's, which is what rate limits key on.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
+
   // ------------------------------------------------------------------- jobs
   // 72 hours, per the specification.
   SUMMONS_WINDOW_HOURS: z.coerce.number().int().positive().default(72),

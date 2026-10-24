@@ -59,7 +59,9 @@ import { EmptyState } from "../components/DataState";
 type Mode = "photo" | "video" | "upload";
 const MAX_ACCURACY_METRES = 50;
 const APP_VERSION = "2.0.0";
-const DIRECT_LIMIT = 8 * 1024 * 1024;
+// Larger files go up in 2 MB pieces. Kept under 4.5 MB because hosted proxies
+// (Vercel forwarding /api to the API) refuse request bodies above that.
+const DIRECT_LIMIT = 4 * 1024 * 1024;
 const journal = new RecordingJournal(idbJournalStore);
 
 interface Captured {
@@ -256,7 +258,7 @@ export function CapturePage() {
 
   return (
     <>
-      <PageHeader eyebrow="SaakshyaSetu" title={t("capture.title")} description={t("capture.intro")} />
+      <PageHeader eyebrow="Evidence capture" title={t("capture.title")} description={t("capture.intro")} />
 
       <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
         <div className="min-w-0 space-y-5">

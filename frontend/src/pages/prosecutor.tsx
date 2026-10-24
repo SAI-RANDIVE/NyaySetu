@@ -29,9 +29,9 @@ export function ProsecutorDashboard() {
   return (
     <>
       <PageHeader
-        eyebrow="Prosecution"
+        eyebrow="Prosecution portal"
         title="Case preparation"
-        description="Take custody of examined evidence, review the chain behind each item, and watch service of process on your cases."
+        description="Accept custody of examined evidence, review the verified chain of custody for each item, and monitor service of process across your cases."
         actions={
           <Button variant="secondary" icon={<TrendingUp size={14} />} onClick={() => setDelayOpen(true)}>
             Estimate disposal time
@@ -39,7 +39,7 @@ export function ProsecutorDashboard() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Cases assigned" value={cases.data?.cases.length ?? "—"} icon={<ClipboardList size={14} />} />
         <Stat label="Awaiting your custody" value={inbox.data?.items.length ?? "—"} icon={<Inbox size={14} />} />
         <Stat

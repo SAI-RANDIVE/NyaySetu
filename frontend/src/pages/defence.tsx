@@ -77,8 +77,8 @@ export function DefenceVerify() {
     <>
       <PageHeader
         eyebrow="Independent verification"
-        title="Check the evidence yourself"
-        description="The file is hashed in this browser and compared against the blockchain record, not against the prosecution's database. You do not have to trust either the server or its operator."
+        title="Verify the evidence independently"
+        description="The file is fingerprinted in this browser and compared with the record on the public ledger, not with the prosecution's database. The result does not depend on trusting the server or its operator."
       />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">

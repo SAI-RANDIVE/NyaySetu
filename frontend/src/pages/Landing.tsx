@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Reveal } from "../components/ui";
 import { LogoMark } from "../components/Logo";
+import { InstallAppButton, PoliceSeal } from "../components/brand";
 
 /**
  * The public entry point: what NyaySetu records, who uses it, what goes on the
@@ -87,7 +88,7 @@ const ON_CHAIN = [
   "The fingerprint of each evidence item's capture manifest",
   "Custody transfers and integrity checks, including the ones that failed",
   "Fingerprints of seizure memos, malkhana movements, working copies and forensic reports",
-  "Summons issue and acknowledgement events",
+  "Summons issue and acknowledgement events, including the acknowledgement's coordinates",
   "Bail conditions and check-ins, whose coordinates the contract needs to check the permitted area",
 ];
 
@@ -126,9 +127,13 @@ function Header() {
               {item.label}
             </a>
           ))}
+          <Link to="/about" className="rounded-full px-3 py-2 font-ui text-sm text-muted transition hover:bg-surface-2 hover:text-text">
+            About
+          </Link>
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Link to="/verify" className="hidden rounded-full border border-border px-4 py-2 font-ui text-sm font-semibold text-text transition hover:border-primary sm:inline-flex">
+          <InstallAppButton compact />
+          <Link to="/verify" className="hidden rounded-full border border-border px-4 py-2 font-ui text-sm font-semibold text-text transition hover:border-primary lg:inline-flex">
             Verify evidence
           </Link>
           <Link to="/login" className="inline-flex rounded-full bg-primary-fill px-4 py-2 font-ui text-sm font-semibold text-on-primary transition hover:opacity-90">
@@ -143,11 +148,12 @@ function Header() {
           >
             {open ? <X size={17} aria-hidden /> : <Menu size={17} aria-hidden />}
           </button>
+          <PoliceSeal size={38} className="hidden sm:inline-flex" />
         </div>
       </div>
       {open && (
         <nav aria-label="Sections" className="border-t border-border bg-surface px-4 pb-4 pt-2 md:hidden">
-          {[...NAV, { href: "/verify", label: "Verify evidence" }].map((item) =>
+          {[...NAV, { href: "/about", label: "About NyaySetu" }, { href: "/verify", label: "Verify evidence" }].map((item) =>
             item.href.startsWith("#") ? (
               <a key={item.href} href={item.href} onClick={() => setOpen(false)} className="block rounded-xl px-3 py-3 font-ui text-base text-text hover:bg-surface-2">
                 {item.label}

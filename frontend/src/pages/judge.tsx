@@ -58,12 +58,12 @@ export function JudgeDashboard() {
   return (
     <>
       <PageHeader
-        eyebrow="Court dashboard"
-        title="Today on the bench"
-        description="Service of process and bail compliance, both read from the contracts rather than from a register somebody maintains."
+        eyebrow="Court portal"
+        title="Court overview"
+        description="The status of service of process and of bail compliance across your cases, read directly from the ledger rather than from a manually maintained register."
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Cases" value={cases.data?.cases.length ?? "—"} icon={<ClipboardList size={14} />} />
         <Stat
           label="Summons pending"
@@ -293,9 +293,9 @@ export function SummonsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="SammansSetu"
+        eyebrow="Summons"
         title="Summons register"
-        description="Issue a summons, then watch the acknowledgement. After 72 hours without one, the contract reports FAILED whether or not anybody checks."
+        description="Issue a summons and track its acknowledgement. If it is not acknowledged within 72 hours, the ledger records the service as failed, without any manual step."
         actions={
           <Button icon={<Plus size={14} />} onClick={() => setIssueOpen(true)}>
             Issue summons
@@ -527,9 +527,9 @@ export function BailBoard() {
   return (
     <>
       <PageHeader
-        eyebrow="JaminSetu"
+        eyebrow="Bail"
         title="Bail compliance"
-        description="Conditions live on chain, check-ins are transactions, and the geo-fence arithmetic runs in the contract. Nobody has to notice a breach; the chain notices."
+        description="Bail conditions are recorded on the ledger and each check-in is assessed against the permitted area by the contract itself, so a breach is identified consistently and without delay."
         actions={
           <Button icon={<Plus size={14} />} onClick={() => setGrantOpen(true)}>
             Grant bail
@@ -537,7 +537,7 @@ export function BailBoard() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Active orders" value={board.data?.counts.total ?? "—"} icon={<Scale size={14} />} />
         <Stat label="Compliant" value={board.data?.counts.compliant ?? "—"} tone="success" icon={<CheckCircle2 size={14} />} />
         <Stat

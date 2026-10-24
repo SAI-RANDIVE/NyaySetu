@@ -69,7 +69,7 @@ export function AdminOverview() {
       <PageHeader
         eyebrow="Court registry"
         title="System overview"
-        description="Participants, case load, and whether every subsystem this platform depends on is actually running."
+        description="Participants, case load, and the operational status of every service on which the platform depends."
         actions={
           <>
             <Button
@@ -110,7 +110,7 @@ export function AdminOverview() {
 
       <AsyncView state={stats} onRetry={stats.refetch} context="the statistics">
         {(data) => (
-          <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Stat label="Active participants" value={data.stats.activeUsers} icon={<UsersIcon size={14} />} />
             <Stat label="Cases" value={data.stats.cases} icon={<ClipboardList size={14} />} />
             <Stat
@@ -319,7 +319,7 @@ export function AdminUsers() {
       <PageHeader
         eyebrow="Court registry"
         title="Participants"
-        description="Every account on the platform. There is no sign-up: an account exists because you created it, and it can do nothing until its holder replaces the password you sent them. Deactivating one revokes its live sessions immediately."
+        description="Every account on the platform. Accounts are created only by the registry; a new holder must replace the temporary password before using the system. Deactivating an account ends its active sessions immediately."
         actions={
           <Button icon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
             Invite a participant
@@ -1022,7 +1022,7 @@ export function AdminAccess() {
       <PageHeader
         eyebrow="Court registry"
         title="Case access"
-        description="Who may open which case. A role gets somebody into their portal; an assignment here is what puts a specific case in front of them. Without one, every request for that case is refused by the API and by the database."
+        description="Assign participants to cases. A role grants access to a portal; an assignment grants access to a particular case. Without an assignment, every request for that case is refused by the server and by the database."
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
@@ -1349,7 +1349,7 @@ export function AdminAudit() {
       <PageHeader
         eyebrow="Court registry"
         title="Audit trail"
-        description="Two layers. Actions record intent, including attempts that were refused and therefore changed no row. Row changes come from database triggers, so a direct edit is captured whatever made it."
+        description="A two-level record. Actions capture what each user attempted, including attempts that were refused; row changes are captured by database triggers, so even a direct edit to the database is recorded."
       />
 
       <div className="mb-5 inline-flex rounded-full border border-border bg-surface-2 p-1">
@@ -1574,7 +1574,7 @@ export function AdminChain() {
       <PageHeader
         eyebrow="Court registry"
         title="Chain status"
-        description="Deployed contracts, the keeper wallet, and every transaction this platform has submitted."
+        description="The deployed contracts, the keeper wallet, and every transaction the platform has submitted to the ledger."
       />
 
       <AsyncView state={chain} onRetry={chain.refetch} context="chain status">
@@ -1592,7 +1592,7 @@ export function AdminChain() {
               </div>
             )}
 
-            <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Stat
                 label="Network"
                 value={data.status.network?.name ?? "—"}

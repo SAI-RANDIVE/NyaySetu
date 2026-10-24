@@ -36,7 +36,7 @@ import courtRoutes from "./routes/court";
 export const app = express();
 
 // Railway and Vercel sit behind a proxy, so req.ip and Secure cookies need this.
-app.set("trust proxy", 1);
+app.set("trust proxy", env.TRUST_PROXY_HOPS);
 app.disable("x-powered-by");
 
 app.use(

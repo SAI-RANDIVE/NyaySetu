@@ -34,6 +34,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { LANGUAGES, useI18n, type Lang, type MessageKey } from "../i18n";
 import { LogoMark } from "./Logo";
+import { InstallAppButton, PoliceSeal } from "./brand";
 import type { Role } from "../lib/api";
 
 interface NavItem {
@@ -342,9 +343,10 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           <LogoMark size={32} />
           <span className="font-display text-base text-text">NyaySetu</span>
         </Link>
-        <span className="ml-auto truncate rounded-full bg-primary-soft px-2.5 py-1 font-ui text-2xs font-semibold text-primary">
-          {t(`role.${user.role}` as MessageKey)}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <InstallAppButton compact />
+          <PoliceSeal size={34} />
+        </div>
       </header>
 
       {menuOpen && (
@@ -372,6 +374,16 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="lg:pl-72">
+        {/* ------------------------------------------------ desktop top bar */}
+        <div className="sticky top-0 z-20 hidden h-16 items-center justify-between border-b border-border bg-bg-elevated/85 px-10 backdrop-blur lg:flex">
+          <span className="truncate rounded-full bg-primary-soft px-3 py-1 font-ui text-xs font-semibold text-primary">
+            {t(`role.${user.role}` as MessageKey)}
+          </span>
+          <div className="flex items-center gap-4">
+            <InstallAppButton />
+            <PoliceSeal size={40} showLabel />
+          </div>
+        </div>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl px-4 py-6 outline-none sm:px-6 sm:py-8 lg:px-10">
           <IncompleteRecordNotice />
           {children}
@@ -383,7 +395,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
               <Link to="/handbook" className="font-ui text-2xs text-faint transition hover:text-primary">
                 {t("shell.handbook")}
               </Link>
-              <Link to="/" className="font-ui text-2xs text-faint transition hover:text-primary">
+              <Link to="/about" className="font-ui text-2xs text-faint transition hover:text-primary">
                 {t("shell.about")}
               </Link>
             </div>

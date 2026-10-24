@@ -6,7 +6,11 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import { I18nProvider } from "./i18n";
+import { SplashScreen } from "./components/brand";
+import { registerServiceWorker } from "./lib/pwa";
 import "./styles/index.css";
+
+registerServiceWorker();
 
 /**
  * Provider order matters:
@@ -21,6 +25,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <I18nProvider>
           <ToastProvider>
             <AuthProvider>
+              <SplashScreen />
               <App />
             </AuthProvider>
           </ToastProvider>

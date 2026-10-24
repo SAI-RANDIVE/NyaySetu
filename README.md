@@ -624,7 +624,7 @@ These are the questions any careful reviewer should ask; the answers are here ra
 
 **The Hardhat 2 toolchain carries open advisories.** `npm run audit` checks what ships and reports zero across contracts, backend and frontend. `npm run audit:all` includes dev dependencies and reports 25 findings in `contracts/`, every one of them inside Hardhat 2's own tree (adm-zip, undici, elliptic, tmp and friends). None of it is deployed: what reaches Sepolia is solc output, and the package is devDependencies only. The fix is Hardhat 3, which is a rewrite with a different config format and different plugin names, and would break a green 53-test suite. That trade is stated rather than hidden.
 
-**Bail check-in coordinates are on chain.** Evidence coordinates stay off chain (only a manifest fingerprint is anchored), but `BailChain` performs the geofence check itself, so each check-in's coordinates are in its transaction. Moving that check off chain needs a contract change, deliberately not made in 2.0.
+**Bail check-in and summons acknowledgement coordinates are on chain.** Evidence coordinates stay off chain (only a manifest fingerprint is anchored), but `BailChain` performs the geofence check itself and `SummonsChain` stores where a summons was acknowledged, so those coordinates are in their transactions. Moving that check off chain needs a contract change, deliberately not made in 2.0.
 
 **The Hindi and Marathi text has not been reviewed by native speakers.** See `docs/JAN_SAHAYAK.md`.
 
@@ -639,6 +639,9 @@ These are the questions any careful reviewer should ask; the answers are here ra
 ## 📚 Where the reasoning is written down
 
 - **[`docs/`](docs/)** — all the guides, with an index that says which one you want
+- **`docs/hosting.md`** — deploy the API to Render and the web app to Vercel or Netlify, with one all-in-one env file
+- **`docs/TESTING.md`** — every automated check, and a step-by-step walkthrough for each role
+- **`docs/samples/`** — one of every generated court document (seizure memo, custody record, Section 63 certificate, passports, final report)
 - **`docs/STORY.md`** — why this exists and what 2.0 changes, in plain words
 - **`docs/DEMO.md`** — a twelve-minute demonstration that ends with the Section 63 certificate
 - **`docs/DECISIONS.md`** — the 2.0 decisions (D-01 to D-11) and why

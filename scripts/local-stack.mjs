@@ -23,6 +23,10 @@ import { fileURLToPath } from "node:url";
 import net from "node:net";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+// Ports are configurable so the local stack can run beside another copy of the
+// API or web app (for example your own `npm run api`).
+const API_PORT = Number(process.env.LOCAL_API_PORT ?? 4000);
+const WEB_PORT = Number(process.env.LOCAL_WEB_PORT ?? 5173);
 const HARDHAT_KEY_0 = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const children = [];
 const skipWeb = process.argv.includes("--no-web");
@@ -38,6 +42,25 @@ function run(label, command, args, options) {
   relay(child.stderr, process.stderr);
   children.push(child);
   return child;
+}
+
+/** Resolves true if nothing is listening on the port (checked over IPv4 and IPv6). */
+async function portFree(port) {
+  for (const host of ["127.0.0.1", "::1"]) {
+    const taken = await new Promise((resolve) => {
+      const socket = net.connect(port, host);
+      socket.once("connect", () => (socket.destroy(), resolve(true)));
+      socket.once("error", () => resolve(false));
+    });
+    if (taken) return false;
+  }
+  return true;
+}
+
+async function requireFree(port, what, variable) {
+  if (!(await portFree(port))) {
+    fatal(new Error(`Port ${port} is already in use, so the ${what} cannot start. Stop whatever is using it, or run with ${variable}=<another port>.`));
+  }
 }
 
 /** Resolves once something accepts connections on the port, over IPv4 or IPv6. */
@@ -107,6 +130,8 @@ if (deployed !== 0) {
   shutdown(1);
 }
 
+await requireFree(API_PORT, "API", "LOCAL_API_PORT");
+if (!skipWeb) await requireFree(WEB_PORT, "web app", "LOCAL_WEB_PORT");
 console.log("Starting the API on the in-memory database…");
 run("api", "npx", ["tsx", ...(process.argv.includes("--watch") ? ["watch"] : []), "src/index.ts"], {
   cwd: join(root, "backend"),
@@ -115,7 +140,7 @@ run("api", "npx", ["tsx", ...(process.argv.includes("--watch") ? ["watch"] : [])
     NODE_ENV: "development",
     NYAY_DB: "memory",
     DEV_SEED: "true",
-    PORT: "4000",
+    PORT: String(API_PORT),
     SUPABASE_URL: "http://memory.invalid",
     SUPABASE_SERVICE_ROLE_KEY: "memory-service-role-key-not-a-secret",
     AADHAAR_TOKEN_PEPPER: process.env.AADHAAR_TOKEN_PEPPER ?? "local-pepper-0123456789abcdef0123456789",
@@ -141,32 +166,32 @@ run("api", "npx", ["tsx", ...(process.argv.includes("--watch") ? ["watch"] : [])
     AI_SERVICE_URL: process.env.LOCAL_AI_SERVICE_URL ?? "",
     INDEXER_MAX_RANGE: "2000",
     SWEEP_INTERVAL_MS: "15000",
-    CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173",
+    CORS_ORIGINS: `http://localhost:${WEB_PORT},http://127.0.0.1:${WEB_PORT}`,
     COOKIE_SAMESITE: "strict",
     COOKIE_DOMAIN: "",
     OTP_PROVIDER: "sandbox",
     OTP_ECHO_IN_RESPONSE: "true",
     CRON_SECRET: "",
-    PUBLIC_APP_URL: "http://localhost:5173",
+    PUBLIC_APP_URL: `http://localhost:${WEB_PORT}`,
   },
 });
-await waitForPort(4000, 180_000).catch(fatal);
+await waitForPort(API_PORT, 180_000).catch(fatal);
 
 if (!skipWeb) {
   console.log("Starting the web app…");
-  run("web", "npx", ["vite", "--port", "5173", "--strictPort"], {
+  run("web", "npx", ["vite", "--port", String(WEB_PORT), "--strictPort"], {
     cwd: join(root, "frontend"),
-    env: { ...process.env, VITE_API_BASE: "", VITE_API_PROXY: "http://127.0.0.1:4000" },
+    env: { ...process.env, VITE_API_BASE: "", VITE_API_PROXY: `http://127.0.0.1:${API_PORT}` },
   });
-  await waitForPort(5173, 180_000).catch(fatal);
+  await waitForPort(WEB_PORT, 180_000).catch(fatal);
 }
 
 console.log(
   [
     "",
     "  NyaySetu is running locally.",
-    skipWeb ? "" : "    Web app   http://localhost:5173",
-    "    API       http://localhost:4000/api/health",
+    skipWeb ? "" : `    Web app   http://localhost:${WEB_PORT}`,
+    `    API       http://localhost:${API_PORT}/api/health`,
     "    Chain     http://127.0.0.1:8545  (Hardhat, chain 31337)",
     "  The accounts and their password are printed above by [api]. Ctrl+C stops everything.",
     "",
