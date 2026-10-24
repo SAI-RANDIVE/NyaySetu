@@ -1,13 +1,13 @@
 {
   "network": "sepolia",
   "chainId": 11155111,
-  "deployer": "0x174D84437A6eEA4e1827a95Da260e600a4A70C37",
-  "deployedAt": "2026-09-27T12:56:11.548Z",
-  "blockNumber": 11793469,
-  "gracePeriodSeconds": 0,
+  "deployer": "0xD6A04b94261841302960A9a8A049339351FC496F",
+  "deployedAt": "2026-10-24T14:37:38.223Z",
+  "blockNumber": 11984421,
+  "gracePeriodSeconds": 86400,
   "contracts": {
     "EvidenceChain": {
-      "address": "0x39026c8E689a16EfC17561e030c59a5CB78c7133",
+      "address": "0x383d996De8cd2a19aCC8d66CdEa2F4A3b1E7F6D4",
       "abi": [
         {
           "inputs": [
@@ -1125,7 +1125,7 @@
       ]
     },
     "SummonsChain": {
-      "address": "0xCb998874921Ccae2Db0F82c787fE3f0e2C4F5154",
+      "address": "0x18f8D239653A5542d0cBfA8d13c30E46F3c18232",
       "abi": [
         {
           "inputs": [
@@ -2042,7 +2042,7 @@
       ]
     },
     "BailChain": {
-      "address": "0x1AA6c42796eCeA533C35480fEd1901D9087d65AB",
+      "address": "0x90e8B17CB82848ad0fE64Eb217c495cb91E8F946",
       "abi": [
         {
           "inputs": [

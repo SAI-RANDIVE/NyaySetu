@@ -22,7 +22,8 @@
     "mail:probe": "tsx src/scripts/mailProbe.ts",
     "test": "tsx --test --test-concurrency=1 test/*.test.ts",
     "db:validate": "node scripts/validateMigrations.mjs",
-    "metrics": "tsx test/metrics/run.ts"
+    "metrics": "tsx test/metrics/run.ts",
+    "samples:pdf": "tsx test/samples/pdfs.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

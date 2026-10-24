@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { istDateTimeSeconds } from "./format";
 import QRCode from "qrcode";
 import type { PublicPassport } from "../../services/passport/passport.service";
 
@@ -54,7 +55,7 @@ const FLAG_TEXT: Record<string, string> = {
 
 function when(value: string | null | undefined): string {
   if (!value) return "—";
-  return new Date(value).toUTCString().replace("GMT", "UTC");
+  return istDateTimeSeconds(value);
 }
 
 export async function buildPassportPdf(
@@ -157,7 +158,7 @@ export async function buildPassportPdf(
   doc.fillColor(INK.text).font("Helvetica-Bold").fontSize(11).text("Chain of custody", M, y);
   y = doc.y + 6;
   const cols = [M, M + 120, M + 270, M + 400];
-  ["Event", "From", "To", "Time (UTC)"].forEach((h, i) => label(h, cols[i], y, 130));
+  ["Event", "From", "To", "Time (IST)"].forEach((h, i) => label(h, cols[i], y, 130));
   y += 13;
   for (const event of passport.custody) {
     doc.fillColor(INK.text).font("Helvetica").fontSize(9);

@@ -114,6 +114,13 @@ function compare(a: any, b: any): number {
   return String(a) < String(b) ? -1 : 1;
 }
 
+/**
+ * Read-only views in the real schema, served from the table they project. The
+ * view exposes a subset of columns; callers select only those, so serving the
+ * whole row is equivalent here. (user_directory: 001_schema.sql.)
+ */
+const VIEWS: Record<string, string> = { user_directory: "users" };
+
 export class MemoryDatabase {
   readonly tables = new Map<string, Row[]>();
   private serial = 0;
@@ -121,7 +128,7 @@ export class MemoryDatabase {
   failWith: PgError | null = null;
 
   table(name: string): Row[] {
-    const key = name.replace(/^restricted\./, "");
+    const key = VIEWS[name] ?? name.replace(/^restricted\./, "");
     if (!this.tables.has(key)) this.tables.set(key, []);
     return this.tables.get(key)!;
   }
@@ -151,6 +158,8 @@ export class MemoryDatabase {
     if (pk === "id" && out.id === undefined) out.id = SERIAL_TABLES.has(table) ? this.nextSerial() : randomUUID();
     if (out.created_at === undefined) out.created_at = now;
     if (out.updated_at === undefined && table !== "action_log") out.updated_at = now;
+    // Column defaults the real schema declares beyond created_at / updated_at.
+    if (table === "cases" && out.registered_at === undefined) out.registered_at = now;
     return out;
   }
 

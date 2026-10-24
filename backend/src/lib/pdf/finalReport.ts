@@ -1,4 +1,5 @@
 import { CourtDocument } from "./document";
+import { istDate, istDateTime, istYear } from "./format";
 import type { CaseDossier } from "../../services/report.service";
 import { gatewayFor } from "../../services/report.service";
 import { explorerUrl } from "../chain";
@@ -43,18 +44,11 @@ function humanise(value: string | null | undefined): string {
 }
 
 function date(value: string | null | undefined): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+  return istDate(value);
 }
 
 function dateTime(value: string | null | undefined): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  return (
-    `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()} ` +
-    `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")} IST`
-  );
+  return istDateTime(value);
 }
 
 function bytes(value: number | null): string {
@@ -88,7 +82,7 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function buildFinalReport(dossier: CaseDossier): CourtDocument {
   const { case: c, statute } = dossier;
-  const year = new Date(c.registered_at).getFullYear();
+  const year = istYear(c.registered_at) ?? "—";
 
   const document = new CourtDocument({
     title: "Final Report / Charge Sheet",
@@ -105,7 +99,7 @@ export function buildFinalReport(dossier: CaseDossier): CourtDocument {
 
   document.item("1", "Particulars of the case");
   document.field("Police Station", c.police_station);
-  document.field("Year", String(year));
+  document.field("Year", year);
   document.field("Case reference", c.case_reference);
   document.field(
     "C.R. / F.I.R. No.",

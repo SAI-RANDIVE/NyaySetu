@@ -265,10 +265,16 @@ export class CourtDocument {
     const text = value === null || value === undefined || value === "" ? "—" : String(value);
 
     const valueWidth = CONTENT_WIDTH - indent - labelWidth - 10;
-    const height = this.doc
-      .font(options.mono ? FONT.mono : FONT.body)
-      .fontSize(options.mono ? SIZE.small : SIZE.body)
-      .heightOfString(text, { width: valueWidth });
+    // Both sides may wrap; the taller one sets the row, so a long label can never
+    // run into the next item.
+    const labelHeight = this.doc.font(FONT.body).fontSize(SIZE.body).heightOfString(label, { width: labelWidth - 6 });
+    const height = Math.max(
+      labelHeight,
+      this.doc
+        .font(options.mono ? FONT.mono : FONT.body)
+        .fontSize(options.mono ? SIZE.small : SIZE.body)
+        .heightOfString(text, { width: valueWidth })
+    );
 
     this.ensure(height + 8);
     const y = this.doc.y;
@@ -277,7 +283,7 @@ export class CourtDocument {
       .font(FONT.body)
       .fontSize(SIZE.body)
       .fillColor(INK.muted)
-      .text(label, MARGIN.left + indent, y, { width: labelWidth, lineBreak: false });
+      .text(label, MARGIN.left + indent, y, { width: labelWidth - 6 });
 
     this.doc
       .fillColor(INK.text)
@@ -358,6 +364,7 @@ export class CourtDocument {
 
     this.ensure(64);
     drawHeader();
+    if (rows.length === 0) rows = [["None recorded", ...columns.slice(1).map(() => "")]];
 
     for (const row of rows) {
       const cells = columns.map((_, i) => {

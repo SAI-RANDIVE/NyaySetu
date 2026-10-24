@@ -5,6 +5,7 @@ import { explorerUrl } from "../lib/chain";
 import { loadAnchor } from "./verification/anchors";
 import { chainReader } from "./verification/reader";
 import { buildTemplatePdf } from "../lib/pdf/template";
+import { istDateTimeSeconds } from "../lib/pdf/format";
 import type { SessionUser } from "../middleware/auth";
 
 /**
@@ -178,8 +179,8 @@ export async function certificateFields(evidenceId: string, user: SessionUser, i
     public_ref: item.public_ref,
     tx_hash: anchor!.tx_hash ?? "",
     tx_explorer: anchor!.tx_hash ? explorerUrl(anchor!.tx_hash) ?? "" : "",
-    captured_at: new Date(item.device_time ?? item.collected_at).toISOString(),
-    registered_at: new Date(anchor!.confirmed_at ?? anchor!.submitted_at ?? item.created_at).toISOString(),
+    captured_at: istDateTimeSeconds(item.device_time ?? item.collected_at),
+    registered_at: istDateTimeSeconds(anchor!.confirmed_at ?? anchor!.submitted_at ?? item.created_at),
     custodian_role: STAGE_CUSTODIAN[item.current_stage] ?? item.current_stage,
     custody_count: String(custody.length),
     file_name: item.file_name,
@@ -204,10 +205,6 @@ export async function renderCertificate(evidenceId: string, user: SessionUser, i
     signatures: [
       { role: "Person in charge of the device / record (Part A)", name: fields.custodian_name, designation: fields.custodian_designation },
       { role: "Expert (Part B)", name: null, designation: null },
-    ],
-    digestLines: [
-      ["SHA-256 of the record", fields.file_sha256],
-      ["Anchored value (read from the ledger)", fields.anchored_digest],
     ],
   });
 

@@ -126,7 +126,9 @@ test("the custody form lists every hop, check and movement from the record", asy
   const item = mem.table("evidence_items").find((e) => e.id === id)!;
   assert.ok(form.includes(item.public_ref));
   assert.ok(form.includes(item.file_hash));
-  assert.ok(form.includes("SCENE"));
+  // Stages and states are printed in words, not as internal codes.
+  assert.ok(form.includes(flat("Scene of offence")));
+  assert.ok(!form.includes("SCENE"), "no raw stage codes");
   assert.ok(form.includes("Deposit"));
-  assert.ok(form.includes("CONFIRMED"));
+  assert.ok(form.includes(flat("Confirmed on the ledger")));
 });

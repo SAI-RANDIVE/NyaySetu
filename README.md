@@ -11,7 +11,7 @@
 <br>
 
 [![Live](https://img.shields.io/badge/demo-live-00C853?style=for-the-badge&logo=vercel&logoColor=white)](https://nyaysetu-eta.vercel.app)
-[![Contracts](https://img.shields.io/badge/contracts-on%20Sepolia-627EEA?style=for-the-badge&logo=ethereum&logoColor=white)](https://sepolia.etherscan.io/address/0x39026c8E689a16EfC17561e030c59a5CB78c7133)
+[![Contracts](https://img.shields.io/badge/contracts-on%20Sepolia-627EEA?style=for-the-badge&logo=ethereum&logoColor=white)](https://sepolia.etherscan.io/address/0x383d996De8cd2a19aCC8d66CdEa2F4A3b1E7F6D4)
 [![Tests](https://img.shields.io/badge/tests-53%20contract%20%C2%B7%20111%20API%20%C2%B7%2045%20UI%20pages-brightgreen?style=for-the-badge)](#-what-is-verified-and-how)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue?style=for-the-badge)](#-licence)
 
@@ -69,9 +69,9 @@ Evidence, summons and bail records you can verify
 |---|---|---|
 | **Web application** | [nyaysetu-eta.vercel.app](https://nyaysetu-eta.vercel.app) | The landing page and the public handbook need no account |
 | **API health** | [`/api/health`](https://nyaysetu-api.onrender.com/api/health) | Every subsystem reports itself separately, including what is still a fallback |
-| **EvidenceChain** | [`0x39026c8E…7133`](https://sepolia.etherscan.io/address/0x39026c8E689a16EfC17561e030c59a5CB78c7133) | Live on Sepolia. Every digest below is verifiable here |
-| **SummonsChain** | [`0xCb998874…5154`](https://sepolia.etherscan.io/address/0xCb998874921Ccae2Db0F82c787fE3f0e2C4F5154) | Acknowledgements, with time and coordinates |
-| **BailChain** | [`0x1AA6c427…65AB`](https://sepolia.etherscan.io/address/0x1AA6c42796eCeA533C35480fEd1901D9087d65AB) | Conditions, check-ins, and violations the contract found itself |
+| **EvidenceChain** | [`0x383d996D…F6D4`](https://sepolia.etherscan.io/address/0x383d996De8cd2a19aCC8d66CdEa2F4A3b1E7F6D4) | Live on Sepolia. Every digest below is verifiable here |
+| **SummonsChain** | [`0x18f8D239…8232`](https://sepolia.etherscan.io/address/0x18f8D239653A5542d0cBfA8d13c30E46F3c18232) | Acknowledgements, with time and coordinates |
+| **BailChain** | [`0x90e8B17C…F946`](https://sepolia.etherscan.io/address/0x90e8B17CB82848ad0fE64Eb217c495cb91E8F946) | Conditions, check-ins, and violations the contract found itself |
 
 > There is **no sign-up**. A court is a closed institution, so an account exists because a court administrator created it and emailed its holder a one-time password. `/handbook` is public and explains the whole system without one.
 
