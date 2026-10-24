@@ -4,6 +4,11 @@ import { z } from "zod";
 
 dotenv.config();
 
+// On Vercel, NODE_ENV is deliberately not set as a project variable (it would
+// make the build skip devDependencies). A Vercel production deployment is still
+// production: secure cookies on, the sandbox code never echoed.
+if (!process.env.NODE_ENV && process.env.VERCEL_ENV === "production") process.env.NODE_ENV = "production";
+
 /**
  * Environment contract for the API.
  *
@@ -289,7 +294,23 @@ function normaliseOrigin(value: string): string {
   return value.trim().replace(/\/+$/, "").toLowerCase();
 }
 
-const corsOrigins = raw.CORS_ORIGINS.split(",").map(normaliseOrigin).filter(Boolean);
+/**
+ * On Vercel the deployment's own addresses are known at runtime
+ * (VERCEL_PROJECT_PRODUCTION_URL, VERCEL_BRANCH_URL, VERCEL_URL). They are
+ * always allowed, so production and preview deployments work without anyone
+ * typing their address into CORS_ORIGINS first.
+ */
+const vercelOrigins = [process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.VERCEL_BRANCH_URL, process.env.VERCEL_URL]
+  .filter((host): host is string => Boolean(host))
+  .map((host) => normaliseOrigin(`https://${host}`));
+
+const corsOrigins = Array.from(new Set([...raw.CORS_ORIGINS.split(",").map(normaliseOrigin).filter(Boolean), ...vercelOrigins]));
+
+// Links in emails and on passports: an explicit PUBLIC_APP_URL wins; otherwise
+// the Vercel production address; otherwise the local default.
+const publicAppUrl =
+  process.env.PUBLIC_APP_URL?.trim() ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : raw.PUBLIC_APP_URL);
 
 // A sandbox OTP that prints itself is a demo convenience and a production hole.
 const otpEcho = raw.NODE_ENV === "production" ? false : raw.OTP_ECHO_IN_RESPONSE;
@@ -322,6 +343,7 @@ const emailConfigured = Boolean(httpMailProvider ? raw.SMTP_FROM : smtpConfigure
 
 export const env = {
   ...raw,
+  PUBLIC_APP_URL: publicAppUrl,
   corsOrigins,
   normaliseOrigin,
   /**

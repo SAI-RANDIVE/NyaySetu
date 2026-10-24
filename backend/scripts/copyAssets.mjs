@@ -15,7 +15,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // assets  : the inline email logo
 // reference: the BNS section reference the FIR form and the API validate against
-for (const folder of ["assets", "reference"]) {
+// deployed : the synced contract deployment (scripts/deployment-sync.mjs)
+for (const folder of ["assets", "reference", "deployed"]) {
   const from = join(root, "src", folder);
   const to = join(root, "dist", folder);
 

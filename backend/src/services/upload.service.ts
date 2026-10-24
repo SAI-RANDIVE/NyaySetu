@@ -1,18 +1,18 @@
-import * as fs from "fs";
-import * as path from "path";
 import { createHash } from "crypto";
 import { db, unwrap, unwrapMaybe } from "../lib/supabase";
 import { encryptBuffer, decryptBuffer } from "../lib/crypto";
 import { env } from "../config/env";
 import { badRequest, conflict, forbidden, notFound, AppError } from "../lib/errors";
 import { Sha256, toHex32 } from "../shared/integrity";
+import { chunkStore } from "../lib/chunkStore";
 import type { SessionUser } from "../middleware/auth";
 
 /**
  * Resumable uploads for long recordings (2.0 · F12).
  *
- * Each piece is checked against its own SHA-256 on arrival and written to disk
- * AES-256-GCM encrypted, so a plaintext recording never rests on the server.
+ * Each piece is checked against its own SHA-256 on arrival and stored AES-256-GCM
+ * encrypted (lib/chunkStore: local disk, or a private Supabase Storage bucket when
+ * hosted serverlessly), so a plaintext recording never rests on the server.
  * Assembly decrypts the pieces in order, feeds them to an incremental SHA-256 as
  * it goes, and refuses the whole recording if the result differs from what the
  * device declared.
@@ -32,10 +32,6 @@ export interface UploadSession {
   chunk_digests: Record<string, string>;
   status: "open" | "consumed" | "expired" | "refused";
   expires_at: string;
-}
-
-function stagingDir(uploadId: string): string {
-  return path.join(env.localBlobDir, "staging", uploadId);
 }
 
 function present(session: UploadSession) {
@@ -124,14 +120,12 @@ export async function putChunk(user: SessionUser, uploadId: string, index: numbe
     return present(session);
   }
 
-  const dir = stagingDir(session.id);
-  fs.mkdirSync(dir, { recursive: true });
   const sealed = encryptBuffer(bytes);
-  fs.writeFileSync(path.join(dir, `${index}.bin`), Buffer.concat([Buffer.from(sealed.iv + sealed.tag, "utf8"), sealed.ciphertext]));
+  await chunkStore().put(session.id, index, Buffer.concat([Buffer.from(sealed.iv + sealed.tag, "utf8"), sealed.ciphertext]));
 
   // Read-modify-write guarded by status. Two pieces arriving at once each add
   // their own index; a lost update is caught at assembly, which re-checks every
-  // piece is on disk, and the client simply re-sends what status reports missing.
+  // piece is stored, and the client simply re-sends what status reports missing.
   const fresh = (await loadUpload(user, uploadId)) as UploadSession;
   const received = Array.from(new Set([...fresh.received, index]));
   const digests = { ...fresh.chunk_digests, [String(index)]: digest };
@@ -163,10 +157,10 @@ export async function assembleUpload(user: SessionUser, uploadId: string, caseId
 
   const hasher = new Sha256();
   const parts: Buffer[] = [];
+  const store = chunkStore();
   for (let index = 0; index < session.total_chunks; index++) {
-    const file = path.join(stagingDir(session.id), `${index}.bin`);
-    if (!fs.existsSync(file)) throw conflict(`Piece ${index} is missing on the server. Send it again.`, present(session));
-    const raw = fs.readFileSync(file);
+    const raw = await store.get(session.id, index);
+    if (!raw) throw conflict(`Piece ${index} is missing on the server. Send it again.`, present(session));
     const header = raw.subarray(0, 24 + 32).toString("utf8");
     const plain = decryptBuffer(raw.subarray(56), header.slice(0, 24), header.slice(24, 56));
     const digest = "0x" + createHash("sha256").update(plain).digest("hex");
@@ -190,5 +184,5 @@ export async function assembleUpload(user: SessionUser, uploadId: string, caseId
 
 export async function consumeUpload(uploadId: string, evidenceId: string): Promise<void> {
   await db.from("upload_sessions").update({ status: "consumed", evidence_id: evidenceId }).eq("id", uploadId);
-  fs.rmSync(stagingDir(uploadId), { recursive: true, force: true });
+  await chunkStore().remove(uploadId);
 }

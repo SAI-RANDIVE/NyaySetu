@@ -1,6 +1,5 @@
-import * as fs from "fs";
-import * as path from "path";
 import PDFDocument from "pdfkit";
+import { pdfAsset } from "./format";
 
 /**
  * The typographic engine behind every document this system issues.
@@ -49,11 +48,8 @@ const INK = {
   seal: "#00622f",
 } as const;
 
-const ASSETS = path.resolve(__dirname, "..", "..", "assets");
-
 function asset(name: string): string | null {
-  const file = path.join(ASSETS, name);
-  return fs.existsSync(file) ? file : null;
+  return pdfAsset(name);
 }
 
 export interface DocumentMeta {

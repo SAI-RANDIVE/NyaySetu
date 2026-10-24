@@ -58,7 +58,13 @@ interface BnsReference {
  * Reading the file once, lazily, keeps it out of the module graph — and means a
  * missing artefact degrades to "lookup unavailable" instead of failing the build.
  */
-const REFERENCE_PATH = path.resolve(__dirname, "..", "reference", "bns-sections.json");
+// Relative to this module, or to the service root when bundled as a Vercel function.
+const REFERENCE_PATH =
+  [
+    path.resolve(__dirname, "..", "reference", "bns-sections.json"),
+    path.resolve(process.cwd(), "src", "reference", "bns-sections.json"),
+    path.resolve(process.cwd(), "dist", "reference", "bns-sections.json"),
+  ].find((file) => fs.existsSync(file)) ?? path.resolve(__dirname, "..", "reference", "bns-sections.json");
 
 let reference: BnsReference | null = null;
 let attempted = false;

@@ -13,8 +13,13 @@ const IST = "Asia/Kolkata";
 
 /** A bundled image (backend/src/assets, copied to dist/assets on build), or null if absent. */
 export function pdfAsset(name: string): string | null {
-  const file = path.resolve(__dirname, "..", "..", "assets", name);
-  return fs.existsSync(file) ? file : null;
+  // Relative to this module, then to the working directory (a Vercel function
+  // runs from the service root with src/assets included via includeFiles).
+  for (const dir of [path.resolve(__dirname, "..", "..", "assets"), path.resolve(process.cwd(), "src", "assets"), path.resolve(process.cwd(), "dist", "assets")]) {
+    const file = path.join(dir, name);
+    if (fs.existsSync(file)) return file;
+  }
+  return null;
 }
 
 /** The Maharashtra Police seal, printed at the top right of every document. */

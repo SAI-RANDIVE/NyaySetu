@@ -1,6 +1,46 @@
 # Hosting NyaySetu
 
-NyaySetu has three deployable parts:
+## Recommended: everything on Vercel (one project, Services)
+
+The repository root `vercel.json` deploys the whole system as one Vercel project:
+
+| Part | Kind | Public path | Notes |
+|---|---|---|---|
+| `frontend` | Service (Vite) | `/` | Single-page app with its own fallback to `index.html` |
+| `backend` | Service (Express, `src/vercel.ts`) | `/api/*` | Vercel Function; receives the original `/api/...` path |
+| `ai-service` | Service (Flask) | none (internal) | Reached only by `backend` through the binding that injects `AI_SERVICE_URL` |
+| `worker` | Daemon (`backend/Dockerfile.worker`, `src/worker.ts`) | none | One always-on instance in `sin1`: chain indexer and scheduler (summons windows, missed check-ins, confirmations) |
+
+Everything is on one domain, so cookies are first-party and no CORS setup is
+needed: the API always allows its own Vercel addresses, and `PUBLIC_APP_URL`
+defaults to the production address.
+
+**Steps**
+
+1. Database: migrations 001–013 applied (`database/upgrade_2_0.sql` covers 008–013 for an existing 1.0 database).
+2. `vercel login`, then from the repository root `vercel link --yes --project nyaysetu`
+   (this also connects the GitHub repository, so every push to `main` deploys).
+3. Add the environment variables to **Production** — paste `.env.hosting` into
+   Project → Settings → Environment Variables (Import .env), **except**
+   `NODE_ENV`, `PUBLIC_APP_URL`, `CORS_ORIGINS`, `AI_SERVICE_URL` and `HOST`
+   (Vercel supplies or derives them; `NODE_ENV` would make the build skip dev
+   dependencies). Set `TRUST_PROXY_HOPS=1`, `SUBMIT_WAIT_SECONDS=25` and
+   `SWEEP_INTERVAL_MS=300000` (keeps the daemon inside the Hobby CPU quota).
+4. Push to `main` (or `vercel deploy --prod`). Check `https://<project>.vercel.app/api/health`.
+
+**Limits to know (Hobby plan):** daemons are in beta, run only on production
+deployments, and have 5 active-CPU-hours a month; the AI service may exceed the
+Python bundle size limit (the app then reports screening as unavailable);
+function requests are limited to 4.5 MB, which is why large files are uploaded
+in 2 MB pieces kept in the private `upload-staging` Supabase Storage bucket.
+Brevo must not restrict SMTP to authorised IPs, because Vercel's outbound
+addresses change.
+
+---
+
+## Alternative: web app on Vercel or Netlify, API on Render
+
+This was the original layout and still works. NyaySetu has three deployable parts:
 
 | Part | Where | Why there |
 |---|---|---|
@@ -66,13 +106,18 @@ add `AI_SERVICE_KEY` (the same value as in `.env.hosting`) and `HOST=0.0.0.0`.
 Its address (e.g. `https://nyaysetu-ai.onrender.com`) must equal
 `AI_SERVICE_URL` on the API service. Check `https://nyaysetu-ai.onrender.com/health`.
 
-## 3 · The web app on Vercel (recommended)
+## 3 · The web app on Netlify (or a frontend-only Vercel project)
+
+For a frontend-only Vercel project, create `frontend/vercel.json` with a rewrite
+`{ "source": "/api/:path*", "destination": "https://nyaysetu-api.onrender.com/api/:path*" }`
+followed by the SPA fallback to `/index.html`, and set **Root Directory: `frontend`**
+(the repository-root `vercel.json` is for the all-in-one Services setup above).
 
 1. If your API address differs from `https://nyaysetu-api.onrender.com`, edit
-   `frontend/vercel.json` (the `/api/:path*` rewrite) and push.
+   the forwarding rule and push.
 2. **vercel.com** → **Add New… → Project** → import the repository.
 3. **Root Directory: `frontend`**. Framework: **Vite** (detected). Build
-   command `npm run build`, output `dist` (already in `vercel.json`).
+   command `npm run build`, output `dist`.
 4. No environment variables are needed. Click **Deploy**.
 5. Note the site address (e.g. `https://nyaysetu.vercel.app`). On Render, set
    `PUBLIC_APP_URL` and `CORS_ORIGINS` on `nyaysetu-api` to exactly that address

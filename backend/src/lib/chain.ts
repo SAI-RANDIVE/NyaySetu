@@ -53,6 +53,11 @@ function candidatePaths(): string[] {
   const deployedDir = path.resolve(process.cwd(), "..", "contracts", "deployed");
   paths.push(path.join(deployedDir, `${env.CHAIN_NETWORK}.json`));
   paths.push(path.join(deployedDir, "latest.json"));
+  // The backend's own synced copy (scripts/deployment-sync.mjs), for bundles that
+  // do not contain ../contracts: a Vercel function or a backend-only container.
+  for (const dir of [path.resolve(__dirname, "..", "deployed"), path.resolve(process.cwd(), "src", "deployed"), path.resolve(process.cwd(), "dist", "deployed")]) {
+    paths.push(path.join(dir, `${env.CHAIN_NETWORK}.json`));
+  }
   return paths;
 }
 

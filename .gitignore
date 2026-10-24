@@ -76,3 +76,6 @@ desktop.ini
 brand/*.pdf
 backend/test/.blobs/
 backend/storage/local-stack/
+
+.vercel
+.env*
