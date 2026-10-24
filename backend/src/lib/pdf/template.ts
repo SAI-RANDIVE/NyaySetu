@@ -1,5 +1,5 @@
 import PDFDocument from "pdfkit";
-import { istDateTime } from "./format";
+import { POLICE_SEAL, istDateTime, pdfAsset } from "./format";
 
 /**
  * A formal, court-style document from an editable template: letterhead, title,
@@ -70,11 +70,18 @@ export async function buildTemplatePdf(input: TemplateDocument): Promise<Buffer>
     .fontSize(8.5)
     .fillColor(BRAND)
     .text("NYAYSETU", M, M - 18, { characterSpacing: 2, continued: false });
+  const seal = pdfAsset(POLICE_SEAL);
+  const sealSize = 40;
+  if (seal) doc.image(seal, M + W - sealSize, M - 32, { fit: [sealSize, sealSize], align: "right", valign: "center" });
   if (input.issuer) {
-    doc.font("Helvetica").fontSize(8.5).fillColor(MUTED).text(input.issuer, M, M - 18, { width: W, align: "right" });
+    doc
+      .font("Helvetica")
+      .fontSize(8.5)
+      .fillColor(MUTED)
+      .text(input.issuer, M, M - 18, { width: W - (seal ? sealSize + 10 : 0), align: "right" });
   }
-  doc.moveTo(M, M - 4).lineTo(M + W, M - 4).strokeColor(INK).lineWidth(0.8).stroke();
-  doc.y = M + 10;
+  doc.moveTo(M, M + 12).lineTo(M + W, M + 12).strokeColor(INK).lineWidth(0.8).stroke();
+  doc.y = M + 24;
   doc.x = M;
 
   /* ------------------------------------------------------------- title */

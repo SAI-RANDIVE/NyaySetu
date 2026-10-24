@@ -6,7 +6,19 @@
  * hosts while still labelling it IST.
  */
 
+import fs from "fs";
+import path from "path";
+
 const IST = "Asia/Kolkata";
+
+/** A bundled image (backend/src/assets, copied to dist/assets on build), or null if absent. */
+export function pdfAsset(name: string): string | null {
+  const file = path.resolve(__dirname, "..", "..", "assets", name);
+  return fs.existsSync(file) ? file : null;
+}
+
+/** The Maharashtra Police seal, printed at the top right of every document. */
+export const POLICE_SEAL = "seal-maharashtra-police.png";
 
 function parts(value: string | number | Date): Record<string, string> | null {
   const d = value instanceof Date ? value : new Date(value);

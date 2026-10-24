@@ -127,12 +127,10 @@ export class CourtDocument {
     const police = asset("seal-maharashtra-police.png");
     const nyaysetu = asset("seal-nyaysetu.png");
 
-    if (police) this.doc.image(police, MARGIN.left, top, { width: sealSize, height: sealSize });
-    if (nyaysetu) {
-      this.doc.image(nyaysetu, A4.width - MARGIN.right - sealSize, top, {
-        width: sealSize,
-        height: sealSize,
-      });
+    // NyaySetu's mark at the top left; the issuing force's seal at the top right.
+    if (nyaysetu) this.doc.image(nyaysetu, MARGIN.left, top, { fit: [sealSize, sealSize], align: "center", valign: "center" });
+    if (police) {
+      this.doc.image(police, A4.width - MARGIN.right - sealSize, top, { fit: [sealSize, sealSize], align: "center", valign: "center" });
     }
 
     const innerLeft = MARGIN.left + sealSize + 14;

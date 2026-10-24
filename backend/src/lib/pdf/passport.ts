@@ -1,5 +1,5 @@
 import PDFDocument from "pdfkit";
-import { istDateTimeSeconds } from "./format";
+import { POLICE_SEAL, istDateTimeSeconds, pdfAsset } from "./format";
 import QRCode from "qrcode";
 import type { PublicPassport } from "../../services/passport/passport.service";
 
@@ -83,14 +83,16 @@ export async function buildPassportPdf(
   doc.rect(A4.width * 0.62, 0, A4.width * 0.38, 6).fill(INK.saffron);
 
   doc.fillColor(INK.brand).font("Helvetica-Bold").fontSize(9).text("NYAYSETU", M, M - 8, { characterSpacing: 2 });
-  doc.fillColor(INK.text).font("Helvetica-Bold").fontSize(20).text("Evidence Integrity Passport", M, M + 6, { width: W - 130 });
+  doc.fillColor(INK.text).font("Helvetica-Bold").fontSize(20).text("Evidence Integrity Passport", M, M + 6, { width: W - 190 });
   doc.fillColor(INK.muted).font("Helvetica").fontSize(9.5).text(
     options.capture ? "Authorised edition — includes capture quality. No location data." : "Public edition — no personal or case data.",
     M,
     doc.y + 2,
-    { width: W - 130 }
+    { width: W - 190 }
   );
   doc.image(qr, A4.width - M - 108, M - 6, { width: 108 });
+  const seal = pdfAsset(POLICE_SEAL);
+  if (seal) doc.image(seal, A4.width - M - 108 - 62, M - 2, { fit: [54, 54], align: "center", valign: "center" });
   doc.fillColor(INK.faint).fontSize(7).text("Scan to verify online", A4.width - M - 108, M + 104, { width: 108, align: "center" });
 
   let y = Math.max(doc.y, M + 118) + 8;
@@ -157,15 +159,15 @@ export async function buildPassportPdf(
   y += 10;
   doc.fillColor(INK.text).font("Helvetica-Bold").fontSize(11).text("Chain of custody", M, y);
   y = doc.y + 6;
-  const cols = [M, M + 120, M + 270, M + 400];
-  ["Event", "From", "To", "Time (IST)"].forEach((h, i) => label(h, cols[i], y, 130));
+  const cols = [M, M + 105, M + 235, M + 360];
+  ["Event", "From", "To", "Time (IST)"].forEach((h, i) => label(h, cols[i], y, i === 3 ? W - 360 : 120));
   y += 13;
   for (const event of passport.custody) {
     doc.fillColor(INK.text).font("Helvetica").fontSize(9);
-    doc.text(event.type === "REGISTERED" ? "Registered" : "Custody transfer", cols[0], y, { width: 118 });
-    doc.text(event.from ?? "—", cols[1], y, { width: 146 });
-    doc.text(event.to, cols[2], y, { width: 126 });
-    doc.text(when(event.at), cols[3], y, { width: W - 352 });
+    doc.text(event.type === "REGISTERED" ? "Registered" : "Custody transfer", cols[0], y, { width: 100 });
+    doc.text(event.from ?? "—", cols[1], y, { width: 125 });
+    doc.text(event.to, cols[2], y, { width: 120 });
+    doc.text(when(event.at), cols[3], y, { width: W - 360 });
     y += 15;
   }
   if (passport.custody.length === 0) {
