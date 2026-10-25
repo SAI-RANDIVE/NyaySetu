@@ -12,6 +12,8 @@ export const en = {
   "common.close": "Close",
   "common.save": "Save",
   "common.submit": "Submit",
+  "common.listen": "Listen",
+  "common.stopListening": "Stop",
   "common.back": "Back",
   "common.next": "Next",
   "common.copy": "Copy",
@@ -48,6 +50,7 @@ export const en = {
   "shell.verify": "Verify evidence",
   "shell.footer": "NyaySetu · न्यायसेतु · evidence, summons and bail with fingerprints anchored to Ethereum",
   "shell.about": "About NyaySetu",
+  "shell.transparency": "Transparency",
   "shell.preferences": "Display",
   "shell.incompleteTitle": "Your record is incomplete",
   "shell.incompleteBody":

@@ -12,6 +12,8 @@ export const hi: Record<MessageKey, string> = {
   "common.close": "बंद करें",
   "common.save": "सहेजें",
   "common.submit": "जमा करें",
+  "common.listen": "सुनें",
+  "common.stopListening": "रोकें",
   "common.back": "वापस",
   "common.next": "आगे",
   "common.copy": "कॉपी करें",
@@ -47,6 +49,7 @@ export const hi: Record<MessageKey, string> = {
   "shell.verify": "साक्ष्य सत्यापित करें",
   "shell.footer": "NyaySetu · न्यायसेतु · साक्ष्य, समन और जमानत, जिनके फ़िंगरप्रिंट Ethereum पर दर्ज हैं",
   "shell.about": "NyaySetu के बारे में",
+  "shell.transparency": "पारदर्शिता",
   "shell.preferences": "प्रदर्शन",
   "shell.incompleteTitle": "आपका रिकॉर्ड अधूरा है",
   "shell.incompleteBody":

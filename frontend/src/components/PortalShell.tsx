@@ -395,6 +395,9 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
               <Link to="/handbook" className="font-ui text-2xs text-faint transition hover:text-primary">
                 {t("shell.handbook")}
               </Link>
+              <Link to="/transparency" className="font-ui text-2xs text-faint transition hover:text-primary">
+                {t("shell.transparency")}
+              </Link>
               <Link to="/about" className="font-ui text-2xs text-faint transition hover:text-primary">
                 {t("shell.about")}
               </Link>

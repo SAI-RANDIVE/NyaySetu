@@ -7,6 +7,7 @@ import { anchorDocument } from "./verification/documentAnchor";
 import { presentVerification } from "./evidence.service";
 import { loadAnchor } from "./verification/anchors";
 import { buildTemplatePdf } from "../lib/pdf/template";
+import { verifyUrl } from "./passport/passport.service";
 import { MOVEMENT_LABEL, ROLE_LABEL, STAGE_LABEL, VERIFICATION_LABEL, istDateTime, istDateTimeSeconds, shortDigest } from "../lib/pdf/format";
 import type { SessionUser, UserRole } from "../middleware/auth";
 
@@ -366,6 +367,7 @@ export async function custodyFormPdf(evidenceId: string) {
 
   const pdf = await buildTemplatePdf({
     title: "Chain of Custody Record",
+    qr: { url: verifyUrl(item.public_ref), caption: "Scan to verify this item" },
     subtitle: `Case ${item.cases?.case_reference ?? "—"}${item.cases?.title ? ` · ${item.cases.title}` : ""}`,
     issuer: caseRow?.police_station ?? null,
     reference: item.public_ref,

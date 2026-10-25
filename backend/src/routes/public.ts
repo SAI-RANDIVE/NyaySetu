@@ -6,6 +6,7 @@ import { validate, hash32 } from "../middleware/validate";
 import { publicLimiter } from "../middleware/rateLimit";
 import { checkFileAgainstChain, publicPassport, verifyUrl } from "../services/passport/passport.service";
 import { buildPassportPdf } from "../lib/pdf/passport";
+import { transparencyStats } from "../services/transparency.service";
 
 /**
  * The public Integrity Passport (2.0 · F3). No sign-in, no session, no CSRF —
@@ -26,6 +27,18 @@ router.use((_req, res, next) => {
 });
 
 const refParam = z.object({ ref: z.string().trim().min(4).max(40) });
+
+/**
+ * Public transparency figures (counts and ledger links only). No names, case
+ * references, file names or locations; see services/transparency.service.ts.
+ */
+router.get(
+  "/stats",
+  asyncRoute(async (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json(await transparencyStats());
+  })
+);
 
 router.get(
   "/verify/:ref",

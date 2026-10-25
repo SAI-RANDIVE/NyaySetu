@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarClock, CheckSquare, Gavel, HelpCircle, KeyRound, LifeBuoy, Mail, MessageSquareWarning, Scale, ShieldCheck } from "lucide-react";
+import { CalendarClock, CheckSquare, Square, Volume2, Gavel, HelpCircle, KeyRound, LifeBuoy, Mail, MessageSquareWarning, Scale, ShieldCheck } from "lucide-react";
 import { boundary, explainAssistance, explainCheckIn, explainSummons, type Explanation } from "@nyaysetu/integrity";
 import { api, type CaseRow } from "../lib/api";
 import { useMutation, useQuery } from "../lib/useApi";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { useI18n, type MessageKey } from "../i18n";
+import { useI18n, type Lang, type MessageKey } from "../i18n";
+import { useSpeech } from "../lib/speech";
 import { ROLE_HOME, formatDateTime, relativeTime } from "../lib/format";
 import { AsyncView, EmptyState } from "../components/DataState";
 import { Button, Card, Field, Input, Modal, PageHeader, Select, Textarea } from "../components/ui";
@@ -652,10 +653,31 @@ const TONE_STYLE: Record<Explanation["tone"], string> = {
   problem: "border-danger-soft bg-danger-soft",
 };
 
+export function ListenButton({ text, lang }: { text: string; lang: Lang }) {
+  const { t } = useI18n();
+  const speech = useSpeech();
+  if (!speech.supported) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => speech.toggle(text, lang)}
+      aria-pressed={speech.speaking}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 font-ui text-xs font-semibold text-text hover:border-primary"
+    >
+      {speech.speaking ? <Square size={12} aria-hidden /> : <Volume2 size={13} aria-hidden />}
+      {speech.speaking ? t("common.stopListening") : t("common.listen")}
+    </button>
+  );
+}
+
 function ExplanationBox({ e }: { e: Explanation }) {
+  const { lang } = useI18n();
   return (
     <div className={`rounded-xl border p-4 ${TONE_STYLE[e.tone]}`}>
-      <p className="font-ui text-base font-semibold text-text">{e.title}</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-ui text-base font-semibold text-text">{e.title}</p>
+        <ListenButton text={[e.title, e.body, e.next].filter(Boolean).join(". ")} lang={lang} />
+      </div>
       <p className="mt-1 font-ui text-sm leading-relaxed text-text">{e.body}</p>
       {e.next && <p className="mt-2 font-ui text-sm font-semibold text-text">{e.next}</p>}
     </div>

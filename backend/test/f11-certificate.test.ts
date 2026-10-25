@@ -59,6 +59,10 @@ test("a capture's certificate is filled from the record, and its hash is the anc
   assert.ok(text.includes("PartA"), "Part A present");
   assert.ok(text.includes("PartB"), "Part B present");
   assert.ok(text.includes(flat("verify against the current Schedule")), "template disclaimer on the page");
+  // The paper carries its own way back to the public record.
+  assert.ok(text.toLowerCase().includes("verifyonline"), "verification link row present");
+  assert.ok(text.includes(flat(`/verify/${captured.body.evidence.public_ref}`)), "the link names this item");
+  assert.ok(Buffer.from(response.raw).includes(Buffer.from("/Subtype /Image")), "the QR code is embedded");
   assert.equal(mem.table("certificates").length, 1);
   assert.equal(mem.table("certificates")[0].anchored_digest, fake.registry.get(1)!.fileHash);
 });

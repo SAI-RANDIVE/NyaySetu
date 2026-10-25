@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import QRCode from "qrcode";
 import { POLICE_SEAL, istDateTime, pdfAsset } from "./format";
 
 /**
@@ -35,6 +36,8 @@ export interface TemplateDocument {
   footer: string;
   /** When the document was produced; defaults to now. */
   generatedAt?: string | Date;
+  /** A QR code printed in the reference block, e.g. the item's public passport. */
+  qr?: { url: string; caption: string } | null;
 }
 
 /** Long unbroken tokens (digests, references) make justified text gape. */
@@ -94,12 +97,23 @@ export async function buildTemplatePdf(input: TemplateDocument): Promise<Buffer>
   const rows: [string, string][] = [];
   if (input.reference) rows.push(["Reference", input.reference]);
   rows.push(["Generated", istDateTime(input.generatedAt ?? new Date())]);
-  const blockHeight = rows.length * 14 + 10;
+  if (input.qr) rows.push(["Verify online", input.qr.url]);
+  const qrSize = 62;
+  const blockHeight = Math.max(rows.length * 14 + 10, input.qr ? qrSize + 12 : 0);
   doc.rect(M, blockTop, W, blockHeight).fillAndStroke("#f7f7f7", "#d0d0d0");
+  if (input.qr) {
+    const png = await QRCode.toBuffer(input.qr.url, { errorCorrectionLevel: "M", margin: 0, width: 240, color: { dark: "#111111", light: "#f7f7f7" } });
+    doc.image(png, M + W - qrSize - 6, blockTop + 6, { width: qrSize });
+    doc.font("Helvetica").fontSize(6.5).fillColor(MUTED).text(input.qr.caption, M + W - qrSize - 90, blockTop + blockHeight - 14, { width: 80, align: "right" });
+  }
   rows.forEach(([label, value], i) => {
     const y = blockTop + 6 + i * 14;
     doc.font("Helvetica-Bold").fontSize(8).fillColor(MUTED).text(label.toUpperCase(), M + 10, y + 1, { width: 90, characterSpacing: 0.6 });
-    doc.font(isDigest(value) || label === "Reference" ? "Courier" : "Times-Roman").fontSize(9.5).fillColor(INK).text(value, M + 100, y, { width: W - 110 });
+    doc
+      .font(isDigest(value) || label === "Reference" ? "Courier" : "Times-Roman")
+      .fontSize(label === "Verify online" ? 8 : 9.5)
+      .fillColor(INK)
+      .text(value, M + 100, y, { width: W - 110 - (input.qr ? qrSize + 100 : 0) });
   });
   doc.y = blockTop + blockHeight + 16;
   doc.x = M;

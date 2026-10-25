@@ -23,6 +23,7 @@ function lazyNamed<M extends Record<string, unknown>, K extends keyof M>(load: (
 const FirstRun = lazy(() => import("./pages/FirstRun"));
 const Handbook = lazy(() => import("./pages/Handbook"));
 const About = lazy(() => import("./pages/About"));
+const Transparency = lazy(() => import("./pages/Transparency"));
 const VerifyPage = lazy(() => import("./pages/Verify"));
 const CaseDossierPage = lazyNamed(() => import("./pages/shared"), "CaseDossierPage");
 const CasesPage = lazyNamed(() => import("./pages/shared"), "CasesPage");
@@ -221,6 +222,7 @@ export default function App() {
             account, and putting this behind a sign-in would defeat that. */}
         <Route path="/handbook" element={<Handbook />} />
         <Route path="/about" element={<About />} />
+        <Route path="/transparency" element={<Transparency />} />
         {/* The Evidence Integrity Passport: public, no sign-in, no case data. */}
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/verify/:ref" element={<VerifyPage />} />

@@ -3,6 +3,7 @@
  *
  *   npm run flow:check
  *   npm run flow:check -- --mail you@gmail.com     (also delivers every email)
+ *   npm run flow:check -- --keep                   (leaves the case and cast in place)
  *
  * This is the script that answers "does all of it actually work". It creates a
  * court out of nothing, using only the routes a real deployment exposes:
@@ -18,7 +19,10 @@
  *    9. the accused acknowledges it with an OTP, GPS and a device fingerprint
  *   10. the judge grants bail with conditions encoded on chain
  *   11. a check-in inside the fence is compliant; one outside it is a breach
- *   12. everything it created is deleted again
+ *   12. everything it created is deleted again — unless --keep is passed, in
+ *       which case the case, its evidence, custody, summons and bail stay, the
+ *       accounts stay active, and their credentials are printed, so the portals
+ *       can be walked through with a complete record already in them.
  *
  * WHY IT BUILDS ITS OWN CAST
  *   There is no seeded demo cast to borrow, on purpose: eight accounts sharing a
@@ -260,6 +264,7 @@ async function cleanup(
 async function main(): Promise<void> {
   const mailIndex = process.argv.indexOf("--mail");
   const mailBase = mailIndex >= 0 ? process.argv[mailIndex + 1] : undefined;
+  const keep = process.argv.includes("--keep");
   const adminEmail = (process.argv[2] && !process.argv[2].startsWith("--") ? process.argv[2] : undefined)
     ?? process.env.BOOTSTRAP_ADMIN_EMAIL;
   const adminPassword = process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : process.env.BOOTSTRAP_ADMIN_PASSWORD;
@@ -269,7 +274,7 @@ async function main(): Promise<void> {
       [
         "",
         "  Usage:",
-        "    npm run flow:check -- <admin-email> <admin-password> [--mail you@gmail.com]",
+        "    npm run flow:check -- <admin-email> <admin-password> [--mail you@gmail.com] [--keep]",
         "",
         "  Without --mail, the accounts it creates use @nyaysetu.invalid addresses,",
         "  so no email is delivered anywhere. With it, every address becomes a",
@@ -894,6 +899,18 @@ async function main(): Promise<void> {
     );
 
     /* =================================================== 15. cleanup */
+    if (keep) {
+      step("15 · Keeping the record for a walkthrough");
+      // The outsider exists only to be refused; it is the one account stood down.
+      await cleanup(admin, undefined, new Map(), strangerId);
+      check("the case and the cast are left in place", true, firNumber);
+      console.log("\n  Sign in as any of these (the code is emailed; use --mail to receive it):\n");
+      for (const spec of ROLES) {
+        const m = members.get(spec.slug as Slug);
+        if (m) console.log(`    ${spec.role.padEnd(16)} ${m.email.padEnd(40)} ${m.password}`);
+      }
+      console.log("\n  These credentials print once. Change them before showing the system to anyone.");
+    } else {
     step("15 · Cleaning up after itself");
     // The case goes, and cascades away its evidence, custody, summons, bail,
     // check-ins and violations with it. The accounts stay, because the record
@@ -908,6 +925,7 @@ async function main(): Promise<void> {
       true,
       `${dormant} dormant account(s) kept, because the record references them`
     );
+    }
   } catch (error) {
     failed++;
     console.error(`\n  ABORTED: ${error instanceof Error ? error.message : error}`);

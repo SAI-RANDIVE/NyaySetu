@@ -42,6 +42,24 @@ const NAV = [
   { href: "#limits", label: "Limits" },
 ];
 
+const LAW = [
+  {
+    section: "BNSS § 105",
+    duty: "Search and seizure must be recorded by audio-video means",
+    how: "Captures are fingerprinted on the officer's phone at the scene, before upload, with location and time — and queued safely when there is no signal.",
+  },
+  {
+    section: "BNSS § 176(3)",
+    duty: "Forensic experts must attend serious crime scenes and record the process",
+    how: "The laboratory accepts custody only after re-checking the fingerprint, so the item examined is provably the item collected.",
+  },
+  {
+    section: "BSA § 63",
+    duty: "Electronic records need a certificate stating their hash value",
+    how: "The Section 63 certificate is generated from the record itself, carries the SHA-256 digest, and has a QR code that anyone can scan to verify it.",
+  },
+];
+
 const STEPS = [
   {
     icon: Camera,
@@ -127,6 +145,9 @@ function Header() {
               {item.label}
             </a>
           ))}
+          <Link to="/transparency" className="rounded-full px-3 py-2 font-ui text-sm text-muted transition hover:bg-surface-2 hover:text-text">
+            Transparency
+          </Link>
           <Link to="/about" className="rounded-full px-3 py-2 font-ui text-sm text-muted transition hover:bg-surface-2 hover:text-text">
             About
           </Link>
@@ -153,7 +174,7 @@ function Header() {
       </div>
       {open && (
         <nav aria-label="Sections" className="border-t border-border bg-surface px-4 pb-4 pt-2 md:hidden">
-          {[...NAV, { href: "/about", label: "About NyaySetu" }, { href: "/verify", label: "Verify evidence" }].map((item) =>
+          {[...NAV, { href: "/transparency", label: "Transparency" }, { href: "/about", label: "About NyaySetu" }, { href: "/verify", label: "Verify evidence" }].map((item) =>
             item.href.startsWith("#") ? (
               <a key={item.href} href={item.href} onClick={() => setOpen(false)} className="block rounded-xl px-3 py-3 font-ui text-base text-text hover:bg-surface-2">
                 {item.label}
@@ -278,6 +299,41 @@ export default function Landing() {
                 </div>
               </Reveal>
             ))}
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------- the law */}
+        <section id="law" className="scroll-mt-20 border-t border-border bg-surface">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+            <SectionHead
+              eyebrow="Why now"
+              title="Since 1 July 2024, the law asks for exactly this"
+              body="The Bharatiya Nagarik Suraksha Sanhita and the Bharatiya Sakshya Adhiniyam turned recording and hashing from good practice into statutory duty. NyaySetu is built around those sections."
+            />
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              {LAW.map((item, i) => (
+                <Reveal key={item.section} delay={i * 0.06}>
+                  <div className="panel flex h-full flex-col p-6">
+                    <p className="font-mono text-xs font-semibold text-primary">{item.section}</p>
+                    <h3 className="mt-2 font-display text-xl leading-snug text-text">{item.duty}</h3>
+                    <p className="mt-3 flex-1 font-ui text-sm leading-relaxed text-muted">{item.how}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+            <Reveal delay={0.1}>
+              <p className="mt-8 max-w-3xl font-ui text-sm leading-relaxed text-muted">
+                Maharashtra&rsquo;s district courts carry more than fifty lakh pending cases, most of them criminal, according to the{" "}
+                <a href="https://njdg.ecourts.gov.in/" target="_blank" rel="noreferrer noopener" className="font-semibold text-primary hover:underline">
+                  National Judicial Data Grid
+                </a>
+                . Every adjournment spent disputing whether an exhibit is the one seized is time those cases do not get.{" "}
+                <Link to="/transparency" className="font-semibold text-primary hover:underline">
+                  See the live figures
+                </Link>
+                .
+              </p>
+            </Reveal>
           </div>
         </section>
 

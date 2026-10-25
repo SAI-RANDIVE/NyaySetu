@@ -2,7 +2,7 @@
   "name": "nyaysetu",
   "version": "2.0.0",
   "private": true,
-  "description": "NyaySetu (\u0928\u094d\u092f\u093e\u092f\u0938\u0947\u0924\u0941) \u2014 blockchain-anchored evidence, summons and bail infrastructure",
+  "description": "NyaySetu (न्यायसेतु) — blockchain-anchored evidence, summons and bail infrastructure",
   "license": "MIT",
   "engines": {
     "node": ">=20"
@@ -36,6 +36,7 @@
     "db:bundle": "node scripts/bundle-upgrade.mjs",
     "db:bundle:check": "node scripts/bundle-upgrade.mjs --check",
     "deployment:sync": "node scripts/deployment-sync.mjs",
-    "deployment:check": "node scripts/deployment-sync.mjs --check"
+    "deployment:check": "node scripts/deployment-sync.mjs --check",
+    "demo:data": "npm --prefix backend run flow:check -- --keep"
   }
 }

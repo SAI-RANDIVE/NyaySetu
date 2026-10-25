@@ -1,17 +1,20 @@
-import { useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle2,
   ClipboardList,
   Gavel,
+  MapPin,
   Plus,
   Scale,
   ScrollText,
   ShieldAlert,
   Timer,
 } from "lucide-react";
-import { api, type BailRow, type CaseRow, type SummonsRow } from "../lib/api";
+import { api, type BailRow, type CaseRow, type CheckInRow, type SummonsRow } from "../lib/api";
+
+const BailMap = lazy(() => import("../components/BailMap"));
 import { useMutation, useQuery, useTicker } from "../lib/useApi";
 import { useToast } from "../context/ToastContext";
 import { BailComplianceCard } from "./court";
@@ -682,8 +685,34 @@ function CloseBailModal({
   );
 }
 
+/** Loads the check-in trail only when the map is opened. */
+function BailMapPanel({ order }: { order: BailRow }) {
+  const detail = useQuery<{ bail: BailRow; checkins: CheckInRow[] }>(`/api/bail/case/${order.case_id}`);
+  return (
+    <AsyncView state={detail} onRetry={detail.refetch} context="the check-in trail">
+      {(d) =>
+        d.bail.centre_lat == null || d.bail.centre_lng == null ? (
+          <p className="font-ui text-sm text-muted">This order has no geo-restriction.</p>
+        ) : (
+          <div className="space-y-3">
+            <Suspense fallback={<div className="h-80 animate-pulse rounded-xl bg-surface-2" />}>
+              <BailMap centre={{ lat: d.bail.centre_lat, lng: d.bail.centre_lng }} radiusMetres={d.bail.radius_metres} checkins={d.checkins} />
+            </Suspense>
+            <p className="font-ui text-xs text-muted">
+              <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-success align-middle" /> within the fence
+              <span className="mx-1 ml-4 inline-block h-2.5 w-2.5 rounded-full bg-danger align-middle" /> outside the fence ·{" "}
+              {d.checkins.length} check-in{d.checkins.length === 1 ? "" : "s"}, each verdict decided by the contract
+            </p>
+          </div>
+        )
+      }
+    </AsyncView>
+  );
+}
+
 function BailCard({ order, onChanged }: { order: BailRow; onChanged: () => void }) {
   const toast = useToast();
+  const [mapOpen, setMapOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [reason, setReason] = useState("NO_CONTACT_BREACH");
@@ -734,6 +763,11 @@ function BailCard({ order, onChanged }: { order: BailRow; onChanged: () => void 
         <LinkButton to={`/judge/cases/${order.case_id}`} variant="secondary" size="sm" full className="flex-1">
           Open case
         </LinkButton>
+        {order.radius_metres > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setMapOpen(true)}>
+            <MapPin size={14} aria-hidden /> Map
+          </Button>
+        )}
         <Button variant="ghost" size="sm" onClick={() => setReportOpen(true)}>
           Report breach
         </Button>
@@ -743,6 +777,10 @@ function BailCard({ order, onChanged }: { order: BailRow; onChanged: () => void 
           </Button>
         )}
       </div>
+
+      <Modal open={mapOpen} onClose={() => setMapOpen(false)} width="max-w-2xl" title={`Geo-fence: ${order.accused_name}`} description={`Radius ${formatMetres(order.radius_metres)} around the permitted residence.`}>
+        {mapOpen && <BailMapPanel order={order} />}
+      </Modal>
 
       <CloseBailModal
         open={closeOpen}

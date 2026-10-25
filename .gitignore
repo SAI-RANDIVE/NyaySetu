@@ -79,3 +79,6 @@ backend/storage/local-stack/
 
 .vercel
 .env*
+
+# Private working notes, kept out of the repository
+submission/

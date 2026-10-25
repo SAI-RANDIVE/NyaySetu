@@ -6,6 +6,7 @@ import { loadAnchor } from "./verification/anchors";
 import { chainReader } from "./verification/reader";
 import { buildTemplatePdf } from "../lib/pdf/template";
 import { istDateTimeSeconds } from "../lib/pdf/format";
+import { verifyUrl } from "./passport/passport.service";
 import type { SessionUser } from "../middleware/auth";
 
 /**
@@ -200,6 +201,7 @@ export async function renderCertificate(evidenceId: string, user: SessionUser, i
   const pdf = await buildTemplatePdf({
     title: template.title,
     reference: item.public_ref,
+    qr: { url: verifyUrl(item.public_ref), caption: "Scan to verify this record" },
     sections: template.sections.map((s) => ({ heading: s.heading, body: fillPlaceholders(s.body, fields) })),
     footer: template.footer,
     signatures: [

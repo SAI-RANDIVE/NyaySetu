@@ -376,6 +376,7 @@ export default function About() {
           <nav aria-label="Footer" className="flex flex-wrap items-center gap-5 font-ui text-sm">
             <Link to="/" className="text-muted hover:text-primary">Home</Link>
             <Link to="/verify" className="text-muted hover:text-primary">Verify</Link>
+            <Link to="/transparency" className="text-muted hover:text-primary">Transparency</Link>
             <Link to="/handbook" className="text-muted hover:text-primary">Handbook</Link>
             <span className="inline-flex items-center gap-1.5 text-muted">
               <Globe2 size={14} aria-hidden /> Developed by Sai Randive

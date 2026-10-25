@@ -12,6 +12,8 @@ export const mr: Record<MessageKey, string> = {
   "common.close": "बंद करा",
   "common.save": "जतन करा",
   "common.submit": "सादर करा",
+  "common.listen": "ऐका",
+  "common.stopListening": "थांबवा",
   "common.back": "मागे",
   "common.next": "पुढे",
   "common.copy": "कॉपी करा",
@@ -47,6 +49,7 @@ export const mr: Record<MessageKey, string> = {
   "shell.verify": "पुरावा सत्यापित करा",
   "shell.footer": "NyaySetu · न्यायसेतु · पुरावा, समन्स आणि जामीन, ज्यांचे फिंगरप्रिंट Ethereum वर नोंदवलेले आहेत",
   "shell.about": "NyaySetu बद्दल",
+  "shell.transparency": "पारदर्शकता",
   "shell.preferences": "प्रदर्शन",
   "shell.incompleteTitle": "तुमची नोंद अपूर्ण आहे",
   "shell.incompleteBody":

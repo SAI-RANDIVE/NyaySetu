@@ -68,6 +68,7 @@ Evidence, summons and bail records you can verify
 | | Where | What to look at |
 |---|---|---|
 | **Web application** | [nyaysetu-project.vercel.app](https://nyaysetu-project.vercel.app) | The landing page and the public handbook need no account |
+| **Transparency** | [`/transparency`](https://nyaysetu-project.vercel.app/transparency) | Live counts, the latest ledger transactions, and a tamper lab that runs in the browser |
 | **API health** | [`/api/health`](https://nyaysetu-project.vercel.app/api/health) | Every subsystem reports itself separately, including what is still a fallback |
 | **EvidenceChain** | [`0x383d996D…F6D4`](https://sepolia.etherscan.io/address/0x383d996De8cd2a19aCC8d66CdEa2F4A3b1E7F6D4) | Live on Sepolia. Every digest below is verifiable here |
 | **SummonsChain** | [`0x18f8D239…8232`](https://sepolia.etherscan.io/address/0x18f8D239653A5542d0cBfA8d13c30E46F3c18232) | Acknowledgements, with time and coordinates |
@@ -186,6 +187,23 @@ Three places in a criminal matter where the record is only as good as somebody's
 **SammansSetu** (`SummonsChain.sol`) — summons issuance, OTP-authenticated acknowledgement with GPS, a 72-hour window the contract enforces itself.
 
 **JaminSetu** (`BailChain.sol`) — bail conditions as code, geo-fenced check-ins, automatic violation detection, live compliance scoring.
+
+### Built around the new criminal laws
+
+| Section (in force 1 July 2024) | What it requires | Where NyaySetu meets it |
+|---|---|---|
+| **BNSS § 105** | Search and seizure recorded by audio-video means | Captures are fingerprinted on the officer's phone at the scene, before upload, and queued offline without duplicates |
+| **BNSS § 176(3)** | Forensic attendance and recording at serious crime scenes | The laboratory takes custody only after re-hashing the item; a mismatch is refused and anchored |
+| **BSA § 63** | A certificate stating the hash of an electronic record | The certificate is generated from the record, carries the SHA-256 digest, and has a QR code back to the public verification page |
+
+### For the public, and for people who are not lawyers
+
+- **Transparency page** (`/transparency`): aggregate counts only, with every contract and recent transaction linked to Etherscan. No names, references or places.
+- **Tamper lab**: choose any file, change one bit, and watch the fingerprint change completely. It runs entirely in the browser.
+- **QR codes on documents**: the Section 63 certificate and the custody record each carry a code that opens the item's public verification page.
+- **Read aloud**: explanations for the accused are spoken in Marathi, Hindi or English using the device's own speech engine.
+- **Bail map**: the judge sees the geo-fence and every check-in on OpenStreetMap, green inside and red outside.
+- **A full record in one command**: `npm run demo:data -- <admin-email> <admin-password>` drives the whole lifecycle over HTTP and leaves it in place; see [docs/demo-kit](docs/demo-kit/README.md).
 
 ---
 
