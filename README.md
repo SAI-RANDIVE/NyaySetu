@@ -198,7 +198,8 @@ Three places in a criminal matter where the record is only as good as somebody's
 
 ### For the public, and for people who are not lawyers
 
-- **Transparency page** (`/transparency`): aggregate counts only, with every contract and recent transaction linked to Etherscan. No names, references or places.
+- **Transparency page** (`/transparency`): aggregate counts only, with every contract and recent transaction linked to Etherscan, and the gas each operation has actually used. No names, references or places.
+- **Verify with the file alone**: on `/verify`, a file can be checked without its reference. Only its fingerprint is sent, and any match is confirmed against the chain, which also gives other agencies' systems a one-call integrity check (`POST /api/public/lookup`).
 - **Tamper lab**: choose any file, change one bit, and watch the fingerprint change completely. It runs entirely in the browser.
 - **QR codes on documents**: the Section 63 certificate and the custody record each carry a code that opens the item's public verification page.
 - **Read aloud**: explanations for the accused are spoken in Marathi, Hindi or English using the device's own speech engine.
@@ -666,6 +667,8 @@ These are the questions any careful reviewer should ask; the answers are here ra
 - **`docs/VERIFICATION_STATES.md`** — the six verification states and every legal transition
 - **`docs/SECURITY.md`** — access control, rate limits, audits and failure modes
 - **`docs/metrics/METRICS.md`** — measured results, and what they do not show
+- **`docs/submission/`** — the project catalogue report, problem statement, presentation, demonstration script and evaluation questions, with PDF copies (`npm --prefix frontend run docs:pdf`)
+- **`npm --prefix contracts run gas`** — the gas each contract operation uses, which is the basis of the cost figures
 - **`docs/USER_TESTING.md`** — tasks, SUS questionnaire and practitioner form
 - **`docs/JAN_SAHAYAK.md`** — plain-language help, accessibility, translation review
 - **`docs/INTEGRATION.md`** — how CCTNS, ICJS and e-Courts would connect (design only)

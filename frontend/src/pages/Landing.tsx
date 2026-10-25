@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -13,7 +12,6 @@ import {
   Languages,
   Link2,
   Lock,
-  Menu,
   QrCode,
   Scale,
   ScrollText,
@@ -22,11 +20,9 @@ import {
   Smartphone,
   UserRound,
   Users,
-  X,
 } from "lucide-react";
 import { Reveal } from "../components/ui";
-import { LogoMark } from "../components/Logo";
-import { InstallAppButton, PoliceSeal } from "../components/brand";
+import { SiteFooter, SiteHeader } from "../components/SiteChrome";
 
 /**
  * The public entry point: what NyaySetu records, who uses it, what goes on the
@@ -34,13 +30,6 @@ import { InstallAppButton, PoliceSeal } from "../components/brand";
  * claim here should match the code; the "Limits" section is part of the page,
  * not a footnote.
  */
-
-const NAV = [
-  { href: "#how", label: "How it works" },
-  { href: "#roles", label: "Who uses it" },
-  { href: "#privacy", label: "On and off chain" },
-  { href: "#limits", label: "Limits" },
-];
 
 const LAW = [
   {
@@ -127,69 +116,6 @@ const LIMITS = [
   "Hindi and Marathi text has not yet been reviewed by native speakers.",
 ];
 
-function Header() {
-  const [open, setOpen] = useState(false);
-  return (
-    <header className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2.5" aria-label="NyaySetu home">
-          <LogoMark size={34} />
-          <span>
-            <span className="block font-display text-lg leading-none text-text">NyaySetu</span>
-            <span className="block font-ui text-2xs leading-tight text-muted">न्यायसेतु</span>
-          </span>
-        </Link>
-        <nav aria-label="Sections" className="hidden flex-1 items-center gap-1 md:flex">
-          {NAV.map((item) => (
-            <a key={item.href} href={item.href} className="rounded-full px-3 py-2 font-ui text-sm text-muted transition hover:bg-surface-2 hover:text-text">
-              {item.label}
-            </a>
-          ))}
-          <Link to="/transparency" className="rounded-full px-3 py-2 font-ui text-sm text-muted transition hover:bg-surface-2 hover:text-text">
-            Transparency
-          </Link>
-          <Link to="/about" className="rounded-full px-3 py-2 font-ui text-sm text-muted transition hover:bg-surface-2 hover:text-text">
-            About
-          </Link>
-        </nav>
-        <div className="ml-auto flex items-center gap-2">
-          <InstallAppButton compact />
-          <Link to="/verify" className="hidden rounded-full border border-border px-4 py-2 font-ui text-sm font-semibold text-text transition hover:border-primary lg:inline-flex">
-            Verify evidence
-          </Link>
-          <Link to="/login" className="inline-flex rounded-full bg-primary-fill px-4 py-2 font-ui text-sm font-semibold text-on-primary transition hover:opacity-90">
-            Sign in
-          </Link>
-          <button
-            type="button"
-            className="grid h-10 w-10 place-items-center rounded-full border border-border text-text md:hidden"
-            aria-label="Menu"
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
-          >
-            {open ? <X size={17} aria-hidden /> : <Menu size={17} aria-hidden />}
-          </button>
-          <PoliceSeal size={38} className="hidden sm:inline-flex" />
-        </div>
-      </div>
-      {open && (
-        <nav aria-label="Sections" className="border-t border-border bg-surface px-4 pb-4 pt-2 md:hidden">
-          {[...NAV, { href: "/transparency", label: "Transparency" }, { href: "/about", label: "About NyaySetu" }, { href: "/verify", label: "Verify evidence" }].map((item) =>
-            item.href.startsWith("#") ? (
-              <a key={item.href} href={item.href} onClick={() => setOpen(false)} className="block rounded-xl px-3 py-3 font-ui text-base text-text hover:bg-surface-2">
-                {item.label}
-              </a>
-            ) : (
-              <Link key={item.href} to={item.href} onClick={() => setOpen(false)} className="block rounded-xl px-3 py-3 font-ui text-base text-text hover:bg-surface-2">
-                {item.label}
-              </Link>
-            )
-          )}
-        </nav>
-      )}
-    </header>
-  );
-}
 
 function PassportPreview() {
   return (
@@ -238,10 +164,7 @@ function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string;
 export default function Landing() {
   return (
     <div className="min-h-screen bg-bg">
-      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2">
-        Skip to content
-      </a>
-      <Header />
+      <SiteHeader />
 
       <main id="main">
         {/* ------------------------------------------------------------ hero */}
@@ -459,22 +382,7 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="border-t border-border bg-surface px-4 py-8 sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <LogoMark size={32} />
-            <div>
-              <p className="font-display text-base leading-none text-text">NyaySetu</p>
-              <p className="mt-1 font-ui text-xs text-muted">Evidence, summons and bail records you can verify.</p>
-            </div>
-          </div>
-          <nav aria-label="Footer" className="flex flex-wrap items-center gap-5 font-ui text-sm">
-            <Link to="/verify" className="text-muted hover:text-primary">Verify</Link>
-            <Link to="/handbook" className="text-muted hover:text-primary">Handbook</Link>
-            <Link to="/login" className="font-semibold text-primary hover:underline">Sign in</Link>
-          </nav>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

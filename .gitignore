@@ -81,4 +81,4 @@ backend/storage/local-stack/
 .env*
 
 # Private working notes, kept out of the repository
-submission/
+/submission/

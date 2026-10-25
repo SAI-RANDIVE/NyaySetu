@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
@@ -83,7 +83,79 @@ function Lookup() {
           {value !== "" && !valid ? t("passport.malformed") : t("passport.lookupHint")}
         </p>
       </form>
+
+      <FileLookup />
     </div>
+  );
+}
+
+type LookupAnswer = { found: false } | { found: true; reference: string; result: FileCheckResult };
+
+/** For someone holding a file but not its reference. Only the digest is sent. */
+function FileLookup() {
+  const { t } = useI18n();
+  const [digested, setDigested] = useState<Digested | null>(null);
+  const [answer, setAnswer] = useState<LookupAnswer | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const run = async (d: Digested) => {
+    setDigested(d);
+    setAnswer(null);
+    setError(null);
+    setBusy(true);
+    try {
+      setAnswer(await api.post<LookupAnswer>("/api/public/lookup", { sha256: d.sha256 }));
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mx-auto mt-12 max-w-lg border-t border-border pt-10 text-left" aria-labelledby="by-file">
+      <h2 id="by-file" className="font-display text-xl text-text">
+        {t("passport.byFileTitle")}
+      </h2>
+      <p className="mt-1.5 font-ui text-sm leading-relaxed text-muted">{t("passport.byFileHint")}</p>
+      <div className="mt-4">
+        <DigestDrop onDigest={(d) => void run(d)} disabled={busy} label={t("passport.byFileDrop")} />
+      </div>
+      {digested && (
+        <div className="mt-3">
+          <DigestLine file={digested.file} sha256={digested.sha256} label="SHA-256" />
+        </div>
+      )}
+      {busy && (
+        <p className="mt-3 flex items-center gap-2 font-ui text-sm text-muted">
+          <Spinner /> {t("common.loading")}
+        </p>
+      )}
+      {error != null && (
+        <p role="alert" className="mt-3 rounded-xl bg-warning-soft p-3 font-ui text-sm text-text">
+          {t(errorKey(error))}
+        </p>
+      )}
+      {answer && answer.found && answer.result.matched && (
+        <div role="status" className="mt-3 rounded-xl border border-success-soft bg-success-soft p-4">
+          <p className="flex items-start gap-2 font-ui text-sm font-semibold text-text">
+            <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-success" aria-hidden /> {t("passport.byFileFound")}
+          </p>
+          <p className="mt-2 font-mono text-xs text-text">{answer.reference}</p>
+          <Link to={`/verify/${answer.reference}`} className="mt-3 inline-flex items-center gap-1.5 font-ui text-sm font-semibold text-primary hover:underline">
+            {t("passport.byFileOpen")} <ArrowRight size={14} aria-hidden />
+          </Link>
+        </div>
+      )}
+      {answer && (!answer.found || !answer.result.matched) && (
+        <div role="status" className="mt-3 rounded-xl border border-danger-soft bg-danger-soft p-4">
+          <p className="flex items-start gap-2 font-ui text-sm font-semibold text-text">
+            <XCircle size={17} className="mt-0.5 shrink-0 text-danger" aria-hidden /> {t("passport.byFileNone")}
+          </p>
+        </div>
+      )}
+    </section>
   );
 }
 

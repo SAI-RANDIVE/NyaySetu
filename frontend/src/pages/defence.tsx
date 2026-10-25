@@ -81,7 +81,7 @@ export function DefenceVerify() {
         description="The file is fingerprinted in this browser and compared with the record on the public ledger, not with the prosecution's database. The result does not depend on trusting the server or its operator."
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label="Cases assigned" value={cases.data?.cases.length ?? "—"} icon={<ClipboardList size={14} />} />
         <Stat label="Items anchored" value={caseId ? anchoredCount : "—"} icon={<PackageCheck size={14} />} />
         <Stat

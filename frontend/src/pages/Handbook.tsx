@@ -28,12 +28,11 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
+import { SiteFooter, SiteHeader } from "../components/SiteChrome";
 import type { Role } from "../lib/api";
 import { ROLE_HOME, ROLE_LABEL } from "../lib/format";
 import { Reveal } from "../components/ui";
 import { StatusChip } from "../components/trust";
-import { LogoMark } from "../components/Logo";
 import { ScrollProgress, ScrollToTop } from "../components/scroll";
 
 /**
@@ -505,7 +504,6 @@ const SECTIONS = [
 
 export default function Handbook() {
   const { user } = useAuth();
-  const { theme, toggle } = useTheme();
   const [activeRole, setActiveRole] = useState<Role>(user?.role ?? "police");
   const [activeSection, setActiveSection] = useState("start");
   const [tocOpen, setTocOpen] = useState(false);
@@ -519,7 +517,7 @@ export default function Handbook() {
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (visible) setActiveSection(visible.target.id);
       },
-      { rootMargin: "-84px 0px -60% 0px", threshold: 0 }
+      { rootMargin: "-160px 0px -55% 0px", threshold: 0 }
     );
 
     SECTIONS.forEach((section) => {
@@ -546,53 +544,24 @@ export default function Handbook() {
       <ScrollToTop />
 
       {/* ------------------------------------------------------------ header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-bg-elevated/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
-          <Link to={user ? ROLE_HOME[user.role] : "/"} aria-label={user ? "Back to your portal" : "NyaySetu home"} className="group flex shrink-0 items-center gap-2.5">
-            <LogoMark
-              size={38}
-              className="transition-transform duration-300 ease-smooth group-hover:scale-105 group-hover:rotate-[-4deg]"
-            />
-            <span className="hidden sm:block">
-              <span className="block font-display text-base leading-none text-text">Handbook</span>
-              <span className="block font-ui text-2xs leading-tight text-faint">
-                NyaySetu · न्यायसेतु
-              </span>
-            </span>
-          </Link>
-
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={toggle}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-              className="grid h-9 w-9 place-items-center rounded-full border border-border font-ui text-xs text-muted transition hover:border-border-strong hover:text-text"
-            >
-              {theme === "dark" ? "☀" : "☾"}
-            </button>
-
-            <Link
-              to={user ? ROLE_HOME[user.role] : "/login"}
-              className="btn-sheen inline-flex h-9 items-center gap-1.5 rounded-full bg-primary-fill px-4 font-ui text-xs font-bold uppercase tracking-wide text-on-primary transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glow"
-            >
-              {user ? "Back to my portal" : "Sign in"}
-              <ArrowRight size={13} />
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => setTocOpen((open) => !open)}
-              aria-label="Contents"
-              aria-expanded={tocOpen}
-              className="grid h-9 w-9 place-items-center rounded-full border border-border text-text lg:hidden"
-            >
-              {tocOpen ? <X size={16} /> : <Menu size={16} />}
-            </button>
-          </div>
+      <SiteHeader>
+        {/* On narrow screens the contents list lives under the main bar. */}
+        <div className="flex h-11 items-center justify-between border-t border-border px-4 sm:px-6 lg:hidden">
+          <span className="font-ui text-sm font-semibold text-text">
+            Handbook · <span className="font-normal text-muted">{SECTIONS.find((x) => x.id === activeSection)?.label}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setTocOpen((open) => !open)}
+            aria-label="Contents"
+            aria-expanded={tocOpen}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 font-ui text-xs font-semibold text-text"
+          >
+            {tocOpen ? <X size={14} /> : <Menu size={14} />} Contents
+          </button>
         </div>
-
         {tocOpen && (
-          <nav className="animate-menu-in border-t border-border bg-bg-elevated px-4 py-3 lg:hidden">
+          <nav className="animate-menu-in max-h-[60vh] overflow-y-auto border-t border-border bg-bg-elevated px-4 py-3 lg:hidden">
             <ul className="space-y-0.5">
               {SECTIONS.map((section) => (
                 <li key={section.id}>
@@ -600,9 +569,7 @@ export default function Handbook() {
                     href={`#${section.id}`}
                     onClick={() => setTocOpen(false)}
                     className={`block rounded-lg px-3 py-2.5 font-ui text-sm transition ${
-                      activeSection === section.id
-                        ? "bg-primary-soft font-semibold text-primary"
-                        : "text-muted hover:bg-surface-2"
+                      activeSection === section.id ? "bg-primary-soft font-semibold text-primary" : "text-muted hover:bg-surface-2"
                     }`}
                   >
                     {section.label}
@@ -612,12 +579,12 @@ export default function Handbook() {
             </ul>
           </nav>
         )}
-      </header>
+      </SiteHeader>
 
       <div className="mx-auto flex max-w-6xl gap-10 px-4 py-10 sm:px-6 sm:py-14">
         {/* ------------------------------------------------------- contents */}
         <aside className="hidden w-52 shrink-0 lg:block">
-          <nav className="sticky top-24">
+          <nav className="sticky top-32">
             <p className="mb-3 font-jakarta text-2xs font-bold uppercase tracking-[0.14em] text-faint">
               Contents
             </p>
@@ -650,7 +617,7 @@ export default function Handbook() {
         {/* ---------------------------------------------------------- body */}
         <main className="min-w-0 flex-1">
           {/* ===================================================== start */}
-          <section id="start" className="scroll-mt-24">
+          <section id="start" className="scroll-mt-40">
             <Reveal>
               <p className="mb-3 font-jakarta text-2xs font-bold uppercase tracking-[0.16em] text-primary">
                 Start here
@@ -704,7 +671,7 @@ export default function Handbook() {
           </section>
 
           {/* ====================================================== idea */}
-          <section id="idea" className="mt-16 scroll-mt-24">
+          <section id="idea" className="mt-16 scroll-mt-40">
             <Reveal>
               <SectionHeading eyebrow="The one idea" title="A file can be reduced to a number" />
 
@@ -763,7 +730,7 @@ export default function Handbook() {
           </section>
 
           {/* =================================================== bridges */}
-          <section id="bridges" className="mt-16 scroll-mt-24">
+          <section id="bridges" className="mt-16 scroll-mt-40">
             <Reveal>
               <SectionHeading
                 eyebrow="The three bridges"
@@ -808,7 +775,7 @@ export default function Handbook() {
           </section>
 
           {/* ===================================================== roles */}
-          <section id="roles" className="mt-16 scroll-mt-24">
+          <section id="roles" className="mt-16 scroll-mt-40">
             <Reveal>
               <SectionHeading eyebrow="Your role, step by step" title="What you actually do" />
               <p className="mt-4 font-ui text-sm leading-relaxed text-muted">
@@ -920,7 +887,7 @@ export default function Handbook() {
           </section>
 
           {/* =================================================== reading */}
-          <section id="reading" className="mt-16 scroll-mt-24">
+          <section id="reading" className="mt-16 scroll-mt-40">
             <Reveal>
               <SectionHeading
                 eyebrow="Reading the interface"
@@ -946,7 +913,7 @@ export default function Handbook() {
           </section>
 
           {/* ===================================================== codes */}
-          <section id="codes" className="mt-16 scroll-mt-24">
+          <section id="codes" className="mt-16 scroll-mt-40">
             <Reveal>
               <SectionHeading
                 eyebrow="The two one-time codes"
@@ -1023,7 +990,7 @@ export default function Handbook() {
           </section>
 
           {/* ======================================================= faq */}
-          <section id="faq" className="mt-16 scroll-mt-24">
+          <section id="faq" className="mt-16 scroll-mt-40">
             <Reveal>
               <SectionHeading eyebrow="Common questions" title="What people ask first" />
             </Reveal>
@@ -1050,7 +1017,7 @@ export default function Handbook() {
           </section>
 
           {/* ================================================== glossary */}
-          <section id="glossary" className="mt-16 scroll-mt-24">
+          <section id="glossary" className="mt-16 scroll-mt-40">
             <Reveal>
               <SectionHeading eyebrow="Glossary" title="Words you will see, in plain English" />
             </Reveal>
@@ -1070,7 +1037,7 @@ export default function Handbook() {
           </section>
 
           {/* =================================================== trouble */}
-          <section id="trouble" className="mt-16 scroll-mt-24">
+          <section id="trouble" className="mt-16 scroll-mt-40">
             <Reveal>
               <SectionHeading
                 eyebrow="When something goes wrong"
@@ -1141,6 +1108,7 @@ export default function Handbook() {
           </section>
         </main>
       </div>
+      <SiteFooter />
     </div>
   );
 }

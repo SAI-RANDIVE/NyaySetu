@@ -53,3 +53,32 @@ test("registered evidence is counted, and nothing identifying is disclosed", asy
     assert.deepEqual(Object.keys(r).sort(), ["at", "explorer", "purpose", "txHash"]);
   }
 });
+
+test("cost per record is reported from measured transactions, not assumed", async () => {
+  const response = await call(null, "GET", "/api/public/stats");
+  assert.equal(typeof response.body.cost.measuredTransactions, "number");
+  assert.ok(Array.isArray(response.body.cost.byMethod));
+  if (response.body.cost.measuredTransactions === 0) assert.equal(response.body.cost.averageGas, null);
+});
+
+test("a file can be verified without its reference, and the answer comes from the chain", async () => {
+  const kase = await createCase(police);
+  const bytes = randomBytes(3000);
+  const { response: upload } = await uploadEvidence(police, kase.id, { bytes });
+  assert.equal(upload.status, 201, JSON.stringify(upload.body));
+
+  const found = await call(null, "POST", "/api/public/lookup", { body: { sha256: sha(bytes) } });
+  assert.equal(found.status, 200, JSON.stringify(found.body));
+  assert.equal(found.body.found, true);
+  assert.equal(found.body.reference, upload.body.evidence.public_ref);
+  assert.equal(found.body.result.matched, true);
+  assert.equal(found.body.result.comparedAgainst, "chain");
+  assert.ok(!JSON.stringify(found.body).includes(kase.case_reference), "no case reference");
+
+  const altered = Buffer.from(bytes);
+  altered[10] ^= 0x01;
+  const missing = await call(null, "POST", "/api/public/lookup", { body: { sha256: sha(altered) } });
+  assert.deepEqual(missing.body, { found: false });
+
+  assert.equal((await call(null, "POST", "/api/public/lookup", { body: { sha256: "not-a-digest" } })).status, 400);
+});

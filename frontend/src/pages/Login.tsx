@@ -17,6 +17,9 @@ import { useQuery } from "../lib/useApi";
 import { Button, Field, Input } from "../components/ui";
 import { AuthBackdrop } from "../components/AuthBackdrop";
 import { LogoMark } from "../components/Logo";
+import { StatusIndicator } from "../components/SiteChrome";
+import { DisplayControls } from "../components/PortalShell";
+import { PoliceSeal } from "../components/brand";
 import { ApiUnreachable } from "../components/ApiUnreachable";
 
 /**
@@ -182,10 +185,23 @@ export default function Login() {
 
   return (
     <div
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-bg px-5 py-10"
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-bg px-5 pb-10 pt-24"
       style={{ minHeight: "100dvh" }}
     >
       <AuthBackdrop />
+
+      <div className="absolute inset-x-0 top-0 z-20 border-b border-border bg-bg-elevated/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
+          <Link to="/" aria-label="Public site" className="inline-flex items-center gap-1.5 font-ui text-sm font-semibold text-muted transition hover:text-text">
+            <ArrowLeft size={15} aria-hidden /> <span className="hidden sm:inline">Public site</span>
+          </Link>
+          <StatusIndicator className="hidden md:inline-flex" />
+          <div className="ml-auto flex items-center gap-2">
+            <DisplayControls compact />
+            <PoliceSeal size={34} className="hidden sm:inline-flex" />
+          </div>
+        </div>
+      </div>
 
       <Link
         to="/"

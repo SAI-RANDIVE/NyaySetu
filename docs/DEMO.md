@@ -11,11 +11,12 @@ npm install          # at the repository root, then in backend/, frontend/, cont
 DEV_SEED_PASSWORD="choose-a-password" npm run local
 ```
 
-To start with a complete record already in place (a case, evidence through
-laboratory and court custody, a refused tampered hand-over, a summons and bail
-with check-ins), run `npm run demo:data -- <admin-email> <admin-password>` in a
-second terminal. See [demo-kit/](demo-kit/README.md) for two images that
-differ in one pixel.
+The local stack starts empty apart from its seeded accounts. To demonstrate
+on the hosted system with a complete record already in place (a case, evidence
+through laboratory and court custody, a refused tampered hand-over, a summons
+and bail with check-ins), use `npm run demo:data` against it, as described in
+[demo-kit/](demo-kit/README.md), which also has two images that differ in one
+pixel.
 
 Wait for the line listing the seeded accounts, then open
 `http://localhost:5173`. Keep two browser windows: one signed in, one private

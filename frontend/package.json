@@ -14,7 +14,8 @@
     "check:css": "node scripts/checkCssAnimations.mjs",
     "check:contrast": "node scripts/checkContrast.mjs",
     "ui:flow": "node scripts/uiFlow.mjs",
-    "ui:smoke": "node scripts/uiSmoke.mjs"
+    "ui:smoke": "node scripts/uiSmoke.mjs",
+    "docs:pdf": "node scripts/exportDocs.mjs"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
@@ -32,6 +33,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.4.20",
     "axe-core": "^4.10.2",
+    "marked": "^14.1.4",
     "postcss": "^8.4.49",
     "puppeteer-core": "^25.16.0",
     "tailwindcss": "^3.4.15",

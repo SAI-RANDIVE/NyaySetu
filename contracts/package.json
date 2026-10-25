@@ -14,7 +14,8 @@
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
     "grant:local": "hardhat run scripts/grantRoles.ts --network localhost",
     "grant:sepolia": "hardhat run scripts/grantRoles.ts --network sepolia",
-    "verify:sepolia": "hardhat run scripts/verify.ts --network sepolia"
+    "verify:sepolia": "hardhat run scripts/verify.ts --network sepolia",
+    "gas": "hardhat run scripts/gasReport.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",

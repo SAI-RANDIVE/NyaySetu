@@ -14,6 +14,8 @@ export interface TransparencyStats {
   verification: { checks: number; matched: number; refused: number };
   custody: { transfers: number; malkhanaMovements: number; seizureMemos: number; labIntakes: number; forensicReports: number };
   court: { summonsIssued: number; summonsAcknowledged: number; certificates: number };
+  /** Measured from confirmed transactions, so the cost of a record is evidence, not an estimate. */
+  cost: { measuredTransactions: number; averageGas: number | null; byMethod: { method: string; transactions: number; averageGas: number }[] };
   ledger: {
     network: string | null;
     chainId: number | null;
@@ -82,6 +84,20 @@ export async function transparencyStats(): Promise<TransparencyStats> {
     .order("confirmed_at", { ascending: false })
     .limit(8);
 
+  const { data: gasRows } = await db
+    .from("chain_tx")
+    .select("method, gas_used")
+    .eq("status", "confirmed")
+    .not("gas_used", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(2000);
+  const measured = ((gasRows ?? []) as { method: string; gas_used: number | string }[])
+    .map((r) => ({ method: r.method, gas: Number(r.gas_used) }))
+    .filter((r) => Number.isFinite(r.gas) && r.gas > 0);
+  const groups = new Map<string, number[]>();
+  for (const r of measured) groups.set(r.method, [...(groups.get(r.method) ?? []), r.gas]);
+  const mean = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+
   const addresses = chain.isReady ? (chain.addresses as Record<string, string | undefined>) : {};
   const value: TransparencyStats = {
     generatedAt: new Date().toISOString(),
@@ -89,6 +105,14 @@ export async function transparencyStats(): Promise<TransparencyStats> {
     verification: { checks, matched, refused: Math.max(0, checks - matched) },
     custody: { transfers, malkhanaMovements: movements, seizureMemos: seizures, labIntakes: intakes, forensicReports: reports },
     court: { summonsIssued: summons, summonsAcknowledged: acknowledged, certificates },
+    cost: {
+      measuredTransactions: measured.length,
+      averageGas: measured.length ? mean(measured.map((r) => r.gas)) : null,
+      byMethod: [...groups.entries()]
+        .map(([method, xs]) => ({ method, transactions: xs.length, averageGas: mean(xs) }))
+        .sort((a, b) => b.transactions - a.transactions)
+        .slice(0, 6),
+    },
     ledger: {
       network: chain.isReady ? chain.network?.name ?? null : null,
       chainId: chain.isReady ? Number(chain.network?.chainId ?? 0) || null : null,

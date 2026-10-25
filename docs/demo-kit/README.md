@@ -29,10 +29,16 @@ entirely in the browser.
 
 ## A full record in one command
 
-With the API running (`npm run local` or `npm run api`):
+The script reads one-time sign-in codes from the database, so it needs the
+same Supabase database as the API it drives: `backend/.env` filled in, and
+either `npm run api` running locally or `FLOW_BASE_URL` pointing at a hosted
+API that uses that database. (`npm run local` keeps its data in memory inside
+the API process, so the script cannot reach it.)
 
 ```bash
 npm run demo:data -- <admin-email> <admin-password>
+# against the hosted API
+FLOW_BASE_URL=https://nyaysetu-project.vercel.app npm run demo:data -- <admin-email> <admin-password>
 ```
 
 This drives the complete lifecycle over HTTP: a case at Shivajinagar Police

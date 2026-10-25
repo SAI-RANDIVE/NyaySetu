@@ -11,7 +11,6 @@ import {
   FlaskConical,
   Gavel,
   Github,
-  Globe2,
   Languages,
   Lock,
   Scale,
@@ -20,8 +19,7 @@ import {
   Smartphone,
   Sparkles,
 } from "lucide-react";
-import { LogoMark } from "../components/Logo";
-import { InstallAppButton, PoliceSeal } from "../components/brand";
+import { SiteFooter, SiteHeader } from "../components/SiteChrome";
 
 /**
  * About NyaySetu: what it is for, how it works, what it is built on, and who
@@ -165,24 +163,7 @@ export default function About() {
     <div className="min-h-screen bg-bg">
       <motion.div aria-hidden className="fixed inset-x-0 top-0 z-50 h-1 origin-left bg-primary" style={{ scaleX: progress }} />
 
-      <header className="sticky top-0 z-40 border-b border-border bg-surface/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
-          <Link to="/" className="flex items-center gap-2.5" aria-label="NyaySetu home">
-            <LogoMark size={34} />
-            <span className="font-display text-lg text-text">NyaySetu</span>
-          </Link>
-          <div className="ml-auto flex items-center gap-2">
-            <InstallAppButton compact />
-            <Link to="/verify" className="hidden rounded-full border border-border px-4 py-2 font-ui text-sm font-semibold text-text transition hover:border-primary sm:inline-flex">
-              Verify evidence
-            </Link>
-            <Link to="/login" className="rounded-full bg-primary-fill px-4 py-2 font-ui text-sm font-semibold text-on-primary transition hover:opacity-90">
-              Sign in
-            </Link>
-            <PoliceSeal size={36} className="hidden sm:inline-flex" />
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main id="main">
         {/* ------------------------------------------------------------ hero */}
@@ -367,23 +348,7 @@ export default function About() {
         </Section>
       </main>
 
-      <footer className="border-t border-border bg-surface px-4 py-8 sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <LogoMark size={30} />
-            <p className="font-ui text-sm text-muted">NyaySetu · Evidence, summons and bail records you can verify.</p>
-          </div>
-          <nav aria-label="Footer" className="flex flex-wrap items-center gap-5 font-ui text-sm">
-            <Link to="/" className="text-muted hover:text-primary">Home</Link>
-            <Link to="/verify" className="text-muted hover:text-primary">Verify</Link>
-            <Link to="/transparency" className="text-muted hover:text-primary">Transparency</Link>
-            <Link to="/handbook" className="text-muted hover:text-primary">Handbook</Link>
-            <span className="inline-flex items-center gap-1.5 text-muted">
-              <Globe2 size={14} aria-hidden /> Developed by Sai Randive
-            </span>
-          </nav>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

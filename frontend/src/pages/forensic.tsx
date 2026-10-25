@@ -57,7 +57,7 @@ export function ForensicInbox() {
     <>
       <PageHeader eyebrow={t("nav.labQueue")} title={t("queue.title")} description={t("queue.intro")} />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label={t("queue.status.awaiting_custody")} value={queue.data ? counts.awaiting_custody : "—"} icon={<Inbox size={14} />} />
         <Stat label={t("queue.status.awaiting_intake")} value={queue.data ? counts.awaiting_intake : "—"} tone={counts.awaiting_intake ? "warning" : "default"} icon={<Clock3 size={14} />} />
         <Stat label={t("queue.status.in_analysis")} value={queue.data ? counts.received + counts.in_analysis : "—"} icon={<Microscope size={14} />} />

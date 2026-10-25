@@ -304,3 +304,24 @@ export async function authorisedPassport(evidenceId: string, role: UserRole) {
 export function verifyUrl(ref: string): string {
   return `${env.PUBLIC_APP_URL.replace(/\/$/, "")}/verify/${ref}`;
 }
+
+/**
+ * Finds the registered item a file belongs to from its fingerprint alone, for a
+ * visitor (or another agency's system) holding a file but not its reference.
+ * The answer is still taken from the chain: the database only says which
+ * reference to compare against. Returns nothing about an item beyond what its
+ * public passport already shows.
+ */
+export async function lookupByFile(fileSha256: string): Promise<{ found: false } | { found: true; reference: string; result: FileCheck }> {
+  const { data, error } = await db
+    .from("evidence_items")
+    .select("public_ref")
+    .eq("file_hash", fileSha256)
+    .not("chain_evidence_id", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (error) throw new AppError(503, "CANNOT_VERIFY_NOW", "The record cannot be searched right now. Try again shortly.");
+  const reference = (data as { public_ref: string }[] | null)?.[0]?.public_ref;
+  if (!reference) return { found: false };
+  return { found: true, reference, result: await checkFileAgainstChain(reference, fileSha256) };
+}

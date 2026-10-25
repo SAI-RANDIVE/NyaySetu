@@ -4,8 +4,7 @@ import { ArrowRight, Boxes, CheckCircle2, Download, ExternalLink, FileCheck2, Fl
 import { api } from "../lib/api";
 import { sha256File } from "../lib/hash";
 import { formatDateTime } from "../lib/format";
-import { LogoMark } from "../components/Logo";
-import { InstallAppButton, PoliceSeal } from "../components/brand";
+import { SiteFooter, SiteHeader } from "../components/SiteChrome";
 
 /**
  * Public transparency: aggregate figures from the live system and the ledger
@@ -19,6 +18,7 @@ interface Stats {
   verification: { checks: number; matched: number; refused: number };
   custody: { transfers: number; malkhanaMovements: number; seizureMemos: number; labIntakes: number; forensicReports: number };
   court: { summonsIssued: number; summonsAcknowledged: number; certificates: number };
+  cost: { measuredTransactions: number; averageGas: number | null; byMethod: { method: string; transactions: number; averageGas: number }[] };
   ledger: {
     network: string | null;
     chainId: number | null;
@@ -165,24 +165,7 @@ export default function Transparency() {
 
   return (
     <div className="min-h-screen bg-bg">
-      <header className="sticky top-0 z-40 border-b border-border bg-surface/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
-          <Link to="/" className="flex items-center gap-2.5" aria-label="NyaySetu home">
-            <LogoMark size={34} />
-            <span className="font-display text-lg text-text">NyaySetu</span>
-          </Link>
-          <div className="ml-auto flex items-center gap-2">
-            <InstallAppButton compact />
-            <Link to="/verify" className="hidden rounded-full border border-border px-4 py-2 font-ui text-sm font-semibold text-text hover:border-primary sm:inline-flex">
-              Verify evidence
-            </Link>
-            <Link to="/login" className="rounded-full bg-primary-fill px-4 py-2 font-ui text-sm font-semibold text-on-primary">
-              Sign in
-            </Link>
-            <PoliceSeal size={36} className="hidden sm:inline-flex" />
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main id="main" className="mx-auto max-w-6xl space-y-14 px-4 py-12 sm:px-6 sm:py-16">
         <section>
@@ -263,6 +246,47 @@ export default function Transparency() {
           </>
         )}
 
+        {stats?.cost && stats.cost.averageGas != null && (
+          <section aria-label="Cost per record" className="panel p-6 sm:p-8">
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
+              <div>
+                <h2 className="font-display text-2xl text-text">What a record costs</h2>
+                <p className="mt-2 font-ui text-sm leading-relaxed text-muted">
+                  Measured from {stats.cost.measuredTransactions.toLocaleString("en-IN")} confirmed transactions, not estimated. Only a 32-byte fingerprint
+                  is written, so the cost per record is fixed whatever the size of the file.
+                </p>
+                <p className="mt-5 font-display text-4xl text-text">{stats.cost.averageGas.toLocaleString("en-IN")}</p>
+                <p className="font-ui text-sm text-muted">gas per transaction, on average</p>
+                <p className="mt-4 rounded-xl bg-surface-2 p-3 font-ui text-xs leading-relaxed text-muted">
+                  At 10 gwei on Ethereum mainnet that is about <strong className="text-text">{((stats.cost.averageGas * 10) / 1e9).toFixed(4)} ETH</strong> per
+                  record. A layer-2 network or a permissioned ledger operated by the State costs a small fraction of that, with the same contracts.
+                </p>
+              </div>
+              <div>
+                <table className="w-full font-ui text-sm">
+                  <caption className="sr-only">Average gas by operation</caption>
+                  <thead>
+                    <tr className="border-b border-border text-left text-2xs uppercase tracking-wider text-faint">
+                      <th className="py-2 font-semibold">Operation</th>
+                      <th className="py-2 text-right font-semibold">Transactions</th>
+                      <th className="py-2 text-right font-semibold">Average gas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.cost.byMethod.map((m) => (
+                      <tr key={m.method} className="border-b border-border last:border-0">
+                        <td className="py-2.5 font-mono text-xs text-text">{m.method}</td>
+                        <td className="py-2.5 text-right text-muted">{m.transactions.toLocaleString("en-IN")}</td>
+                        <td className="py-2.5 text-right text-text">{m.averageGas.toLocaleString("en-IN")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section aria-label="Tamper lab">
           <TamperLab />
         </section>
@@ -275,6 +299,7 @@ export default function Transparency() {
           </Link>
         </section>
       </main>
+      <SiteFooter />
     </div>
   );
 }

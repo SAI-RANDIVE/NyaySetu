@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
+  ChevronRight,
   Activity,
   BellRing,
   BookOpen,
@@ -35,6 +36,7 @@ import { useTheme } from "../context/ThemeContext";
 import { LANGUAGES, useI18n, type Lang, type MessageKey } from "../i18n";
 import { LogoMark } from "./Logo";
 import { InstallAppButton, PoliceSeal } from "./brand";
+import { StatusIndicator } from "./SiteChrome";
 import type { Role } from "../lib/api";
 
 interface NavItem {
@@ -171,6 +173,21 @@ export function DisplayControls({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function ThemeButton() {
+  const { theme, toggle } = useTheme();
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={theme === "dark" ? t("shell.switchToLight") : t("shell.switchToDark")}
+      className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted transition hover:text-text"
+    >
+      {theme === "dark" ? <Sun size={15} aria-hidden /> : <Moon size={15} aria-hidden />}
+    </button>
+  );
+}
+
 function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
   const { t } = useI18n();
   return (
@@ -251,10 +268,12 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="space-y-3 border-t border-border px-4 py-4">
-        <div>
-          <p className="mb-2 font-ui text-2xs font-semibold uppercase tracking-wider text-faint">{t("shell.preferences")}</p>
-          <DisplayControls />
-        </div>
+        {onNavigate && (
+          <div>
+            <p className="mb-2 font-ui text-2xs font-semibold uppercase tracking-wider text-faint">{t("shell.preferences")}</p>
+            <DisplayControls />
+          </div>
+        )}
         <div className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2.5">
           <span
             aria-hidden
@@ -311,6 +330,9 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   }, [menuOpen]);
 
   if (!user) return null;
+  const current = [...NAV[user.role]]
+    .sort((a, b) => b.to.length - a.to.length)
+    .find((item) => (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)));
 
   return (
     <div className="min-h-screen bg-bg">
@@ -345,6 +367,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="ml-auto flex items-center gap-2">
           <InstallAppButton compact />
+          <ThemeButton />
           <PoliceSeal size={34} />
         </div>
       </header>
@@ -375,13 +398,22 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
 
       <div className="lg:pl-72">
         {/* ------------------------------------------------ desktop top bar */}
-        <div className="sticky top-0 z-20 hidden h-16 items-center justify-between border-b border-border bg-bg-elevated/85 px-10 backdrop-blur lg:flex">
-          <span className="truncate rounded-full bg-primary-soft px-3 py-1 font-ui text-xs font-semibold text-primary">
-            {t(`role.${user.role}` as MessageKey)}
-          </span>
-          <div className="flex items-center gap-4">
-            <InstallAppButton />
-            <PoliceSeal size={40} showLabel />
+        <div className="sticky top-0 z-20 hidden h-16 items-center gap-4 border-b border-border bg-bg-elevated/95 px-10 backdrop-blur lg:flex">
+          <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 font-ui text-sm">
+            <span className="shrink-0 rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">{t(`role.${user.role}` as MessageKey)}</span>
+            {current && (
+              <>
+                <ChevronRight size={14} className="shrink-0 text-faint" aria-hidden />
+                <span className="truncate font-semibold text-text">{t(current.label)}</span>
+              </>
+            )}
+          </nav>
+          <StatusIndicator className="hidden xl:inline-flex" />
+          <div className="ml-auto flex items-center gap-3">
+            <DisplayControls compact />
+            <InstallAppButton compact />
+            <span className="h-8 w-px bg-border" aria-hidden />
+            <PoliceSeal size={38} showLabel />
           </div>
         </div>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl px-4 py-6 outline-none sm:px-6 sm:py-8 lg:px-10">

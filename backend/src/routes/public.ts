@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 import { asyncRoute } from "../middleware/error";
 import { validate, hash32 } from "../middleware/validate";
 import { publicLimiter } from "../middleware/rateLimit";
-import { checkFileAgainstChain, publicPassport, verifyUrl } from "../services/passport/passport.service";
+import { checkFileAgainstChain, lookupByFile, publicPassport, verifyUrl } from "../services/passport/passport.service";
 import { buildPassportPdf } from "../lib/pdf/passport";
 import { transparencyStats } from "../services/transparency.service";
 
@@ -37,6 +37,19 @@ router.get(
   asyncRoute(async (_req, res) => {
     res.setHeader("Cache-Control", "public, max-age=60");
     res.json(await transparencyStats());
+  })
+);
+
+/**
+ * Verification without a reference: the browser hashed the file, and only the
+ * digest arrives. A match is confirmed against the chain before it is reported.
+ */
+router.post(
+  "/lookup",
+  validate(z.object({ sha256: hash32 }).strict()),
+  asyncRoute(async (req, res) => {
+    res.setHeader("cache-control", "no-store");
+    res.json(await lookupByFile(req.body.sha256));
   })
 );
 
