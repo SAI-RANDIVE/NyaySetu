@@ -57,7 +57,7 @@ import { CaseReportPanel } from "../components/CaseReport";
 import { CaseProgress } from "../components/CaseProgress";
 import { CasePredictions } from "../components/CasePredictions";
 import { EvidenceVerificationCard, PassportCard } from "../components/evidencePanels";
-import { DocumentsCard, GovernanceCard, LabWorkPanel } from "../components/workflowPanels";
+import { DocumentsCard, GovernanceCard, LabWorkPanel, SealCard } from "../components/workflowPanels";
 import { VerificationBadge } from "../components/verification";
 import { FirCard } from "../components/casePanels";
 import { AiInsightsCard, AuditTimelineCard, CaseGovernanceCard } from "../components/dossierPanels";
@@ -886,6 +886,8 @@ export function EvidenceDetailPage() {
                   </ul>
                 </Card>
               )}
+
+              {item && <SealCard item={item} />}
 
               {item && (
                 <LabWorkPanel

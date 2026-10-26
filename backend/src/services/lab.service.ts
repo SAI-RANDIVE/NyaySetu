@@ -9,6 +9,7 @@ import { createAnchor, sendAnchor } from "./verification/anchors";
 import { anchorDocument } from "./verification/documentAnchor";
 import { digestForChain } from "./capture.service";
 import { markIntegrityMismatch, presentVerification, loadEvidence } from "./evidence.service";
+import { checkSeal } from "./seal.service";
 import type { SessionUser } from "../middleware/auth";
 
 /**
@@ -29,6 +30,8 @@ export interface IntakeInput {
   conditionNotes?: string | null;
   /** The laboratory's own SHA-256 of the bytes it received. */
   recheckSha256: string;
+  /** The serial printed on the seal the laboratory received, for a sealed exhibit. */
+  sealSerial?: string | null;
 }
 
 export async function recordIntake(req: Request, user: SessionUser, evidenceId: string, input: IntakeInput) {
@@ -41,6 +44,13 @@ export async function recordIntake(req: Request, user: SessionUser, evidenceId: 
   }
   if (!input.sealIntact && !input.sealNotes?.trim()) {
     throw badRequest("Describe the condition of a seal that is not intact.");
+  }
+
+  // A sealed exhibit: read the seal before anything else. A substituted packet
+  // carries a different serial, and that is refused here, at the first hand-over.
+  const seal = await checkSeal(req, user, item, input.sealSerial ?? "", "lab_intake");
+  if (seal.bound && !seal.matched) {
+    throw new AppError(409, "SEAL_MISMATCH", "The seal on this packet does not carry the serial bound when it was sealed. Intake is refused; the reading is recorded on chain and the prosecution and court are alerted.");
   }
 
   const packaging = input.packagingEvidenceIds ?? [];

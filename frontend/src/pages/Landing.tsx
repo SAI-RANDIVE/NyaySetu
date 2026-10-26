@@ -3,7 +3,6 @@ import {
   ArrowRight,
   BadgeCheck,
   Camera,
-  CheckCircle2,
   Clock3,
   Database,
   FileCheck2,
@@ -11,8 +10,6 @@ import {
   Gavel,
   Languages,
   Link2,
-  Lock,
-  QrCode,
   Scale,
   ScrollText,
   ShieldAlert,
@@ -22,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { Reveal } from "../components/ui";
+import { CinematicBackdrop, CountUp, LiveFingerprint } from "../components/cinematic";
 import { SiteFooter, SiteHeader } from "../components/SiteChrome";
 
 /**
@@ -30,6 +28,41 @@ import { SiteFooter, SiteHeader } from "../components/SiteChrome";
  * claim here should match the code; the "Limits" section is part of the page,
  * not a footnote.
  */
+
+const QUESTIONS = [
+  {
+    q: "A hash only works for files. Most evidence is a blood sample, a weapon, a packet.",
+    a: "Physical exhibits carry a tamper-evident seal with a printed serial. NyaySetu binds that serial to the exhibit when it is sealed and anchors a salted digest of it. Every receiving party must read the same serial; a substituted packet carries a different one and is refused, recorded on chain and alerted. The photograph of the sealed packet is fingerprinted as well.",
+  },
+  {
+    q: "Why a blockchain? A government database with audit logs would do.",
+    a: "The party that runs the database is the party whose handling may be challenged. A ledger that no party in the case controls is the only record the defence has no reason to distrust. Only 32-byte fingerprints go on it; everything readable stays in an access-controlled database.",
+  },
+  {
+    q: "e-Sakshya already records search and seizure. Isn't this duplication?",
+    a: "e-Sakshya records the media and stores it with the government. NyaySetu proves integrity independently and follows the item through malkhana, laboratory, prosecution and court, plus summons and bail. It complements e-Sakshya: the fingerprint of each e-Sakshya recording can be anchored and re-checked at every later hand-over.",
+  },
+  {
+    q: "Under some State rules the accused must pay to have a hash checked. What changes?",
+    a: "Here, verification is a public web page and a public API. The accused, the defence or a legal-aid lawyer drops the file and gets the ledger's answer in seconds, at no cost and without anyone's permission.",
+  },
+  {
+    q: "Isn't a public blockchain a privacy disaster for victims and accused?",
+    a: "No names, FIR numbers, addresses or files go on chain — only salted fingerprints. Files are encrypted with AES-256-GCM off chain. Personal data stays where it can be corrected or erased under the DPDP Act, 2023. The one exception, bail check-in coordinates, is stated openly and is next to move off chain.",
+  },
+  {
+    q: "What if the officer is the one who tampers, before the fingerprint?",
+    a: "Then the proof starts from the tampered file — no system can prove what happened before capture. That is why capture is on the device at the scene, with GPS accuracy, device time and mocked-location flags, and why a collection clip showing the person and the seal is recorded. The court still weighs the evidence; NyaySetu narrows where tampering can hide.",
+  },
+  {
+    q: "Is a ledger record admissible in court?",
+    a: "The court relies on the BSA §63 certificate, whose hash requirement the Supreme Court upheld on 22 May 2026. NyaySetu generates that certificate from the record, with the anchored digest and a QR code, so the court can verify the paper itself. The ledger supports the certificate; it does not replace it.",
+  },
+  {
+    q: "Can it scale to a State, and what does it cost?",
+    a: "Measured, not estimated: about 3.6 lakh gas to register an item and 1.56 lakh per hand-over, whatever the file size. On a permissioned ledger run by State institutions there are no gas fees at all; the API scales horizontally on ordinary cloud infrastructure.",
+  },
+];
 
 const LAW = [
   {
@@ -41,6 +74,11 @@ const LAW = [
     section: "BNSS § 176(3)",
     duty: "Forensic experts must attend serious crime scenes and record the process",
     how: "The laboratory accepts custody only after re-checking the fingerprint, so the item examined is provably the item collected.",
+  },
+  {
+    section: "SC · 22 May 2026",
+    duty: "The Supreme Court upholds the hash certificate",
+    how: "Pune Bar Association v. Union of India: a hash value is \u201csynonymous with an electronic fingerprint\u201d. NyaySetu computes it at the scene and lets anyone check it, free.",
   },
   {
     section: "BSA § 63",
@@ -117,40 +155,6 @@ const LIMITS = [
 ];
 
 
-function PassportPreview() {
-  return (
-    <div className="panel relative mx-auto w-full max-w-sm p-5 shadow-card">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-ui text-2xs font-semibold uppercase tracking-[0.14em] text-muted">Evidence Integrity Passport</p>
-          <p className="mt-1 font-mono text-xs text-text">NSE-92519SYK3AD82N3R5A3EH83YRG</p>
-        </div>
-        <span className="grid h-12 w-12 place-items-center rounded-xl bg-surface-2 text-text">
-          <QrCode size={26} aria-hidden />
-        </span>
-      </div>
-      <span className="chip mt-4 border-success-soft bg-success-soft text-success">
-        <CheckCircle2 size={11} aria-hidden /> Confirmed on chain
-      </span>
-      <dl className="mt-4 space-y-2.5 font-ui text-xs">
-        {[
-          ["Fingerprint", "0x87012c45…28df6e"],
-          ["Captured", "17 Oct 2026, 01:09"],
-          ["GPS accuracy", "± 8 m"],
-          ["Custody", "Scene → Laboratory"],
-        ].map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-3 border-b border-border pb-2 last:border-0">
-            <dt className="text-muted">{k}</dt>
-            <dd className="font-medium text-text">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-3 font-ui text-2xs leading-relaxed text-muted">Drop the file on the public page: it is hashed in your browser and compared with the chain.</p>
-      <p className="absolute -bottom-3 right-4 rounded-full border border-border bg-surface px-3 py-1 font-ui text-2xs text-muted shadow-card">Illustration</p>
-    </div>
-  );
-}
-
 function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string; body?: string }) {
   return (
     <Reveal>
@@ -164,41 +168,126 @@ function SectionHead({ eyebrow, title, body }: { eyebrow: string; title: string;
 export default function Landing() {
   return (
     <div className="min-h-screen bg-bg">
-      <SiteHeader />
+      <SiteHeader tone="dark" />
 
       <main id="main">
         {/* ------------------------------------------------------------ hero */}
-        <section className="relative overflow-hidden border-b border-border">
-          <div aria-hidden className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-primary-soft blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -right-24 top-24 h-80 w-80 rounded-full bg-accent-soft blur-3xl" />
-          <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.15fr_1fr]">
-            <div>
-              <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 font-ui text-xs font-semibold text-muted">
-                <ShieldCheck size={13} className="text-primary" aria-hidden /> Evidence · Summons · Bail
-              </p>
-              <h1 className="font-display text-4xl leading-[1.08] text-text sm:text-5xl lg:text-6xl">
-                A record anyone can check, from the scene to the courtroom.
-              </h1>
-              <p className="mt-5 max-w-xl font-ui text-base leading-relaxed text-muted sm:text-lg">
-                NyaySetu fingerprints evidence on the device that captures it, anchors those fingerprints to a public blockchain, and makes every
-                hand-over prove it received the same thing. Personal details stay off chain.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link to="/verify" className="inline-flex items-center gap-2 rounded-full bg-primary-fill px-6 py-3 font-ui text-sm font-semibold text-on-primary shadow-card transition hover:-translate-y-0.5">
-                  Verify a piece of evidence <ArrowRight size={15} aria-hidden />
-                </Link>
-                <Link to="/login" className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3 font-ui text-sm font-semibold text-text transition hover:border-primary">
-                  Sign in to your portal
-                </Link>
+        <section data-surface="dark" className="relative isolate overflow-hidden">
+          <CinematicBackdrop />
+          <div className="relative mx-auto flex max-w-6xl flex-col items-center px-4 pb-14 pt-14 text-center sm:px-6 sm:pt-20">
+            <Reveal>
+              <div className="mx-auto w-full max-w-xs rounded-[22px] border border-white/15 bg-white/[0.06] px-6 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_30px_80px_-30px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+                <p className="font-mono text-xs text-white/60">[ 22 May 2026 ]</p>
+                <p className="mt-2 font-ui text-lg font-semibold leading-snug text-white">
+                  A hash is <em className="font-display font-normal italic text-[#8ce6b4]">an electronic fingerprint</em>
+                </p>
+                <p className="mt-2 font-ui text-[11px] leading-relaxed text-white/55">Supreme Court of India, upholding the BSA §63 hash certificate</p>
               </div>
-              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 font-ui text-sm text-muted">
-                <li className="flex items-center gap-1.5"><Languages size={14} className="text-primary" aria-hidden /> English, हिन्दी, मराठी</li>
-                <li className="flex items-center gap-1.5"><Smartphone size={14} className="text-primary" aria-hidden /> Works on phones</li>
-                <li className="flex items-center gap-1.5"><Lock size={14} className="text-primary" aria-hidden /> No sign-in to verify</li>
-              </ul>
+            </Reveal>
+
+            <Reveal delay={0.05}>
+              <div className="mt-6 inline-flex items-center gap-3 rounded-full border border-white/15 bg-black/40 py-1.5 pl-1.5 pr-4 backdrop-blur">
+                <span className="flex -space-x-2">
+                  {[
+                    { k: "SS", c: "text-[#16a34a]" },
+                    { k: "SM", c: "text-[#ea7a2b]" },
+                    { k: "JS", c: "text-[#0b3d2a]" },
+                  ].map((b) => (
+                    <span key={b.k} className={`grid h-8 w-8 place-items-center rounded-full border-2 border-[#070b0a] bg-white font-ui text-[11px] font-extrabold ${b.c}`}>
+                      {b.k}
+                    </span>
+                  ))}
+                </span>
+                <span className="font-ui text-sm font-medium text-white/90">Evidence · Summons · Bail — one chain of proof</span>
+              </div>
+            </Reveal>
+
+            <p className="mt-8 font-ui text-[11px] font-bold uppercase tracking-[0.22em] text-[#5ed29c]">Justice infrastructure for India · न्यायसेतु</p>
+            <h1 className="mt-3 font-ui font-extrabold uppercase leading-[0.95] tracking-[-0.035em] text-white" style={{ fontSize: "clamp(44px, 8.4vw, 112px)" }}>
+              Proof, not
+              <br />
+              paperwork<span className="text-[#f97316]">.</span>
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl font-ui text-base leading-relaxed text-white/75 sm:text-lg">
+              An integrity layer for the criminal justice system. Every exhibit is fingerprinted where it is seized, every hand-over must match it, and
+              anyone — the court, the defence, the accused — can check it without asking permission and without paying for it.
+            </p>
+            <div className="mt-9 flex flex-wrap justify-center gap-3">
+              <Link
+                to="/case-study"
+                className="inline-flex items-center gap-2 rounded-full bg-[#16a34a] px-7 py-3.5 font-ui text-sm font-bold uppercase tracking-wide text-white shadow-[0_0_40px_-6px_rgba(34,197,94,0.7)] transition hover:-translate-y-0.5 hover:bg-[#15803d]"
+              >
+                Replay the Pune case <ArrowRight size={16} aria-hidden />
+              </Link>
+              <Link
+                to="/verify"
+                className="inline-flex items-center gap-2 rounded-full border border-white/25 px-7 py-3.5 font-ui text-sm font-bold uppercase tracking-wide text-white transition hover:border-white/60 hover:bg-white/5"
+              >
+                Verify a file
+              </Link>
             </div>
-            <Reveal delay={0.1}>
-              <PassportPreview />
+
+            <div className="mt-14 w-full max-w-3xl rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-left backdrop-blur">
+              <p className="mb-1 font-ui text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Computed in your browser, every second</p>
+              <LiveFingerprint />
+            </div>
+
+            <dl className="mt-10 grid w-full grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 text-left lg:grid-cols-4">
+              {[
+                { v: <CountUp to={50} suffix=" lakh+" />, l: "cases pending in Maharashtra's district courts (NJDG)" },
+                { v: <CountUp to={100} suffix="%" />, l: "of one-byte changes detected across 200 test files" },
+                { v: <CountUp to={0} prefix="₹" />, l: "for an accused person to verify the evidence against them" },
+                { v: <CountUp to={3} />, l: "verified smart contracts live on Ethereum Sepolia" },
+              ].map((s, i) => (
+                <div key={i} className="bg-[#0a110e]/90 px-5 py-5">
+                  <dt className="sr-only">{s.l}</dt>
+                  <dd>
+                    <span className="block font-ui text-3xl font-extrabold tracking-tight text-white sm:text-4xl">{s.v}</span>
+                    <span className="mt-1 block font-ui text-xs leading-snug text-white/55">{s.l}</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
+        {/* ------------------------------------------------- the case teaser */}
+        <section className="border-b border-border bg-surface">
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
+            <Reveal>
+              <p className="mb-2 font-ui text-xs font-bold uppercase tracking-[0.16em] text-[#c2410c]">The case that shows the gap</p>
+              <h2 className="font-display text-3xl leading-tight text-text sm:text-4xl">Pune, May 2024: a blood sample was swapped inside a hospital.</h2>
+              <p className="mt-4 font-ui text-base leading-relaxed text-muted">
+                In a crash that killed two young people, the driver's blood sample was allegedly replaced with another person's before it reached the
+                laboratory. It was caught only because police acted on a tip-off, drew a second sample elsewhere and compared DNA — days later.
+              </p>
+              <p className="mt-3 font-ui text-base leading-relaxed text-text">
+                With NyaySetu, the swap fails at the first hand-over, the same day, without DNA — because the seal on the substitute cannot carry the serial
+                already written to the ledger.
+              </p>
+              <Link to="/case-study" className="mt-6 inline-flex items-center gap-2 font-ui text-sm font-bold text-primary hover:underline">
+                Watch the replay, step by step <ArrowRight size={15} aria-hidden />
+              </Link>
+            </Reveal>
+            <Reveal delay={0.08}>
+              <ol className="relative space-y-3 border-l-2 border-dashed border-border pl-6">
+                {[
+                  { t: "Collection", a: "Paper record; nothing ties vial, person and seal", b: "Clip + seal serial anchored at the bedside", tone: "ok" },
+                  { t: "Substitution", a: "Vial replaced and relabelled", b: "A new vial needs a new seal — a different serial", tone: "warn" },
+                  { t: "Laboratory", a: "Swapped vial accepted as the original", b: "Serial mismatch: refused, anchored, alerted", tone: "bad" },
+                  { t: "Detection", a: "Days later, by luck and DNA", b: "Minutes later, by design", tone: "ok" },
+                ].map((s) => (
+                  <li key={s.t} className="relative rounded-xl border border-border bg-bg p-4">
+                    <span
+                      aria-hidden
+                      className={`absolute -left-[33px] top-5 h-3.5 w-3.5 rounded-full border-2 border-surface ${s.tone === "bad" ? "bg-danger" : s.tone === "warn" ? "bg-warning" : "bg-success"}`}
+                    />
+                    <p className="font-ui text-xs font-bold uppercase tracking-wider text-faint">{s.t}</p>
+                    <p className="mt-1 font-ui text-sm text-muted line-through decoration-danger/60">{s.a}</p>
+                    <p className="font-ui text-sm font-semibold text-text">{s.b}</p>
+                  </li>
+                ))}
+              </ol>
             </Reveal>
           </div>
         </section>
@@ -233,7 +322,7 @@ export default function Landing() {
               title="Since 1 July 2024, the law asks for exactly this"
               body="The Bharatiya Nagarik Suraksha Sanhita and the Bharatiya Sakshya Adhiniyam turned recording and hashing from good practice into statutory duty. NyaySetu is built around those sections."
             />
-            <div className="mt-10 grid gap-5 md:grid-cols-3">
+            <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
               {LAW.map((item, i) => (
                 <Reveal key={item.section} delay={i * 0.06}>
                   <div className="panel flex h-full flex-col p-6">
@@ -293,6 +382,62 @@ export default function Landing() {
                 </ul>
               </div>
             </Reveal>
+          </div>
+        </section>
+
+        {/* ------------------------------------------------- a national layer */}
+        <section id="layer" data-surface="dark" className="relative isolate scroll-mt-20 overflow-hidden bg-[#070b0a]">
+          <div aria-hidden className="pointer-events-none absolute -right-40 top-0 h-96 w-[40rem] rounded-full bg-[#16a34a] opacity-20 blur-[140px]" />
+          <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+            <Reveal>
+              <p className="mb-2 font-ui text-xs font-bold uppercase tracking-[0.16em] text-[#5ed29c]">Not another police app</p>
+              <h2 className="max-w-3xl font-display text-3xl leading-tight text-white sm:text-4xl">A shared layer of trust that every pillar of the system plugs into.</h2>
+              <p className="mt-3 max-w-3xl font-ui text-base leading-relaxed text-white/70">
+                India already records evidence (e-Sakshya), exchanges case data (ICJS, CCTNS) and publishes case status (e-Courts, NJDG). What none of them
+                gives is proof that a party who distrusts the others can check for themselves. NyaySetu is that missing layer — open, federated and free to
+                verify, like UPI is for payments.
+              </p>
+            </Reveal>
+            <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {[
+                { icon: Smartphone, t: "Capture anywhere", b: "Phone or browser, online or not. e-Sakshya recordings can be anchored too, so nothing already in use is replaced." },
+                { icon: Link2, t: "One call to verify", b: "Any agency's system sends a fingerprint and gets an answer from the ledger — POST /api/public/lookup. No account, no fee." },
+                { icon: Users, t: "Run by many, owned by none", b: "For the State: ledger nodes held by police, judiciary, forensic directorate and legal-aid authority, so no single party can rewrite it." },
+                { icon: Languages, t: "For the person in the dock", b: "Obligations in Marathi, Hindi and English, read aloud; the accused can verify evidence and show their own compliance." },
+              ].map((c, i) => (
+                <Reveal key={c.t} delay={i * 0.05}>
+                  <div className="h-full rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
+                    <c.icon size={20} className="text-[#5ed29c]" aria-hidden />
+                    <h3 className="mt-4 font-ui text-base font-bold text-white">{c.t}</h3>
+                    <p className="mt-2 font-ui text-sm leading-relaxed text-white/65">{c.b}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* --------------------------------------------------- hard questions */}
+        <section id="questions" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-24">
+          <SectionHead
+            eyebrow="Hard questions"
+            title="The objections, answered in the open"
+            body="Every serious critique of a system like this, and what NyaySetu does about it. Where it cannot help, it says so."
+          />
+          <div className="mt-10 grid gap-3 lg:grid-cols-2">
+            {QUESTIONS.map((q, i) => (
+              <Reveal key={q.q} delay={(i % 2) * 0.05}>
+                <details className="group h-full rounded-2xl border border-border bg-surface p-5 open:shadow-card">
+                  <summary className="flex cursor-pointer list-none items-start justify-between gap-4 font-ui text-base font-semibold text-text">
+                    {q.q}
+                    <span aria-hidden className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border border-border text-muted transition group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+                  <p className="mt-3 font-ui text-sm leading-relaxed text-muted">{q.a}</p>
+                </details>
+              </Reveal>
+            ))}
           </div>
         </section>
 

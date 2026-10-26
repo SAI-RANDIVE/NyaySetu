@@ -8,6 +8,21 @@ Live: https://nyaysetu-project.vercel.app
 
 ## A. The idea and its novelty
 
+**0. Show me a real case where this would have mattered.**
+Pune, May 2024: in a fatal crash case, the minor driver's blood sample was
+allegedly swapped inside a hospital with his mother's blood. It was caught only
+because police had a tip-off, drew a second sample and compared DNA days later.
+With NyaySetu the seal serial is bound at collection; the substitute vial
+carries a different seal and is refused at laboratory intake the same day.
+*Show:* `/case-study` → Play; then "Try the swap yourself".
+
+**0a. A hash only works for files. Most evidence is physical.**
+Correct, which is why physical exhibits are bound to the serial of their
+tamper-evident seal. The salted digest is anchored when sealed; each receiving
+party reads the serial; a different one is refused, anchored and alerted.
+*Show:* an exhibit page → "Tamper-evident seal"; laboratory intake asks for the
+serial.
+
 **1. Why blockchain? Why not a well-secured database with audit logs?**
 Because the party that runs the database is the party whose handling of the
 evidence may be challenged. The defence cannot be asked to trust the
@@ -60,8 +75,8 @@ It cannot be corrected quietly; a later genuine transfer is a separate record.
 *Show:* Alerts page; the item's state history showing "Integrity mismatch".
 
 **8. How do you know it works beyond a demo?**
-177 automated tests (53 contract, 115 API, 9 mobile), plus a browser test of all
-43 pages for errors and accessibility. Measured: 100% of one-byte changes
+183 automated tests (53 contract, 121 API, 9 mobile), plus a browser test of all
+44 pages for errors and accessibility. Measured: 100% of one-byte changes
 detected across 200 files; 100% of 258 unauthorised access attempts blocked; no
 items lost with 35% of chain writes failing.
 *Show:* `docs/metrics/METRICS.md`; `npm test` output.
@@ -91,6 +106,17 @@ court weigh it.
 ---
 
 ## D. Privacy and security
+
+**11a. Under some State e-Sakshya rules the accused must pay to have a hash checked. Does that apply here?**
+No. Verification is a public page and a public API: drop the file, get the
+ledger's answer, at no cost and without anyone's permission. Commentary on
+Madhya Pradesh's 2026 rules (LiveLaw, 11 Aug 2026) identifies exactly this
+cost as a fairness gap.
+
+**11b. Does the Supreme Court accept hash values?**
+Yes. In *Pune Bar Association v. Union of India* (22 May 2026) the Court upheld
+BSA §63(4) and described a hash value as "synonymous with an electronic
+fingerprint". NyaySetu computes it at the scene and makes it checkable by all.
 
 **12. A public blockchain is permanent. What personal data is on it?**
 None that identifies anyone. Case keys are salted hashes; no names, FIR

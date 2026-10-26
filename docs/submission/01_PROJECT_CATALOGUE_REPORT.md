@@ -66,7 +66,7 @@ check-ins are recorded the same way. Personal data never goes on the ledger.
 
 The system is deployed and working: seven role portals, a public verification
 service, an installable mobile web app, Marathi, Hindi and English throughout,
-three verified smart contracts, 177 automated tests, and measured results
+three verified smart contracts, 183 automated tests, and measured results
 including 100% detection of one-byte tampering across 200 files and 100% of 258
 unauthorised access attempts blocked.
 
@@ -102,7 +102,36 @@ unauthorised access attempts blocked.
 (njdg.ecourts.gov.in) and the Directorate of Forensic Science Laboratories,
 Maharashtra.*
 
-### 2.3 Who is affected
+### 2.3 A recent case: the swapped blood sample (Pune, May 2024)
+
+In the early hours of 19 May 2024 a car driven by a minor killed two young
+people in Kalyani Nagar, Pune. A blood sample was drawn at Sassoon General
+Hospital to test for alcohol. According to the prosecution, the sample was
+discarded and replaced with another person's blood — DNA later matched it to the
+driver's mother — before it reached the laboratory. The substitution came to
+light only because police, acting on information about possible tampering, had
+a second sample drawn at the District Hospital, Aundh, and sent both for DNA
+analysis. Two doctors and a hospital staff member were arrested, nine people
+were held by August 2024, and the matter is before the court. (Sources: The
+Tribune, Scroll, The Week/PTI; listed in §20.)
+
+The lesson is structural. Nothing tied the vial to the person, its seal and the
+minute it was drawn, and nobody downstream had anything to check it against.
+Detection depended on a tip-off and a second sample — luck, not system.
+
+**With NyaySetu.** The officer records a short collection clip and binds the
+serial of the vial's tamper-evident seal to the exhibit; both are anchored
+within minutes. A substitute vial must carry a different seal. When the
+laboratory types the serial it sees, the mismatch refuses the intake, the wrong
+reading is itself anchored, and the prosecutor and the court are alerted — the
+same day, without DNA. The interactive replay is at
+https://nyaysetu-project.vercel.app/case-study.
+
+What NyaySetu would not have prevented: if the people drawing the sample put
+the wrong person's blood into the original sealed vial in front of the camera,
+no ledger could know. The clip makes that far harder to do unseen.
+
+### 2.4 Who is affected
 
 | Stakeholder | Pain today | What changes with NyaySetu |
 |---|---|---|
@@ -187,29 +216,30 @@ and a public ledger — not the police, the laboratory or the court's database.
 
 ## 6. What is new
 
-1. **Fingerprint at the point of capture, on the officer's device.** The proof
+1. **Physical exhibits are covered, not only files.** The serial of a tamper-evident seal is bound to the exhibit and checked at every hand-over, so a substituted sample is refused at the first one.
+2. **Fingerprint at the point of capture, on the officer's device.** The proof
    starts before the file reaches any server, so no server — including
    NyaySetu's own — can substitute a file unnoticed.
-2. **Verification without permission.** A public page, with no account, lets
+3. **Verification without permission.** A public page, with no account, lets
    the defence, the court or the accused check a file against the ledger. A
    file can be checked even without its reference: the system finds the
    matching record from the fingerprint alone.
-3. **A failed check is permanent.** Integrity mismatches are written to the
+4. **A failed check is permanent.** Integrity mismatches are written to the
    ledger, not to an editable log, and the hand-over is refused.
-4. **Evidence, summons and bail in one verifiable record**, with three
+5. **Evidence, summons and bail in one verifiable record**, with three
    purpose-built contracts.
-5. **Bail compliance computed on chain.** Geo-fence arithmetic runs inside the
+6. **Bail compliance computed on chain.** Geo-fence arithmetic runs inside the
    contract using integer micro-degrees, so the verdict on each check-in is
    reproducible by anyone and cannot be altered by the operator.
-6. **Paper that verifies itself.** Every certificate and custody record carries
+7. **Paper that verifies itself.** Every certificate and custody record carries
    a QR code that opens the public verification page for that item.
-7. **Designed for the accused, not only for officials.** Obligations explained
+8. **Designed for the accused, not only for officials.** Obligations explained
    in Marathi, Hindi and English, read aloud by the phone, with a way to give
    reasons for a missed check-in.
-8. **Radical, privacy-preserving transparency.** A public page shows live
+9. **Radical, privacy-preserving transparency.** A public page shows live
    counts and every recent ledger transaction, with no personal data, and a
    "tamper lab" that lets anyone see for themselves what a one-bit change does.
-9. **Honesty built into the interface.** The system states what it does not
+10. **Honesty built into the interface.** The system states what it does not
    prove (a matching fingerprint shows a file is unchanged, not that its content
    is true), labels AI output as decision support, and labels simulated
    components as simulated.
@@ -270,6 +300,24 @@ ledger is right and the disagreement is shown.
 - Verification states shown on every item, with state history.
 - Integrity alerts to prosecution and court; two-person approval for sensitive
   actions.
+
+### 8.1a Physical exhibits — seal binding
+
+A fingerprint proves a file is unchanged; a blood sample, a weapon or a packet
+of narcotics is not a file. What travels with a physical exhibit is a
+tamper-evident seal with a printed serial.
+
+- The seizing officer binds the serial to the exhibit once, before the first
+  hand-over. The serial stays off chain; a digest salted with the internal
+  exhibit identifier is anchored.
+- Every receiving party (laboratory intake today; custody, malkhana and court
+  production use the same check) types the serial it actually sees. Serials are
+  compared ignoring case, spaces and dashes.
+- A different serial refuses the intake, anchors the wrong reading as its own
+  record, and raises a serious `SEAL_MISMATCH` alert to the prosecution and the
+  court. A seal cannot be re-bound quietly.
+- Implemented in migration `014_exhibit_seals.sql`, `seal.service.ts`, and
+  tested in `backend/test/f21-exhibit-seals.test.ts`.
 
 ### 8.2 Summons (SammansSetu · SummonsChain)
 
@@ -346,6 +394,7 @@ The complete sequence is automated end to end over HTTP by `npm run flow:check`
 | **BNSS §105** | Search and seizure recorded through audio-video electronic means, preferably a mobile phone | Capture on the phone with fingerprint, time and location before upload; offline queue for areas without signal |
 | **BNSS §176(3)** | Forensic expert to visit the scene of offences punishable with 7+ years, collect evidence and record the process | Laboratory intake with re-hash and seal condition; custody refused on mismatch |
 | **BSA §63** | Certificate accompanying electronic records, including hash value(s) | Certificate generated from the record with the SHA-256 digest anchored on chain, QR-verifiable |
+| **Supreme Court, 22 May 2026** | *Pune Bar Association v. Union of India*, 2026 SCC OnLine SC 1297: §63(4) upheld; a hash value is "synonymous with an electronic fingerprint" | The fingerprint is computed at the scene and anyone can check it, free |
 | **BNSS §§ 63–71** (summons) | Service of summons, including electronic service | Authenticated, timestamped acknowledgement recorded on chain |
 | **BNSS bail provisions** | Conditions imposed by the court | Conditions as code; compliance computed and ranked for the court |
 
@@ -383,7 +432,7 @@ the table holding tokens is unreachable through the API.
   refusal in an audit log.
 - Public endpoints return only what the privacy rule allows; a test asserts the
   transparency figures contain no case reference, identifier, digest or name.
-- Security review documented in `docs/SECURITY.md` and `docs/AUDIT_2_0.md`.
+- Security review documented in `docs/SECURITY.md`.
 
 ---
 
@@ -421,9 +470,9 @@ the table holding tokens is unreachable through the API.
 | Suite | Count | What it covers |
 |---|---|---|
 | Smart contracts (Hardhat) | 53 | Roles, custody stages, mismatch anchoring, summons window, geo-fence arithmetic, breaches |
-| API (node:test, over real HTTP) | 115 | Every feature, an authorisation matrix over the API's routes, rate limits, PDFs, public privacy rules |
+| API (node:test, over real HTTP) | 121 | Every feature, an authorisation matrix over the API's routes, rate limits, PDFs, public privacy rules |
 | Mobile | 9 | Offline queue: ordering, idempotency, retry |
-| UI smoke and accessibility (Puppeteer + axe-core) | 43 pages | Every page of every role, desktop and mobile, no console errors, no WCAG violations |
+| UI smoke and accessibility (Puppeteer + axe-core) | 44 pages | Every page of every role, desktop and mobile, no console errors, no WCAG violations |
 
 ### 14.2 Measured results
 
@@ -459,7 +508,7 @@ public page.
 Everything is configured by environment variables (`.env.hosting.example`), and
 the same code runs on a laptop with no accounts at all (`npm run local`: a local
 chain, in-memory database and the web app). Step-by-step hosting guides are in
-`docs/hosting.md` and `docs/deployment.md`.
+`docs/hosting.md` and `docs/production.md`.
 
 ---
 
@@ -593,6 +642,9 @@ anchors; review of Hindi and Marathi text by native speakers.
 10. Project documentation in this repository: `README.md`, `docs/SECURITY.md`,
     `docs/DECISIONS.md`, `docs/metrics/METRICS.md`, `docs/hosting.md`,
     `docs/TESTING.md`, `docs/samples/`.
+11. *Pune Bar Association v. Union of India*, 2026 SCC OnLine SC 1297 (22 May 2026) — https://www.scconline.com/blog/post/2026/07/08/sc-upholds-admissibility-of-electronic-evidence-under-section-63-4-bsa/
+12. Asma Khan, "Madhya Pradesh's new e-Sakshya rules solve custody, not proof", LiveLaw, 11 August 2026 — https://www.livelaw.in/articles/madhya-pradesh-esakshya-rules-solve-custody-545161
+13. Pune blood-sample case: The Tribune (May and Aug 2024), Scroll, The Week/PTI (27 June 2025) — links on https://nyaysetu-project.vercel.app/case-study
 
 ---
 

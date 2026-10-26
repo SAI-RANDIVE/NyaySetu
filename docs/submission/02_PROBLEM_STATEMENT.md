@@ -21,12 +21,23 @@ word of an interested party rather than by a record anyone can check.
 3. **Are bail conditions being kept?** Conditions are written into an order that
    nobody monitors until something has already gone wrong.
 
+## A recent case
+
+Pune, May 2024: in a crash that killed two people, the minor driver's blood
+sample was allegedly replaced inside a government hospital with another
+person's blood before it reached the laboratory. It came to light only because
+police, acting on information, drew a second sample elsewhere and compared DNA
+days later. Nothing tied the vial to the person, its seal and the minute it was
+drawn; nobody downstream had anything to check it against.
+
 ## Why now, and why Maharashtra
 
 - **New legal duties since 1 July 2024.** BNSS §105 requires audio-video
   recording of searches and seizures; BNSS §176(3) requires forensic collection
   and recording at the scene of serious offences; BSA §63 requires a certificate
-  stating the hash value of every electronic record produced in court. Officers
+  stating the hash value of every electronic record produced in court — a
+  requirement the Supreme Court upheld on 22 May 2026 (*Pune Bar Association v.
+  Union of India*), calling a hash "synonymous with an electronic fingerprint". Officers
   now produce far more digital evidence, each item needing a chain of custody a
   court can rely on.
 - **Pendency.** Maharashtra's district courts carry more than fifty lakh pending

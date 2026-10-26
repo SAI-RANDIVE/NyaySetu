@@ -219,21 +219,110 @@ export function LabWorkPanel({ item, reports, onChanged }: { item: EvidenceRow; 
   );
 }
 
+interface SealResponse {
+  seal: { serial: string; description: string | null; sealed_at: string; anchor_id: string | null } | null;
+  checks: { id: string; context: string; observed_serial: string; matched: boolean; checked_at: string; checked_by_role: string | null }[];
+}
+
+/**
+ * The tamper-evident seal of a physical exhibit (2.1). The seizing officer binds
+ * the printed serial once, before the first hand-over; every reading of it by a
+ * receiving party is listed, and a different serial is shown as the refusal it was.
+ */
+export function SealCard({ item }: { item: EvidenceRow }) {
+  const { t } = useI18n();
+  const { user } = useAuth();
+  const toast = useToast();
+  const state = useQuery<SealResponse>(`/api/evidence/${item.id}/seal`);
+  const [serial, setSerial] = useState("");
+  const [description, setDescription] = useState("");
+  const bind = useMutation(async () => api.post(`/api/evidence/${item.id}/seal`, { serial: serial.trim(), description: description.trim() || null }));
+  const seal = state.data?.seal ?? null;
+  const checks = state.data?.checks ?? [];
+  const canBind = has(user?.role, "police") && item.current_stage === "SCENE" && !seal;
+  if (!state.data) return null;
+  if (!seal && !canBind) return null;
+
+  return (
+    <Card title={t("seal.title")} subtitle={t("seal.hint")}>
+      {seal ? (
+        <div className="space-y-3">
+          <div className="flex items-start gap-3 rounded-xl border border-success-soft bg-success-soft p-3.5">
+            <Lock size={16} className="mt-0.5 shrink-0 text-success" aria-hidden />
+            <div className="min-w-0">
+              <p className="font-ui text-sm font-semibold text-text">{t("seal.bound")}</p>
+              <p className="mt-0.5 font-mono text-sm text-text">{seal.serial}</p>
+              {seal.description && <p className="font-ui text-xs text-muted">{seal.description}</p>}
+              <p className="font-ui text-2xs text-faint">{formatDateTime(seal.sealed_at)}</p>
+            </div>
+          </div>
+          {checks.length > 0 && (
+            <div>
+              <p className="mb-1.5 font-ui text-2xs font-semibold uppercase tracking-wider text-faint">{t("seal.checks")}</p>
+              <ul className="space-y-1.5">
+                {checks.map((c) => (
+                  <li key={c.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2 ${c.matched ? "bg-surface-2" : "bg-danger-soft"}`}>
+                    <span className="flex items-center gap-2 font-ui text-xs text-text">
+                      {c.matched ? <CheckCircle2 size={13} className="text-success" aria-hidden /> : <XCircle size={13} className="text-danger" aria-hidden />}
+                      {c.matched ? t("seal.matched") : t("seal.mismatch")} · <span className="font-mono">{c.observed_serial}</span>
+                    </span>
+                    <span className="font-ui text-2xs text-muted">
+                      {c.context.replace("_", " ")} · {formatDateTime(c.checked_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="font-ui text-xs text-muted">{t("seal.onlyBefore")}</p>
+          <Field label={t("seal.serial")} required>
+            <Input value={serial} onChange={(e) => setSerial(e.target.value)} placeholder="MH-PN-0419" className="font-mono uppercase" autoComplete="off" spellCheck={false} />
+          </Field>
+          <Field label={t("seal.description")}>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Blood sample vial, 5 ml" />
+          </Field>
+          <ErrorLine error={bind.error} />
+          <Button
+            disabled={serial.trim().length < 3}
+            loading={bind.pending}
+            onClick={async () => {
+              const out = await bind.run(undefined as never);
+              if (out) {
+                toast.success(t("seal.bound"));
+                state.refetch();
+              }
+            }}
+          >
+            <Lock size={14} aria-hidden /> {t("seal.bind")}
+          </Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function IntakeDialog({ item, onClose, onDone }: { item: EvidenceRow; onClose: () => void; onDone: (matched: boolean) => void }) {
   const { t } = useI18n();
   const [picked, setPicked] = useState<HashedFile | null>(null);
   const [sealIntact, setSealIntact] = useState(true);
   const [sealNotes, setSealNotes] = useState("");
   const [conditionNotes, setConditionNotes] = useState("");
+  const [sealSerial, setSealSerial] = useState("");
+  const sealState = useQuery<SealResponse>(`/api/evidence/${item.id}/seal`);
+  const sealed = Boolean(sealState.data?.seal);
   const save = useMutation(async () =>
     api.post<{ matched: boolean }>(`/api/lab/evidence/${item.id}/intake`, {
       sealIntact,
       sealNotes: sealNotes.trim() || null,
       conditionNotes: conditionNotes.trim() || null,
       recheckSha256: picked!.hash,
+      sealSerial: sealed ? sealSerial.trim() : null,
     })
   );
-  const valid = picked && (sealIntact || sealNotes.trim().length > 0);
+  const valid = picked && (sealIntact || sealNotes.trim().length > 0) && (!sealed || sealSerial.trim().length >= 3);
 
   return (
     <Modal
@@ -265,6 +354,11 @@ function IntakeDialog({ item, onClose, onDone }: { item: EvidenceRow; onClose: (
           <p className={`rounded-lg px-3 py-2 font-ui text-2xs ${picked.hash === item.file_hash ? "bg-success-soft" : "bg-danger-soft"} text-text`}>
             {picked.hash === item.file_hash ? t("lab.localMatch") : t("lab.localMismatch")}
           </p>
+        )}
+        {sealed && (
+          <Field label={t("seal.observed")} hint={t("seal.observedHint")} required>
+            <Input value={sealSerial} onChange={(e) => setSealSerial(e.target.value)} className="font-mono uppercase" autoComplete="off" spellCheck={false} />
+          </Field>
         )}
         <Checkbox label={t("lab.sealIntact")} checked={sealIntact} onChange={setSealIntact} />
         {!sealIntact && (

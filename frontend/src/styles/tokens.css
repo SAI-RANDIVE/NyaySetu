@@ -97,7 +97,8 @@
   --trust-text: #475569;
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+[data-surface="dark"] {
   color-scheme: dark;
 
   --brand-green: #009245;
@@ -165,4 +166,11 @@
 /* Large-text mode (Jan-Sahayak, F6): scales every rem-based size by 1.2. */
 :root[data-text-size="large"] {
   font-size: 120%;
+}
+
+/* A section that opts into the dark set (the cinematic hero) also needs its
+   own text colour, since colour is inherited from a light body. */
+[data-surface="dark"] {
+  color: var(--text);
+  color-scheme: dark;
 }

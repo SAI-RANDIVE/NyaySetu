@@ -25,6 +25,7 @@ export type AlertKind =
   | "INDEXER_LAG"
   | "SYNC_FAILED"
   | "SEAL_BROKEN"
+  | "SEAL_MISMATCH"
   | "CUSTODY_GAP"
   | "RECORD_CHAIN_DISAGREE"
   | "SIGNATURE_INVALID"

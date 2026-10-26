@@ -9,8 +9,7 @@ what it costs. Numbered so code comments can cite them (`see DECISIONS D-04`).
 
 React stays on 18, Express on 4, Tailwind on 3. Upgrading at the same time as
 twenty features would make every regression ambiguous between "the feature" and
-"the framework". The brief's version numbers are recorded as a discrepancy in
-`AUDIT_2_0.md` §1.
+"the framework".
 
 ### D-02 · Cases get their own reference; FIR becomes optional and off chain
 

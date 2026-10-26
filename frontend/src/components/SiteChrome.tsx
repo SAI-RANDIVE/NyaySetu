@@ -16,7 +16,8 @@ import { ROLE_HOME } from "../lib/format";
 
 const LINKS = [
   { to: "/", label: "Overview", end: true },
-  { to: "/verify", label: "Verify evidence" },
+  { to: "/verify", label: "Verify" },
+  { to: "/case-study", label: "Case replay" },
   { to: "/transparency", label: "Transparency" },
   { to: "/handbook", label: "Handbook" },
   { to: "/about", label: "About" },
@@ -75,11 +76,17 @@ export function StatusIndicator({ className = "" }: { className?: string }) {
   );
 }
 
-function navClass({ isActive }: { isActive: boolean }) {
-  return `rounded-full px-3 py-2 font-ui text-sm font-medium transition ${isActive ? "bg-primary-soft text-primary" : "text-muted hover:bg-surface-2 hover:text-text"}`;
+/** The white pill navigation over the dark hero. */
+function pillClass({ isActive }: { isActive: boolean }) {
+  return `whitespace-nowrap rounded-full px-3.5 py-1.5 font-ui text-sm font-medium transition ${isActive ? "bg-[#0b3d2a] text-white" : "text-[#3d4a43] hover:bg-[#eef3f0] hover:text-[#0b1510]"}`;
 }
 
-export function SiteHeader({ children }: { children?: React.ReactNode }) {
+function navClass({ isActive }: { isActive: boolean }) {
+  return `whitespace-nowrap rounded-full px-3 py-2 font-ui text-sm font-medium transition ${isActive ? "bg-primary-soft text-primary" : "text-muted hover:bg-surface-2 hover:text-text"}`;
+}
+
+export function SiteHeader({ children, tone = "light" }: { children?: React.ReactNode; tone?: "light" | "dark" }) {
+  const dark = tone === "dark";
   const { user } = useAuth();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -97,7 +104,7 @@ export function SiteHeader({ children }: { children?: React.ReactNode }) {
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-bg-elevated/95 backdrop-blur">
+    <header data-surface={dark ? "dark" : undefined} className={`sticky top-0 z-40 border-b backdrop-blur ${dark ? "border-white/10 bg-[#070b0a]/85" : "border-border bg-bg-elevated/95"}`}>
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-primary-fill focus:px-4 focus:py-2 focus:font-ui focus:text-sm focus:font-semibold focus:text-on-primary"
@@ -105,7 +112,7 @@ export function SiteHeader({ children }: { children?: React.ReactNode }) {
         {t("shell.skip")}
       </a>
       {/* System strip: status on the left, display controls on the right. */}
-      <div className="hidden border-b border-border bg-surface-2 md:block">
+      <div className={`hidden border-b md:block ${dark ? "border-white/[0.07] bg-black/30" : "border-border bg-surface-2"}`}>
         <div className="mx-auto flex h-10 max-w-6xl items-center gap-4 px-4 sm:px-6">
           <StatusIndicator />
           <div className="ml-auto">
@@ -122,19 +129,21 @@ export function SiteHeader({ children }: { children?: React.ReactNode }) {
             <span className="block font-ui text-2xs leading-tight text-muted">न्यायसेतु<span className="hidden sm:inline"> · Evidence integrity system</span></span>
           </span>
         </Link>
-        <nav aria-label="Main" className="hidden flex-1 items-center justify-center gap-0.5 lg:flex">
+        <nav aria-label="Main" className={`hidden flex-1 items-center justify-center lg:flex ${dark ? "" : "gap-0.5"}`}>
+          <span className={dark ? "flex items-center gap-0.5 rounded-full bg-white px-1.5 py-1.5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.6)]" : "contents"}>
           {LINKS.map((l) => (
-            <NavLink key={l.to} to={l.to} end={l.end} className={navClass}>
+            <NavLink key={l.to} to={l.to} end={l.end} className={dark ? pillClass : navClass}>
               {l.label}
             </NavLink>
           ))}
+          </span>
         </nav>
         <div className="ml-auto flex items-center gap-2 lg:ml-0">
           <span className="hidden sm:inline-flex">
             <InstallAppButton compact />
           </span>
           {portal}
-          <PoliceSeal size={38} className="hidden sm:inline-flex" />
+          <PoliceSeal size={dark ? 34 : 38} className={`hidden sm:inline-flex ${dark ? "rounded-full bg-white p-1" : ""}`} />
           <button
             type="button"
             className="grid h-9 w-9 place-items-center rounded-full border border-border text-text lg:hidden"
@@ -247,10 +256,10 @@ function FooterColumn({ title, links }: { title: string; links: ({ to: string; l
 }
 
 /** A public page: shared header, a main landmark, shared footer. */
-export function SitePage({ children, subnav, bare = false }: { children: React.ReactNode; subnav?: React.ReactNode; bare?: boolean }) {
+export function SitePage({ children, subnav, bare = false, tone }: { children: React.ReactNode; subnav?: React.ReactNode; bare?: boolean; tone?: "light" | "dark" }) {
   return (
     <div className="flex min-h-screen flex-col bg-bg">
-      <SiteHeader>{subnav}</SiteHeader>
+      <SiteHeader tone={tone}>{subnav}</SiteHeader>
       <main id="main" tabIndex={-1} className={`flex-1 outline-none ${bare ? "" : "mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12"}`}>
         {children}
       </main>

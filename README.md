@@ -198,6 +198,8 @@ Three places in a criminal matter where the record is only as good as somebody's
 
 ### For the public, and for people who are not lawyers
 
+- **Case replay** (`/case-study`): the Pune blood-sample swap of May 2024, replayed step by step beside what NyaySetu would have recorded, with a ledger hashed live in the browser and sources cited. Nobody is named.
+- **Physical exhibits**: the serial of a tamper-evident seal is bound to the exhibit before its first hand-over (only a salted digest goes on chain); the laboratory must read the same serial, and a substituted packet is refused, anchored and alerted (`SEAL_MISMATCH`). Migration `014_exhibit_seals.sql`.
 - **Transparency page** (`/transparency`): aggregate counts only, with every contract and recent transaction linked to Etherscan, and the gas each operation has actually used. No names, references or places.
 - **Verify with the file alone**: on `/verify`, a file can be checked without its reference. Only its fingerprint is sent, and any match is confirmed against the chain, which also gives other agencies' systems a one-call integrity check (`POST /api/public/lookup`).
 - **Tamper lab**: choose any file, change one bit, and watch the fingerprint change completely. It runs entirely in the browser.
@@ -265,7 +267,7 @@ nyaysetu/
 ├── mobile/             ← THE FIELD APP. React Native (Expo). Optional.
 │                         Scene capture and bail check-in. Hashes on-device.
 │
-├── docs/               ← EVERY GUIDE. Start with docs/README.md.
+├── docs/               ← EVERY GUIDE. Start with context.md at the root.
 ├── brand/              ← the source logo the favicons were generated from
 └── render.yaml           deploy blueprint for the API
 ```
@@ -651,17 +653,15 @@ These are the questions any careful reviewer should ask; the answers are here ra
 
 **The field app does not sign captures with a device key yet.** The web client registers a non-extractable device key and signs manifests; the mobile app sends manifests unsigned, and its Expo build tooling carries advisories that need an SDK upgrade (see `docs/SECURITY.md`).
 
-**RLS does not constrain the API.** Supabase's service role bypasses row level security by design, so the policies in `002_rls.sql` do not police API traffic — the RBAC middleware does. RLS is the second wall, and it is what stands between a leaked anon key and the contents of these tables. Every table has it on; see `docs/design-decisions.md`.
+**RLS does not constrain the API.** Supabase's service role bypasses row level security by design, so the policies in `002_rls.sql` do not police API traffic — the RBAC middleware does. RLS is the second wall, and it is what stands between a leaked anon key and the contents of these tables. Every table has it on; see `docs/SECURITY.md`.
 
 ---
 
 ## 📚 Where the reasoning is written down
 
-- **[`docs/`](docs/)** — all the guides, with an index that says which one you want
-- **`docs/hosting.md`** — deploy the API to Render and the web app to Vercel or Netlify, with one all-in-one env file
+- **[`context.md`](context.md)** — the whole project on one page: what it is, how it fits together, where everything lives, and what is left to do
 - **`docs/TESTING.md`** — every automated check, and a step-by-step walkthrough for each role
 - **`docs/samples/`** — one of every generated court document (seizure memo, custody record, Section 63 certificate, passports, final report)
-- **`docs/STORY.md`** — why this exists and what 2.0 changes, in plain words
 - **`docs/DEMO.md`** — a twelve-minute demonstration that ends with the Section 63 certificate
 - **`docs/DECISIONS.md`** — the 2.0 decisions (D-01 to D-11) and why
 - **`docs/VERIFICATION_STATES.md`** — the six verification states and every legal transition
@@ -669,14 +669,11 @@ These are the questions any careful reviewer should ask; the answers are here ra
 - **`docs/metrics/METRICS.md`** — measured results, and what they do not show
 - **`docs/submission/`** — the project catalogue report, problem statement, presentation, demonstration script and evaluation questions, with PDF copies (`npm --prefix frontend run docs:pdf`)
 - **`npm --prefix contracts run gas`** — the gas each contract operation uses, which is the basis of the cost figures
-- **`docs/USER_TESTING.md`** — tasks, SUS questionnaire and practitioner form
 - **`docs/JAN_SAHAYAK.md`** — plain-language help, accessibility, translation review
 - **`docs/INTEGRATION.md`** — how CCTNS, ICJS and e-Courts would connect (design only)
 - **`docs/api-keys.md`** — every credential, where to get it, what breaks without it
 - **`docs/hosting.md`** — Vercel and Render, and the four things that break if you skip it
 - **`docs/production.md`** — the six fallbacks a default deployment still uses, and the checklist before real data
-- **`docs/design-decisions.md`** — the on-chain/off-chain split, why not just Postgres, and the decisions worth defending
-- **`docs/deployment.md`** — exact environment variables per service, and the order to deploy them in
 - **`ai-service/src/datasets.py`** — every synthetic distribution, in full
 - **`backend/src/otp/UidaiOtpProvider.ts`** — the government-authorisation seam
 - **`database/migrations/002_rls.sql`** — the security model, with its own reasoning in the header

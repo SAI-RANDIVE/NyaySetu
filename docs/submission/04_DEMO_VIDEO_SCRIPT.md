@@ -20,7 +20,7 @@ Every shot is a real screen of the live system, not a slide.
 | Time | Shot | Narration |
 |---|---|---|
 | 0:00–0:20 | Presenter on camera | "NyaySetu makes evidence, summons and bail in Maharashtra's criminal courts verifiable by anyone." |
-| 0:20–0:50 | Home page, "Why now" section | "Since July 2024 every search must be recorded and every electronic record needs a hash certificate. But custody is still a register — it says an item moved, not that it is the same item." |
+| 0:20–0:50 | `/case-study` → Play to the laboratory step | "Pune, May 2024: a blood sample in a fatal crash case was swapped inside a hospital, and was caught only by a tip-off and DNA, days later. Watch the same day with NyaySetu: the substitute vial's seal doesn't match the ledger, and the laboratory refuses it the same afternoon." |
 | 0:50–1:20 | Transparency → Tamper lab → sample → change one bit | "This is the whole idea. Change a single bit, and the fingerprint changes completely." |
 | 1:20–2:00 | Phone: capture a photo; aeroplane mode, capture another; reconnect | "The fingerprint is computed on the phone before upload. Without signal it waits safely and syncs later — never twice." Show *Confirmed on chain* and the Etherscan link. |
 | 2:00–2:40 | Private window: `/verify` → drop original (match), drop altered copy (no match); then "Use the file itself" with no reference | "No account. The defence, the court, the accused can check a file against the blockchain — not against the police database. They don't even need the reference." |

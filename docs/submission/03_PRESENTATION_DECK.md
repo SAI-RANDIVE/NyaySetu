@@ -33,6 +33,18 @@ Developed by Sai Randive
 
 ---
 
+## Slide 2a · One real case
+
+**Pune, May 2024 — the swapped blood sample.** In a crash that killed two
+people, the driver's sample was allegedly replaced inside a hospital. Caught
+only by a tip-off, a second sample and DNA, days later.
+**With NyaySetu:** the seal serial bound at collection; the substitute is
+refused at the laboratory the same day.
+
+*Visual:* the two-lane replay from `/case-study`, stopped at the laboratory step.
+
+---
+
 ## Slide 3 · The solution
 
 **Capture → Anchor → Hand over → Verify → Produce in court**
@@ -49,12 +61,13 @@ Developed by Sai Randive
 
 ## Slide 4 · What you will see (live)
 
-1. Tamper lab: change one bit → the fingerprint changes completely
-2. Public verification, no account: original ✅, one-pixel copy ❌
-3. Laboratory receives a different file → refused, anchored, alert raised
-4. Accused hears obligations read aloud in Marathi
-5. Judge sees the bail geo-fence and check-ins on a map
-6. §63 certificate PDF → scan the QR → verification opens
+1. Case replay: the Pune sample swap, caught at the first hand-over
+2. Tamper lab: change one bit → the fingerprint changes completely
+3. Public verification, no account: original ✅, one-pixel copy ❌
+4. Laboratory receives a different seal or file → refused, anchored, alert raised
+5. Accused hears obligations read aloud in Marathi
+6. Judge sees the bail geo-fence and check-ins on a map
+7. §63 certificate PDF → scan the QR → verification opens
 
 ---
 
@@ -70,7 +83,7 @@ Ethereum · Python models labelled as decision support.
 | One-byte tampering detected (200 files) | **100%** |
 | Unauthorised access blocked (258 attempts) | **100%** |
 | Items lost with 35% of chain writes failing | **0** |
-| Automated tests | **177**, plus 43 pages checked for accessibility |
+| Automated tests | **183**, plus 44 pages checked for accessibility |
 
 ---
 

@@ -49,7 +49,7 @@ const ROLES = {
   court_admin: "admin",
 };
 const links = [...shell.matchAll(/\{\s*to:\s*"([^"]+)"/g)].map((m) => m[1]);
-const PUBLIC = ["/", "/about", "/transparency", "/login", "/verify", "/handbook"];
+const PUBLIC = ["/", "/about", "/transparency", "/case-study", "/login", "/verify", "/handbook"];
 
 const browser = await puppeteer.launch({
   executablePath: CHROME,

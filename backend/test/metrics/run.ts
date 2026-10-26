@@ -164,7 +164,7 @@ async function main() {
       "",
       "- The chain is simulated, so these numbers say whether the application logic is right, not how a public network behaves under load.",
       "- SHA-256 detecting a one-byte change is expected; the measurement confirms the system compares the right values end to end, not the strength of the hash.",
-      "- No user study has been run yet; see `docs/USER_TESTING.md` for the kit.",
+      "- No user study has been run yet; the pilot plan is in `docs/submission/01_PROJECT_CATALOGUE_REPORT.md`.",
       "",
     ].join("\n")
   );

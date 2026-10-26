@@ -23,6 +23,7 @@ import {
   verificationSummary,
 } from "../services/evidence.service";
 import { anchorHistory, loadAnchor, recheck } from "../services/verification/anchors";
+import { bindSeal, sealChecksFor, sealFor } from "../services/seal.service";
 import { parseManifestField, parseSignatureField } from "../services/capture.service";
 import { assembleUpload, consumeUpload } from "../services/upload.service";
 
@@ -237,6 +238,35 @@ router.get(
 
     const timeline = await custodyTimeline(req.params.id);
     res.json({ ...timeline, evidence: stripEnvelope(timeline.evidence) });
+  })
+);
+
+/**
+ * Physical exhibits: the tamper-evident seal bound to the item, and every
+ * reading of it since. The serial is shown only to roles assigned to the case.
+ */
+router.get(
+  "/:id/seal",
+  validate(z.object({ id: uuid }), "params"),
+  asyncRoute(async (req, res) => {
+    const item = await loadEvidence(req.params.id);
+    await assertCaseAccess(req, item.case_id);
+    const [seal, checks] = await Promise.all([sealFor(item.id), sealChecksFor(item.id)]);
+    res.json({ seal, checks });
+  })
+);
+
+/** Binds the seal serial, once, while the exhibit is still with the seizing officer. */
+router.post(
+  "/:id/seal",
+  requireRole("police"),
+  writeLimiter,
+  validate(z.object({ id: uuid }), "params"),
+  validate(z.object({ serial: z.string().trim().min(3).max(64), description: safeText(300).optional().nullable() }).strict()),
+  asyncRoute(async (req, res) => {
+    const item = await loadEvidence(req.params.id);
+    await assertCaseAccess(req, item.case_id, "write");
+    res.status(201).json(await bindSeal(req, req.user!, item.id, req.body));
   })
 );
 

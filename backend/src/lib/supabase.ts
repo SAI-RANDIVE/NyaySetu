@@ -31,7 +31,7 @@ export const db: SupabaseClient = useMemory
 /**
  * PII lives in the `restricted` schema. For PostgREST to reach it, the schema
  * must be listed under Supabase Settings -> API -> Exposed schemas. See
- * docs/deployment.md; it is the one manual dashboard step.
+ * docs/hosting.md; it is the one manual dashboard step.
  */
 export const restricted = db.schema("restricted");
 
@@ -77,6 +77,7 @@ const MIGRATION_PROBES: [migration: string, table: string][] = [
   ["010_passport_capture", "device_keys"],
   ["011_chunked_uploads", "upload_sessions"],
   ["012_workflows", "approval_requests"],
+  ["014_exhibit_seals", "exhibit_seals"],
 ];
 
 export async function schemaStatus(): Promise<{ upToDate: boolean; missing: string[] }> {

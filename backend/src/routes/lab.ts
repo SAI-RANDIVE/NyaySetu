@@ -38,6 +38,7 @@ router.post(
       packagingEvidenceIds: z.array(uuid).max(10).optional(),
       conditionNotes: safeText(2000).optional().nullable(),
       recheckSha256: hash32,
+      sealSerial: z.string().trim().max(64).optional().nullable(),
     })
   ),
   asyncRoute(async (req, res) => {
