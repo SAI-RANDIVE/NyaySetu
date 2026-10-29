@@ -910,6 +910,23 @@ async function main(): Promise<void> {
         if (m) console.log(`    ${spec.role.padEnd(16)} ${m.email.padEnd(40)} ${m.password}`);
       }
       console.log("\n  These credentials print once. Change them before showing the system to anyone.");
+
+      // A consolidated record of the run, for the presentation: every item, its
+      // public passport and the ledger transaction that registered it.
+      const { data: kept } = await db.from("evidence_items").select("public_ref, file_name, anchor_id").eq("case_id", caseId!);
+      const anchorIds = ((kept ?? []) as { anchor_id: string | null }[]).map((k) => k.anchor_id).filter(Boolean) as string[];
+      const anchorRows = anchorIds.length ? ((await db.from("anchors").select("id, state, tx_hash, block_number").in("id", anchorIds)).data ?? []) : [];
+      const byAnchor = new Map((anchorRows as { id: string; state: string; tx_hash: string | null; block_number: number | null }[]).map((a) => [a.id, a]));
+      const site = /localhost|127\.0\.0\.1/.test(BASE) ? "http://localhost:5173" : BASE;
+      const sepolia = chain.isReady && Number(chain.network?.chainId) === 11155111;
+      console.log("\n  Demonstration record (synthetic data, real ledger transactions):\n");
+      for (const k of (kept ?? []) as { public_ref: string; file_name: string; anchor_id: string | null }[]) {
+        const a = k.anchor_id ? byAnchor.get(k.anchor_id) : undefined;
+        console.log(`    ${k.public_ref}  ${k.file_name}`);
+        console.log(`      passport  ${site}/verify/${k.public_ref}`);
+        if (a?.tx_hash) console.log(`      ledger    ${a.state}, block ${a.block_number ?? "?"}  ${sepolia ? `https://sepolia.etherscan.io/tx/${a.tx_hash}` : a.tx_hash}`);
+      }
+      console.log("\n  Readiness report: sign in as the police officer, open the case, Final Report, Readiness report.");
     } else {
     step("15 · Cleaning up after itself");
     // The case goes, and cascades away its evidence, custody, summons, bail,

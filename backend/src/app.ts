@@ -19,6 +19,7 @@ import aiRoutes from "./routes/ai";
 import adminRoutes from "./routes/admin";
 import referenceRoutes from "./routes/reference";
 import reportRoutes from "./routes/reports";
+import v1Routes from "./routes/v1";
 import publicRoutes from "./routes/public";
 import deviceRoutes from "./routes/devices";
 import uploadRoutes from "./routes/uploads";
@@ -90,6 +91,7 @@ app.use(csrfProtection);
 app.use("/api/health", healthRoutes);
 // The Integrity Passport. Public by design: no session is needed or consulted.
 app.use("/api/public", publicRoutes);
+app.use("/api/v1", v1Routes);
 // Not behind requirePasswordSettled: this router is how the password is changed.
 app.use("/api/auth", authRoutes);
 

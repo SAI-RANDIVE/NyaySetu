@@ -75,7 +75,7 @@ It cannot be corrected quietly; a later genuine transfer is a separate record.
 *Show:* Alerts page; the item's state history showing "Integrity mismatch".
 
 **8. How do you know it works beyond a demo?**
-183 automated tests (53 contract, 121 API, 9 mobile), plus a browser test of all
+194 automated tests (53 contract, 132 API, 9 mobile), plus a browser test of all
 44 pages for errors and accessibility. Measured: 100% of one-byte changes
 detected across 200 files; 100% of 258 unauthorised access attempts blocked; no
 items lost with 35% of chain writes failing.
@@ -84,6 +84,21 @@ items lost with 35% of chain writes failing.
 ---
 
 ## C. Law and admissibility
+
+**8a. Your system generates a charge sheet. Is it filed when it is generated?**
+No. A generated final report is a watermarked draft. A readiness engine checks
+it against the record and the live ledger; only a police officer can approve
+the latest version, and only when nothing blocks; approval freezes the bytes
+and their SHA-256. It becomes FILED only when the prosecutor or registry enters
+the court's receipt number. Certificates and seizure memos are always marked
+"UNSIGNED DRAFT" — the system never signs for a person.
+*Show:* case page → Final Report → Readiness report; Prepare version → Approve.
+
+**8b. Can I verify without trusting your server at all?**
+Yes. On the passport page, "Check it without NyaySetu" makes your browser ask a
+public Ethereum node for the registration transaction, check the contract and
+event, and compare the committed digest — our server is not involved. If no
+public node answers, it says NOT VERIFIED.
 
 **9. Is a blockchain record admissible in court?**
 The court relies on the BSA §63 certificate, which must state the hash value.
@@ -180,7 +195,7 @@ The handbook explains every role's steps publicly.
 **21. How would it integrate with CCTNS, ICJS and e-Courts?**
 Through its HTTP API. Any system can verify a file by posting only its
 fingerprint to the public lookup endpoint, and the case, summons and bail
-records can be exchanged with ICJS. No government system is connected today;
+records can be exchanged with ICJS. The versioned API exists now at `/api/v1`, described in OpenAPI 3.1, with a sandbox client (`npm run sandbox:verify`). No government system is connected today;
 the exchange design, which needs each owning agency's approval, is in
 `docs/INTEGRATION.md`.
 

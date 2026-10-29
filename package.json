@@ -37,6 +37,7 @@
     "db:bundle:check": "node scripts/bundle-upgrade.mjs --check",
     "deployment:sync": "node scripts/deployment-sync.mjs",
     "deployment:check": "node scripts/deployment-sync.mjs --check",
-    "demo:data": "npm --prefix backend run flow:check -- --keep"
+    "demo:data": "npm --prefix backend run flow:check -- --keep",
+    "sandbox:verify": "node scripts/sandbox-adapter.mjs"
   }
 }

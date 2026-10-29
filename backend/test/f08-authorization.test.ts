@@ -59,7 +59,10 @@ function listRoutes(): RouteInfo[] {
 }
 
 const PUBLIC_PREFIXES = ["/api/health", "/api/public", "/api/auth", "/api/reference"];
-const isPublic = (path: string) => path === "/" || PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
+// The integration API's public endpoints, named one by one: its protected
+// endpoints share the /api/v1 prefix and must stay under this test.
+const PUBLIC_V1 = ["/api/v1/openapi.json", "/api/v1/evidence/:ref", "/api/v1/evidence/:ref/custody", "/api/v1/verify", "/api/v1/documents/verify"];
+const isPublic = (path: string) => path === "/" || PUBLIC_V1.includes(path) || PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
 
 let fake: FakeChain;
 let police: Actor;

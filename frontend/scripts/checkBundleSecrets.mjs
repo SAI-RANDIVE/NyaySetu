@@ -20,10 +20,14 @@ const PATTERNS = [
   { name: "provider API key", re: /\b(sk-[A-Za-z0-9]{20,}|re_[A-Za-z0-9]{20,}|xkeysib-[A-Za-z0-9-]{20,})\b/ },
 ];
 
-/** Illustrative SHA-256 digests printed in the handbook's worked example. Public by design. */
+/** Public 32-byte constants the bundle must contain. Each is named; nothing is allowed by pattern. */
 const ALLOWED = new Set([
+  // Illustrative SHA-256 digests printed in the handbook's worked example.
   "0x4d80b1f3c95e26a7048fd3b19c6e5720af83d641e0b2975ca3f8d0e461b5c29a",
   "0x9f2a4c81e07b3d6a5f18c2be49d70a3ec815b26f4a0d938172ce5b4f60a9d7e3",
+  // keccak256 of the EvidenceRegistered event signature, used by the
+  // independent check to find the registration event in a public receipt.
+  "0xc431abdeb298898663297126378c96835882687c5ad0ca1bdf50f800951b86a6",
 ]);
 
 function* files(dir) {

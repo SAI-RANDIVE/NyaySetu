@@ -6,6 +6,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { ROLE_LABEL } from "../lib/format";
 import { Button, Card, Field, Input, Modal, Textarea } from "./ui";
+import { ReportLifecycle } from "./ReportLifecycle";
 
 /**
  * Producing and serving the Final Report.
@@ -56,7 +57,7 @@ export function CaseReportPanel({ caseId, firNumber }: { caseId: string; firNumb
       URL.revokeObjectURL(url);
 
       toast.success(
-        "Final Report downloaded",
+        "Working draft downloaded",
         digest ? `SHA-256 ${digest.slice(0, 18)}… — quoted in the document itself.` : undefined
       );
     } catch (caught) {
@@ -73,7 +74,7 @@ export function CaseReportPanel({ caseId, firNumber }: { caseId: string; firNumb
     <>
       <Card
         title="Final Report"
-        subtitle="The charge sheet under Section 193 BNSS, with the schedule of electronic records and the certificate under Section 63 BSA."
+        subtitle="The final report under Section 193 BNSS. A working draft can be downloaded at any time; a version is checked for readiness, approved by an authorised officer, and recorded as filed only on a court receipt."
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -83,7 +84,7 @@ export function CaseReportPanel({ caseId, firNumber }: { caseId: string; firNumb
               loading={downloading}
               onClick={() => void download()}
             >
-              Download PDF
+              Working draft
             </Button>
             {mayEmail && (
               <Button size="sm" icon={<Mail size={13} />} onClick={() => setEmailOpen(true)}>
@@ -110,8 +111,9 @@ export function CaseReportPanel({ caseId, firNumber }: { caseId: string; firNumb
         <p className="mt-4 flex items-start gap-2 rounded-card border border-border bg-surface-raised px-3.5 py-2.5 font-ui text-2xs leading-relaxed text-muted">
           <ShieldCheck size={12} className="mt-0.5 shrink-0 text-primary" />
           The endorsement blocks are left blank. The document is produced by this system and signed by
-          an officer, and it does not pretend to do the second.
+          an officer, and it does not pretend to do the second. Every draft is watermarked.
         </p>
+        <ReportLifecycle caseId={caseId} />
       </Card>
 
       <EmailReportModal

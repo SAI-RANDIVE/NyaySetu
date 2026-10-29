@@ -1,6 +1,7 @@
 // Must stay first: switches every external service off before the app reads its config.
 import "../support/env";
-import { randomBytes, randomInt } from "crypto";
+import { createHash, randomBytes, randomInt } from "crypto";
+import { arch, cpus, platform, totalmem } from "os";
 import { mkdirSync, writeFileSync } from "fs";
 import path from "path";
 import { performance } from "perf_hooks";
@@ -134,6 +135,61 @@ async function main() {
   record("confirmed after one retry pass", ((confirmed / SYNC_ITEMS) * 100).toFixed(2), "%");
   record("items lost", SYNC_ITEMS - listed, "count");
 
+  /* ------------------------------------------------- 4. performance */
+  // Medians and 95th percentiles of repeated, in-process operations. Hardware
+  // and runtime are recorded beside them so the numbers can be compared.
+  const timeIt = async (runs: number, fn: () => Promise<unknown> | unknown) => {
+    const t: number[] = [];
+    for (let i = 0; i < runs; i++) {
+      const start = performance.now();
+      await fn();
+      t.push(performance.now() - start);
+    }
+    return t.sort((a, b) => a - b);
+  };
+  const recordTimes = (label: string, t: number[]) => {
+    record(`${label} p50`, percentile(t, 50).toFixed(1), "ms");
+    record(`${label} p95`, percentile(t, 95).toFixed(1), "ms");
+  };
+
+  for (const mb of [1, 10, 50]) {
+    const buf = randomBytes(mb * 1024 * 1024);
+    const t = await timeIt(5, () => createHash("sha256").update(buf).digest());
+    record(`SHA-256 throughput, ${mb} MB file`, (mb / (percentile(t, 50) / 1000)).toFixed(0), "MB/s");
+  }
+
+  const lab = makeActor("forensic_lab");
+  assign(lab, kase.id, "write");
+  const perfItems = items.slice(0, 20);
+  const evidenceIdsByRef = new Map<string, string>(
+    ((await call(police, "GET", `/api/evidence/case/${kase.id}`)).body.items as { id: string; public_ref: string }[]).map((e) => [e.public_ref, e.id])
+  );
+  const sample = perfItems[0];
+  const sampleId = evidenceIdsByRef.get(sample.ref)!;
+
+  recordTimes("verify by file, no reference (in process)", await timeIt(20, () => call(null, "POST", "/api/public/lookup", { body: { sha256: sha(sample.bytes) } })));
+  recordTimes("custody record PDF generation", await timeIt(10, () => call(police, "GET", `/api/police/evidence/${sampleId}/custody-form.pdf`)));
+  recordTimes("public passport PDF generation", await timeIt(10, () => call(null, "GET", `/api/public/verify/${sample.ref}/passport.pdf`)));
+  recordTimes("final report draft PDF generation", await timeIt(5, () => call(police, "GET", `/api/reports/cases/${kase.id}/final-report.pdf`)));
+  recordTimes("document readiness check (whole case)", await timeIt(5, () => call(police, "GET", `/api/reports/cases/${kase.id}/final-report/readiness`)));
+
+  const transfers: number[] = [];
+  let transferFailures = 0;
+  for (const it of perfItems) {
+    const id = evidenceIdsByRef.get(it.ref)!;
+    const start = performance.now();
+    const res = await call(lab, "POST", `/api/evidence/${id}/custody`, { body: { confirmedHash: sha(it.bytes) } });
+    transfers.push(performance.now() - start);
+    if (res.status !== 200) transferFailures++;
+  }
+  transfers.sort((a, b) => a - b);
+  recordTimes("custody transfer with re-check (simulated chain)", transfers);
+  record("custody transfers failed", transferFailures, "count");
+
+  record("environment: CPU", `${cpus()[0]?.model ?? "unknown"} × ${cpus().length}`, "");
+  record("environment: memory", (totalmem() / 1024 ** 3).toFixed(1), "GB");
+  record("environment: runtime", `Node ${process.version} on ${platform()} ${arch()}`, "");
+
   fake.uninstall();
   await stopServer();
 
@@ -158,6 +214,7 @@ async function main() {
       "- **Tamper detection:** every registered file is checked on the public verification endpoint twice: as registered, and with one random byte changed. A changed file must not match; the original must.",
       "- **Latency:** wall time of the public check inside one process. It excludes network, database and RPC latency, so it measures the application's own cost only. Against a local Hardhat node the full round trip measured 161–325 ms; a public testnet adds its RPC provider's latency.",
       `- **Unauthorized access:** users of six roles, none assigned to the case, request the case, its FIR and up to ten items' detail, manifest, passport and download. Blocked means 401, 403 or 404. (The court registry sees every case by design and is excluded.)`,
+      "- **Performance:** in-process wall time of each operation, repeated, reported as median (p50) and 95th percentile; SHA-256 throughput is Node's native implementation on the machine listed. Document generation includes the API round trip inside one process. Custody transfers run against the simulated chain, so they exclude block confirmation time; on Sepolia, confirmation adds roughly one to two block times (12 to 24 seconds).",
       `- **Sync:** ${Math.round(FAILURE_RATE * 100)}% of sends fail at random with an RPC outage. Items are never lost; failed ones are retried once, as the officer's retry button or the tracker would.`,
       "",
       "## Limits",

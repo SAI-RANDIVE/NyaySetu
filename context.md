@@ -71,6 +71,9 @@ Sources are listed on `/case-study` and in `docs/submission/01_PROJECT_CATALOGUE
 | JaminSetu (bail) | `BailChain.sol` | Conditions as code; geo-fenced check-ins decided by the contract; ranked compliance; map for the judge |
 | Public services | — | Integrity Passport per item (QR, PDF); verify by file without a reference (`POST /api/public/lookup`); transparency page with live counts, transactions and measured gas; tamper lab; case replay; handbook |
 | Documents | — | BSA §63 certificate (Parts A and B) and custody record with QR codes; seizure memo; final report |
+| Document lifecycle (2.1) | — | Readiness engine (PASS / WARNING / BLOCKING / NOT VERIFIED, ledger read live); final report versions DRAFT → VALIDATION REQUIRED / READY FOR REVIEW → APPROVED (bytes and SHA-256 frozen) → EXPORTED → FILED (court receipt only); every unapproved or unsigned document watermarked |
+| Independent verification (2.1) | — | The browser reads the registration transaction from a public Sepolia node, checks the contract and event, and compares digests — NyaySetu's server not involved |
+| Integration API (2.1) | — | `/api/v1` with OpenAPI 3.1: public verify, custody, document verification; protected case metadata and audit; sandbox client `npm run sandbox:verify` |
 | Inclusion | — | English, हिन्दी, मराठी; read-aloud; large text; light/dark; installable PWA |
 | Governance | — | Invitation-only accounts, password + emailed code, revocable server-side sessions, per-case assignment, defence access requests, two-person approvals, full audit |
 
@@ -85,7 +88,7 @@ accused, court registry (administrator).
 Browser / phone (React, Vite, PWA · Expo app)  — SHA-256 before upload
         │ HTTPS, session cookie + CSRF
 API (Node 22, Express 5, TypeScript strict, Zod)
-  ├─ PostgreSQL on Supabase — 14 migrations, RLS on every table, audit triggers
+  ├─ PostgreSQL on Supabase — 15 migrations, RLS on every table, audit triggers
   ├─ IPFS via Pinata — AES-256-GCM ciphertext only
   ├─ Flask + scikit-learn — anomaly screening, bail risk, delay (advisory)
   └─ Ethereum Sepolia — EvidenceChain, SummonsChain, BailChain (verified)
@@ -101,14 +104,14 @@ ledger wins and the disagreement is shown.
 | Path | What |
 |---|---|
 | `contracts/` | Solidity contracts, Hardhat tests (53), `scripts/deploy.ts`, `scripts/gasReport.ts` (`npm run gas`) |
-| `backend/src/routes/` | HTTP routes (`public.ts` has stats, lookup, passport; `evidence.ts` has seal routes) |
-| `backend/src/services/` | Business logic: `evidence`, `capture`, `lab`, `seal`, `police`, `court`, `bail`, `transparency`, `certificate`, `passport/` |
+| `backend/src/routes/` | HTTP routes (`public.ts` has stats, lookup, passport; `evidence.ts` has seal routes; `v1.ts` + `openapi.ts` the integration API; `reports.ts` readiness and versions) |
+| `backend/src/services/` | Business logic: `evidence`, `capture`, `lab`, `seal`, `police`, `court`, `bail`, `transparency`, `certificate`, `readiness`, `documentVersions`, `passport/` |
 | `backend/src/lib/` | Chain bridge (`chain.ts`), Supabase client and schema probes, PDF templates (`pdf/`), crypto, chunk store |
-| `backend/test/` | 121 API tests over real HTTP against an in-memory database and a fake chain |
+| `backend/test/` | 132 API tests over real HTTP against an in-memory database and a fake chain |
 | `backend/src/scripts/` | `bootstrapAdmin`, `flowCheck` (`npm run flow:check`, `npm run demo:data` with `--keep`), checks |
-| `database/migrations/` | `001`–`014`; `upgrade_2_0.sql` bundles 008–014 for one-paste upgrades |
+| `database/migrations/` | `001`–`015`; `upgrade_2_0.sql` bundles 008–015 for one-paste upgrades |
 | `frontend/src/pages/` | Public pages (`Landing`, `CaseStudy`, `Transparency`, `Verify`, `Handbook`, `About`, `Login`) and role portals |
-| `frontend/src/components/` | `SiteChrome` (public header/footer, dark variant), `PortalShell`, `cinematic` (hash rain, live fingerprint), `workflowPanels` (seal card, intake), `BailMap` |
+| `frontend/src/components/` | `SiteChrome` (public header/footer, dark variant), `PortalShell`, `cinematic` (hash rain, live fingerprint), `workflowPanels` (seal card, intake), `ReportLifecycle`, `IndependentCheck`, `BailMap` |
 | `frontend/scripts/` | `uiSmoke.mjs` (44 pages, axe), `exportDocs.mjs` (PDFs), bundle-secret and animation checks |
 | `ai-service/` | Flask models, trained at build |
 | `mobile/` | Expo field app with offline queue |
@@ -122,6 +125,7 @@ ledger wins and the disagreement is shown.
 - `anchors` with six verification states (`docs/VERIFICATION_STATES.md`), `chain_tx` with `gas_used`
 - `custody_events`, `integrity_checks`, `lab_intakes`, `seizures`, `seizure_items`, `malkhana_movements`, `forensic_reports`
 - `exhibit_seals`, `seal_checks` (migration 014)
+- `document_versions` (migration 015): versions of a final report, their readiness findings, approval, frozen PDF and SHA-256, export and filing
 - `summons`, `bail_orders`, `checkins`, `violations`, `discrepancy_alerts`, `action_log`, `users`, `sessions`
 
 ---
@@ -153,7 +157,7 @@ ledger wins and the disagreement is shown.
 
 ```bash
 npm run local                         # chain + in-memory DB + API + web, no accounts needed
-npm --prefix backend test             # 121 API tests
+npm --prefix backend test             # 132 API tests
 npm run contracts:test                # 53 contract tests
 npm --prefix mobile test              # 9 offline-queue tests
 npm --prefix backend run db:validate  # applies all migrations to a scratch Postgres
@@ -162,7 +166,8 @@ npm run deployment:check              # backend copy of contract addresses match
 npm --prefix frontend run build
 node frontend/scripts/uiSmoke.mjs --base=http://localhost:5173   # 44 pages, add --mobile / --lang=mr
 npm --prefix contracts run gas        # measured gas per operation
-npm --prefix backend run metrics      # tamper detection, access control, sync under faults
+npm --prefix backend run metrics      # tamper detection, access control, sync under faults, timings
+npm run sandbox:verify -- <file>      # an external system verifying a file through /api/v1
 npm --prefix frontend run docs:pdf    # regenerate docs/submission/pdf
 npm run demo:data -- <admin-email> <admin-password>   # full lifecycle, left in place (needs the API's own database)
 ```
@@ -200,8 +205,8 @@ home page ("Hard questions").
 | `docs/submission/` | Catalogue report, problem statement, presentation, demo script, evaluation questions; PDFs in `pdf/` |
 | `docs/DEMO.md`, `docs/demo-kit/` | Running a demonstration; two images that differ in one pixel |
 | `docs/TESTING.md` | Every check and a walkthrough per role |
-| `docs/SECURITY.md`, `docs/DECISIONS.md`, `docs/VERIFICATION_STATES.md` | Security model, design decisions (D-01…), anchor states |
-| `docs/INTEGRATION.md` | CCTNS / ICJS / e-Courts design (not connected) |
+| `docs/SECURITY.md`, `docs/PRIVACY.md`, `docs/DECISIONS.md`, `docs/VERIFICATION_STATES.md` | Security model, privacy threat model, design decisions (D-01…), anchor states |
+| `docs/INTEGRATION.md` | The v1 integration API, and the CCTNS / ICJS / e-Courts design (not connected) |
 | `docs/JAN_SAHAYAK.md` | Plain-language help and translation review |
 | `docs/hosting.md`, `docs/production.md`, `docs/api-keys.md` | Deploying, hardening, credentials |
 | `docs/metrics/METRICS.md`, `docs/samples/` | Measured results; sample PDFs |
@@ -213,7 +218,7 @@ home page ("Hard questions").
 **Done:** everything in §3, deployed on Vercel. Health: database, chain, IPFS and AI are all reachable.
 
 **Needs the owner's action:**
-1. **Apply migration 014 to production.** Paste `database/migrations/014_exhibit_seals.sql` into the Supabase SQL Editor, or run `database/upgrade_2_0.sql`. It is additive and idempotent. Until then laboratory intake works exactly as before, and binding a seal answers `SCHEMA_OUT_OF_DATE`.
+1. **Apply migration 015 to production** (014 is already applied). Paste `database/migrations/015_document_versions.sql` into the Supabase SQL Editor. It is additive and idempotent. Until then the working draft and readiness report work, and creating a report version answers `SCHEMA_OUT_OF_DATE`.
 2. **Fix login-code email.** Brevo accepts the mail but codes don't arrive: verify the sender address in Brevo and turn off IP blocking.
 3. **Rotate the secrets** that were shared in plain text during development: wallet key, database password, SMTP and API keys.
 4. **Delete the unused Render deployment.**

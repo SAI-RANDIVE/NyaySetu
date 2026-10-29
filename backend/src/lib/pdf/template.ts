@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
+import { stampWatermark } from "./watermark";
 import { POLICE_SEAL, istDateTime, pdfAsset } from "./format";
 
 /**
@@ -38,6 +39,8 @@ export interface TemplateDocument {
   generatedAt?: string | Date;
   /** A QR code printed in the reference block, e.g. the item's public passport. */
   qr?: { url: string; caption: string } | null;
+  /** Printed diagonally on every page while the document is not final, e.g. "UNSIGNED DRAFT". */
+  watermark?: string | null;
 }
 
 /** Long unbroken tokens (digests, references) make justified text gape. */
@@ -230,6 +233,7 @@ export async function buildTemplatePdf(input: TemplateDocument): Promise<Buffer>
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);
+    if (input.watermark) stampWatermark(doc, input.watermark, A4);
     const bottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
     const y = A4.height - M + 2;

@@ -28,6 +28,31 @@ credentials and a security review.
 4. **Nothing inbound is anchored automatically.** An imported FIR is a record,
    not evidence; anchoring remains an officer's act.
 
+## What exists today: the v1 integration API
+
+A versioned API any system can call now, described in OpenAPI 3.1 at
+`/api/v1/openapi.json`. No government system is connected to it.
+
+| Endpoint | Access | Purpose |
+|---|---|---|
+| `GET /api/v1/evidence/{ref}` | Public | The item's public passport: digests, transaction, state |
+| `GET /api/v1/evidence/{ref}/custody` | Public | Custody stages the item has passed through |
+| `POST /api/v1/verify` | Public | Verify a file by its SHA-256, with or without a reference; compared against the chain |
+| `POST /api/v1/documents/verify` | Public | Was this exact PDF (a §63 certificate or an approved final report) produced by NyaySetu, and in what state |
+| `GET /api/v1/cases/{caseId}/evidence` | Session + case assignment | Evidence metadata for a party to the case |
+| `GET /api/v1/evidence/{ref}/audit` | Session + case assignment | Audit history of one item |
+
+Errors are always `{ "error": { "code", "message" } }` with a meaningful
+status. Only digests are ever sent; files never leave the caller.
+
+**Sandbox client.** `npm run sandbox:verify -- <file> [--ref NSE-…]` (or
+`--document <pdf>`) plays the part of an external agency's system: it hashes
+a file locally, calls the API and prints the answer. It is a demonstration
+client, not an integration.
+
+For production, agency-to-agency calls would use machine credentials (mutual
+TLS or signed requests) issued per agency, in place of a user session.
+
 ## Interfaces
 
 ### Inbound: FIR from CCTNS (via ICJS)

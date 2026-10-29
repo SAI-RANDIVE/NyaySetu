@@ -18,6 +18,10 @@ import { env } from "../../src/config/env";
  *
  * In-memory database and simulated chain only; nothing external is touched.
  */
+// Samples are shown to people outside the project, so their QR codes and
+// verification links point at the public site, never at a local address.
+(env as any).PUBLIC_APP_URL = process.env.SAMPLES_PUBLIC_URL ?? "https://nyaysetu-project.vercel.app";
+
 async function main() {
   const outArg = process.argv.find((a) => a.startsWith("--out="));
   const out = outArg ? outArg.slice(6) : path.resolve(__dirname, "..", "..", "..", "docs", "samples");

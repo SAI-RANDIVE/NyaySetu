@@ -66,7 +66,7 @@ check-ins are recorded the same way. Personal data never goes on the ledger.
 
 The system is deployed and working: seven role portals, a public verification
 service, an installable mobile web app, Marathi, Hindi and English throughout,
-three verified smart contracts, 183 automated tests, and measured results
+three verified smart contracts, 194 automated tests, and measured results
 including 100% detection of one-byte tampering across 200 files and 100% of 258
 unauthorised access attempts blocked.
 
@@ -353,6 +353,48 @@ tamper-evident seal with a printed serial.
 - Seizure memo, custody record, case final report and Integrity Passport PDFs.
   Samples: `docs/samples/`.
 
+### 8.5a Document lifecycle and readiness
+
+- **Readiness engine.** Before approval, every fact the final report relies on
+  is checked and reported as PASS, WARNING, BLOCKING or NOT VERIFIED: case
+  particulars, FIR link, sections, court, investigating officer, complainant,
+  nature of report, narrative, annexures, ledger confirmation of each exhibit,
+  integrity and seal mismatches, custody chronology — and agreement between the
+  record and the ledger, read live from the chain. A ledger that cannot be read
+  is NOT VERIFIED and blocks approval. The report is downloadable as a PDF.
+- **Versions and states.** DRAFT → VALIDATION REQUIRED or READY FOR REVIEW →
+  APPROVED → EXPORTED → FILED. Only a police officer approves, only the latest
+  version, only on a fresh clean check; approval freezes the PDF bytes and their
+  SHA-256, so every export is identical. FILED is recorded by the prosecutor or
+  registry against a court receipt number; downloading a PDF never files it.
+  Corrections are new versions that name the one they supersede.
+- **Honest documents.** Every unapproved report carries a "DRAFT — NOT APPROVED"
+  watermark; Section 63 certificates and seizure memos carry "UNSIGNED DRAFT",
+  because NyaySetu never signs for a person or fills an expert's findings. The
+  custody record distinguishes on-chain transactions from off-chain audit
+  entries, names the network, contract and block, lists seal readings and any
+  gap longer than the configured threshold, and explains the four different
+  values (file SHA-256, capture manifest SHA-256, on-chain digest, transaction
+  hash).
+
+### 8.5b Verification that does not trust NyaySetu
+
+On the public passport, the visitor's browser asks a public Sepolia node — not
+NyaySetu's server — for the registration transaction, checks it succeeded and
+was sent to the published EvidenceChain contract, decodes the committed digest
+from the `EvidenceRegistered` event, reads the block time, and compares the
+digest with NyaySetu's record and with a file the visitor drops (for file-mode
+items). If no public node answers, the result is NOT VERIFIED.
+
+### 8.5c Integration API (v1)
+
+`/api/v1`, described in OpenAPI 3.1 at `/api/v1/openapi.json`: public evidence
+passport, custody status, verify-by-digest (with or without a reference) and
+document verification by PDF digest; protected case evidence metadata and
+audit history (session and case assignment). A sandbox client
+(`npm run sandbox:verify`) shows how another agency's system would call it. No
+government system is connected.
+
 ### 8.6 Governance and administration
 
 - Accounts only by invitation from the court registry; no public sign-up.
@@ -470,9 +512,25 @@ the table holding tokens is unreachable through the API.
 | Suite | Count | What it covers |
 |---|---|---|
 | Smart contracts (Hardhat) | 53 | Roles, custody stages, mismatch anchoring, summons window, geo-fence arithmetic, breaches |
-| API (node:test, over real HTTP) | 121 | Every feature, an authorisation matrix over the API's routes, rate limits, PDFs, public privacy rules |
+| API (node:test, over real HTTP) | 132 | Every feature, an authorisation matrix over the API's routes, rate limits, PDFs, public privacy rules |
 | Mobile | 9 | Offline queue: ordering, idempotency, retry |
 | UI smoke and accessibility (Puppeteer + axe-core) | 44 pages | Every page of every role, desktop and mobile, no console errors, no WCAG violations |
+
+### 14.1a Performance (measured on a laptop, Intel Core Ultra 5 125U, Node 24)
+
+| Operation | Median | 95th percentile |
+|---|---|---|
+| SHA-256 of a file | about 780 MB/s | — |
+| Verify a file with no reference (in process) | 1.5 ms | 5.1 ms |
+| Custody transfer with re-check (simulated chain) | 4.0 ms | 7.8 ms |
+| Document readiness check, 200-exhibit case | 8.4 ms | 17.3 ms |
+| Public passport PDF | 71 ms | 88 ms |
+| Custody record PDF | 91 ms | 208 ms |
+| Final report PDF, 200 exhibits | 850 ms | 1,003 ms |
+
+On Sepolia, confirmation adds one to two block times (12 to 24 seconds).
+Reproduce with `npm --prefix backend run metrics`; method in
+`docs/metrics/METRICS.md`.
 
 ### 14.2 Measured results
 

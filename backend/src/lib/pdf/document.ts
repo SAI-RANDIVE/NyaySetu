@@ -1,3 +1,4 @@
+import { stampWatermark } from "./watermark";
 import PDFDocument from "pdfkit";
 import { pdfAsset } from "./format";
 
@@ -64,6 +65,8 @@ export interface DocumentMeta {
   /** Sits under the crests: the issuing court or station. */
   issuedBy: string;
   district?: string;
+  /** Printed diagonally on every page while the document is not final, e.g. "DRAFT — NOT APPROVED". */
+  watermark?: string | null;
 }
 
 export interface Column {
@@ -530,6 +533,8 @@ export class CourtDocument {
       // report. Collapsing the margins for the duration is what stops that.
       const margins = { ...this.doc.page.margins };
       this.doc.page.margins = { top: 0, bottom: 0, left: margins.left, right: margins.right };
+
+      if (this.meta.watermark) stampWatermark(this.doc, this.meta.watermark, A4);
 
       if (i > 0) {
         this.doc

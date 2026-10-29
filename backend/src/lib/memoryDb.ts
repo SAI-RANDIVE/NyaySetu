@@ -404,11 +404,13 @@ export class QueryBuilder implements PromiseLike<Result> {
 
   private shape(rows: Row[]): Result {
     const projection = parseProjection(this.projection);
-    let projected = rows.map((r) => this.project(r, projection)).filter((r): r is Row => r !== null);
-
+    // Sorted before projecting, as Postgres does: a query may order by a column
+    // it does not select.
+    let sorted = rows;
     for (const { column, ascending } of [...this.orderings].reverse()) {
-      projected = [...projected].sort((a, b) => (ascending ? 1 : -1) * compare(a[column], b[column]));
+      sorted = [...sorted].sort((a, b) => (ascending ? 1 : -1) * compare(a[column], b[column]));
     }
+    let projected = sorted.map((r) => this.project(r, projection)).filter((r): r is Row => r !== null);
     const count = this.countMode ? projected.length : null;
     if (this.rangeFrom !== null && this.rangeTo !== null) projected = projected.slice(this.rangeFrom, this.rangeTo + 1);
     if (this.limitCount !== null) projected = projected.slice(0, this.limitCount);

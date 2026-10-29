@@ -83,7 +83,7 @@ Ethereum · Python models labelled as decision support.
 | One-byte tampering detected (200 files) | **100%** |
 | Unauthorised access blocked (258 attempts) | **100%** |
 | Items lost with 35% of chain writes failing | **0** |
-| Automated tests | **183**, plus 44 pages checked for accessibility |
+| Automated tests | **194**, plus 44 pages checked for accessibility |
 
 ---
 

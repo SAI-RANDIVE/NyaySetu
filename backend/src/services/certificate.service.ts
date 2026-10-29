@@ -208,6 +208,9 @@ export async function renderCertificate(evidenceId: string, user: SessionUser, i
       { role: "Person in charge of the device / record (Part A)", name: fields.custodian_name, designation: fields.custodian_designation },
       { role: "Expert (Part B)", name: null, designation: null },
     ],
+    // Never signed by the system: Part A needs the custodian's signature, Part B
+    // an expert's own examination. Until both are signed on paper it is a draft.
+    watermark: "UNSIGNED DRAFT",
   });
 
   const pdfSha = sha256Hex(pdf);

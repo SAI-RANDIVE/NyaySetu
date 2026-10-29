@@ -198,6 +198,9 @@ Three places in a criminal matter where the record is only as good as somebody's
 
 ### For the public, and for people who are not lawyers
 
+- **Document lifecycle**: a readiness engine checks every final report against the record and the live ledger (PASS, WARNING, BLOCKING, NOT VERIFIED); versions move DRAFT → READY FOR REVIEW → APPROVED (bytes and SHA-256 frozen) → EXPORTED → FILED (court receipt only). Unapproved reports and unsigned certificates and memos are watermarked. Migration `015_document_versions.sql`.
+- **Verify without trusting NyaySetu**: the passport page reads the registration transaction from a public Sepolia node in the browser and compares digests itself.
+- **Integration API**: `/api/v1` with an OpenAPI 3.1 description at `/api/v1/openapi.json`, and a sandbox client (`npm run sandbox:verify -- <file>`).
 - **Case replay** (`/case-study`): the Pune blood-sample swap of May 2024, replayed step by step beside what NyaySetu would have recorded, with a ledger hashed live in the browser and sources cited. Nobody is named.
 - **Physical exhibits**: the serial of a tamper-evident seal is bound to the exhibit before its first hand-over (only a salted digest goes on chain); the laboratory must read the same serial, and a substituted packet is refused, anchored and alerted (`SEAL_MISMATCH`). Migration `014_exhibit_seals.sql`.
 - **Transparency page** (`/transparency`): aggregate counts only, with every contract and recent transaction linked to Etherscan, and the gas each operation has actually used. No names, references or places.

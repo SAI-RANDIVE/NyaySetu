@@ -25,6 +25,14 @@ export interface PostureFinding {
 export function productionFindings(): PostureFinding[] {
   const findings: PostureFinding[] = [];
 
+  if (/localhost|127\.0\.0\.1/.test(env.PUBLIC_APP_URL)) {
+    findings.push({
+      key: "public_app_url",
+      what: `PUBLIC_APP_URL is ${env.PUBLIC_APP_URL}.`,
+      why: "QR codes and verification links printed on certificates, passports and custody records would point at a local address nobody else can open. Set PUBLIC_APP_URL to the public site.",
+    });
+  }
+
   if (!capabilities.chain) {
     findings.push({
       key: "chain",

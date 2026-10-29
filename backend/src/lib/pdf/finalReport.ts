@@ -1,6 +1,7 @@
 import { CourtDocument } from "./document";
 import { istDate, istDateTime, istYear } from "./format";
 import type { CaseDossier } from "../../services/report.service";
+import type { ReportParticulars } from "../../services/readiness.service";
 import { gatewayFor } from "../../services/report.service";
 import { explorerUrl } from "../chain";
 
@@ -80,8 +81,39 @@ const ROLE_LABEL: Record<string, string> = {
   court_admin: "Court registry",
 };
 
-export function buildFinalReport(dossier: CaseDossier): CourtDocument {
+/** Where a rendering stands in its review: a working draft, or a numbered version. */
+export interface ReportStatus {
+  state: "WORKING_DRAFT" | "DRAFT" | "VALIDATION_REQUIRED" | "READY_FOR_REVIEW" | "APPROVED" | "EXPORTED" | "FILED";
+  version?: number | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  filedReference?: string | null;
+}
+
+const NATURE: Record<string, string> = {
+  charge_sheet: "Charge sheet",
+  closure_report: "Closure report (no offence made out / insufficient evidence)",
+  untraced_report: "Untraced report (accused not traced)",
+};
+
+const STATE_LABEL: Record<ReportStatus["state"], string> = {
+  WORKING_DRAFT: "Working draft — not a version, not reviewed, not approved",
+  DRAFT: "Draft",
+  VALIDATION_REQUIRED: "Draft — readiness checks found blocking problems",
+  READY_FOR_REVIEW: "Draft — ready for review, not yet approved",
+  APPROVED: "Approved",
+  EXPORTED: "Approved and exported",
+  FILED: "Filed in court",
+};
+
+export function buildFinalReport(
+  dossier: CaseDossier,
+  options: { status?: ReportStatus; particulars?: ReportParticulars } = {}
+): CourtDocument {
   const { case: c, statute } = dossier;
+  const status: ReportStatus = options.status ?? { state: "WORKING_DRAFT" };
+  const particulars = options.particulars ?? {};
+  const approved = ["APPROVED", "EXPORTED", "FILED"].includes(status.state);
   const year = istYear(c.registered_at) ?? "—";
 
   const document = new CourtDocument({
@@ -93,6 +125,8 @@ export function buildFinalReport(dossier: CaseDossier): CourtDocument {
     fileReference: c.case_reference,
     issuedBy: c.police_station,
     district: "Pune",
+    // Anything an authorised officer has not approved says so on every page.
+    watermark: approved ? null : "DRAFT — NOT APPROVED",
   });
 
   /* ------------------------------------------------------------- items 1-9 */
@@ -109,7 +143,10 @@ export function buildFinalReport(dossier: CaseDossier): CourtDocument {
   document.field("Court", c.court_name ?? "Not yet assigned");
 
   document.item("2", "Nature of the final report");
-  document.field("Report", "Charge sheet filed");
+  document.field("Report", particulars.nature ? NATURE[particulars.nature] : "Not yet stated by the investigating officer");
+  document.field("Document status", `${STATE_LABEL[status.state]}${status.version ? ` · version ${status.version}` : ""}`);
+  if (approved && status.approvedAt) document.field("Approved", `${dateTime(status.approvedAt)}${status.approvedBy ? ` by ${status.approvedBy}` : ""}`);
+  document.field("Filed in court", status.state === "FILED" && status.filedReference ? `Yes — court receipt ${status.filedReference}` : "No. Filing is recorded only on a receipt from the court.");
   document.field("Whether original or supplementary", "Original");
   document.field("Present status of the case", humanise(c.status));
 
@@ -142,7 +179,7 @@ export function buildFinalReport(dossier: CaseDossier): CourtDocument {
     // Said plainly rather than left blank: an empty field on a court form reads as
     // an omission by the officer, when in fact this platform records the case and
     // its evidence and never held the complainant's details.
-    "Not held by this system. To be completed from the station records before filing."
+    particulars.complainant?.trim() || "Not entered. To be completed from the station records before approval."
   );
 
   document.item("7", "Accused persons");
@@ -309,10 +346,15 @@ export function buildFinalReport(dossier: CaseDossier): CourtDocument {
 
   document.item("14", "Brief facts of the case");
   document.paragraph(
-    c.summary?.trim() ||
-      "The narrative of the offence is to be appended. This system records the evidence and " +
-        "its provenance, and does not compose the account of the incident."
+    particulars.narrative?.trim() ||
+      c.summary?.trim() ||
+      "Not entered. The investigating officer writes the account of the facts and the investigation; " +
+        "this system records the evidence and its provenance, and does not compose it."
   );
+  const annexures = (particulars.annexures ?? []).filter((a) => a && a.trim());
+  if (annexures.length) {
+    document.field("Annexures", annexures.map((a, i) => `${String.fromCharCode(66 + i)}. ${a.trim()}`).join("\n"));
+  }
 
   /* ---------------------------------------------------------- items 15-18 */
 

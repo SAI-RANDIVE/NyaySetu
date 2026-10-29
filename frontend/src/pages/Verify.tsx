@@ -18,6 +18,7 @@ import {
 import { PublicShell } from "../components/PublicShell";
 import { DigestDrop, DigestLine, type Digested } from "../components/DigestDrop";
 import { VerificationBadge } from "../components/verification";
+import { IndependentCheck } from "../components/IndependentCheck";
 import { Button, CopyButton, Spinner } from "../components/ui";
 import { api, apiOrigin, ApiError, type FileCheckResult, type PublicPassport } from "../lib/api";
 import { useI18n, type MessageKey } from "../i18n";
@@ -365,6 +366,7 @@ export function PassportBody({ passport, children }: { passport: PublicPassport;
 
         <div className="space-y-6">
           <FileCheck passport={passport} />
+          <IndependentCheck passport={passport} />
 
           <section className="rounded-panel border border-accent-ring bg-accent-soft p-5">
             <h2 className="flex items-center gap-2 font-ui text-xs font-bold uppercase tracking-wider text-accent">

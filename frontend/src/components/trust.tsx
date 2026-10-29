@@ -72,10 +72,24 @@ export function StatusChip({
 
 export function SummonsStatusChip({ status }: { status: SummonsStatus }) {
   if (status === "DELIVERED") {
-    return <StatusChip tone="success" label="Acknowledged" icon={<CheckCircle2 size={11} />} />;
+    return (
+      <StatusChip
+        tone="success"
+        label="Acknowledged"
+        icon={<CheckCircle2 size={11} />}
+        title="Acknowledged by the recipient with a one-time code. Whether this amounts to service under the BNSS is for the court to decide."
+      />
+    );
   }
   if (status === "FAILED") {
-    return <StatusChip tone="danger" label="Not delivered" icon={<XCircle size={11} />} />;
+    return (
+      <StatusChip
+        tone="danger"
+        label="Not acknowledged in time"
+        icon={<XCircle size={11} />}
+        title="No digital acknowledgement within the window. It may still have been served by other means; that is for the court to record."
+      />
+    );
   }
   return <StatusChip tone="warning" label="Pending" icon={<Clock size={11} />} />;
 }
