@@ -12,7 +12,7 @@
 
 [![Live](https://img.shields.io/badge/demo-live-00C853?style=for-the-badge&logo=vercel&logoColor=white)](https://nyaysetu-project.vercel.app)
 [![Contracts](https://img.shields.io/badge/contracts-on%20Sepolia-627EEA?style=for-the-badge&logo=ethereum&logoColor=white)](https://sepolia.etherscan.io/address/0x383d996De8cd2a19aCC8d66CdEa2F4A3b1E7F6D4)
-[![Tests](https://img.shields.io/badge/tests-53%20contract%20%C2%B7%20111%20API%20%C2%B7%2045%20UI%20pages-brightgreen?style=for-the-badge)](#-what-is-verified-and-how)
+[![Tests](https://img.shields.io/badge/tests-53%20contract%20%C2%B7%20132%20API%20%C2%B7%2044%20UI%20pages-brightgreen?style=for-the-badge)](#-what-is-verified-and-how)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue?style=for-the-badge)](#-licence)
 
 <br>
@@ -45,6 +45,10 @@
 
 Evidence, summons and bail records you can verify
 
+### 🌐 Live: [nyaysetu-project.vercel.app](https://nyaysetu-project.vercel.app)
+
+[Case replay](https://nyaysetu-project.vercel.app/case-study) · [Verify a file](https://nyaysetu-project.vercel.app/verify) · [Transparency](https://nyaysetu-project.vercel.app/transparency) · [Handbook](https://nyaysetu-project.vercel.app/handbook) · [API](https://nyaysetu-project.vercel.app/api/v1/openapi.json)
+
 **Developed by [Sai Randive](https://github.com/SAI-RANDIVE)**
 
 </div>
@@ -55,7 +59,7 @@ Evidence, summons and bail records you can verify
 
 | | | |
 |---|---|---|
-| [🔗 See it running](#-see-it-running) | [📐 How it fits together](#-how-it-fits-together) | [🧰 Tech stack](#-tech-stack-by-layer) |
+| [🔗 See it running, and walk the flow](#-see-it-running) | [📐 How it fits together](#-how-it-fits-together) | [🧰 Tech stack](#-tech-stack-by-layer) |
 | [⚖️ The problem](#️-what-problem-this-actually-solves) | [🏛️ The three modules](#️-the-three-modules) | [📁 Repository layout](#-repository-layout) |
 | [🔑 The five `.env` files](#-the-env-files-and-why-there-are-five) | [🚀 Running it locally](#-running-it-locally) | [🎬 Walkthrough](#-the-nine-step-walkthrough) |
 | [📖 The handbook](#-the-handbook) | [🔐 The two OTP channels](#-two-one-time-codes-and-only-one-of-them-is-simulated) | [✅ What is verified](#-what-is-verified-and-how) |
@@ -65,16 +69,59 @@ Evidence, summons and bail records you can verify
 
 ## 🔗 See it running
 
+**Live system: https://nyaysetu-project.vercel.app** — deployed on Vercel, with the contracts on Ethereum Sepolia.
+
 | | Where | What to look at |
 |---|---|---|
-| **Web application** | [nyaysetu-project.vercel.app](https://nyaysetu-project.vercel.app) | The landing page and the public handbook need no account |
-| **Transparency** | [`/transparency`](https://nyaysetu-project.vercel.app/transparency) | Live counts, the latest ledger transactions, and a tamper lab that runs in the browser |
+| **Web application** | [nyaysetu-project.vercel.app](https://nyaysetu-project.vercel.app) | The home page; the status line at the top reads the live health of every service |
+| **Case replay** | [`/case-study`](https://nyaysetu-project.vercel.app/case-study) | The Pune blood-sample swap of May 2024, replayed beside what NyaySetu would have recorded |
+| **Verify a file** | [`/verify`](https://nyaysetu-project.vercel.app/verify) | Check any file against the ledger, with or without its reference; no account |
+| **Transparency** | [`/transparency`](https://nyaysetu-project.vercel.app/transparency) | Live counts, the latest ledger transactions, measured cost, and the tamper lab |
+| **Handbook** | [`/handbook`](https://nyaysetu-project.vercel.app/handbook) | The whole system explained, role by role |
+| **Integration API** | [`/api/v1/openapi.json`](https://nyaysetu-project.vercel.app/api/v1/openapi.json) | OpenAPI 3.1 description of the v1 API |
 | **API health** | [`/api/health`](https://nyaysetu-project.vercel.app/api/health) | Every subsystem reports itself separately, including what is still a fallback |
-| **EvidenceChain** | [`0x383d996D…F6D4`](https://sepolia.etherscan.io/address/0x383d996De8cd2a19aCC8d66CdEa2F4A3b1E7F6D4) | Live on Sepolia. Every digest below is verifiable here |
+| **EvidenceChain** | [`0x383d996D…F6D4`](https://sepolia.etherscan.io/address/0x383d996De8cd2a19aCC8d66CdEa2F4A3b1E7F6D4) | Live on Sepolia, source verified |
 | **SummonsChain** | [`0x18f8D239…8232`](https://sepolia.etherscan.io/address/0x18f8D239653A5542d0cBfA8d13c30E46F3c18232) | Acknowledgements, with time and coordinates |
 | **BailChain** | [`0x90e8B17C…F946`](https://sepolia.etherscan.io/address/0x90e8B17CB82848ad0fE64Eb217c495cb91E8F946) | Conditions, check-ins, and violations the contract found itself |
 
-> There is **no sign-up**. A court is a closed institution, so an account exists because a court administrator created it and emailed its holder a one-time password. `/handbook` is public and explains the whole system without one.
+### Walk the flow — no account needed (about 5 minutes)
+
+1. **The problem, in one case.** Open [`/case-study`](https://nyaysetu-project.vercel.app/case-study) and press **Play**. Two timelines run side by side: what happened in the Pune sample swap, and what NyaySetu would have recorded. The ledger panel fingerprints each entry in your browser. Then use **Try the swap yourself**: type a different seal serial and watch the laboratory refuse it.
+2. **The one idea.** Open [`/transparency`](https://nyaysetu-project.vercel.app/transparency) → **Tamper lab** → **Use a sample** → **Change one bit**. One bit changes, and the fingerprint changes almost completely.
+3. **Verify a file.** Download [`exhibit-original.png`](docs/demo-kit/exhibit-original.png) and [`exhibit-altered.png`](docs/demo-kit/exhibit-altered.png) — two images that differ in a single pixel. On [`/verify`](https://nyaysetu-project.vercel.app/verify), drop either under **No reference? Use the file itself**. Only the fingerprint leaves your browser; a file that was never registered, or was altered, is reported as not found.
+4. **Check without trusting NyaySetu.** On any item's passport page (`/verify/<reference>`), **Check it without NyaySetu** makes your browser ask a public Ethereum node for the registration transaction and compare the fingerprints itself.
+5. **Read how it works.** The [handbook](https://nyaysetu-project.vercel.app/handbook) explains every role step by step; the home page answers the hard questions in the open.
+6. **Call it like another system would.** `npm run sandbox:verify -- docs/demo-kit/exhibit-original.png` hashes the file locally and asks the live `/api/v1/verify`.
+
+### Walk the flow — inside the portals
+
+There is **no sign-up**. A court is a closed institution, so an account exists because the court registry created it (**Admin → Participants**) and emailed its holder a one-time password. Sign-in is a password plus an emailed code. To see the full lifecycle, either have the registry invite one account per role, or create a complete synthetic case with every role in one command (it uses the same Supabase database as the API; see [`docs/demo-kit`](docs/demo-kit/README.md)):
+
+```bash
+FLOW_BASE_URL=https://nyaysetu-project.vercel.app npm run demo:data -- <admin-email> <admin-password> --mail <your-gmail>
+```
+
+It prints the sign-in for each role and every passport and Etherscan link it created. Then follow the evidence through the system:
+
+| Step | Sign in as | Do this | What it proves |
+|---|---|---|---|
+| 1 | Police | **Register a case** → **Capture evidence** (fingerprint shown before upload) | The proof starts on the device, before any server sees the file |
+| 2 | Police | Open the exhibit → **Tamper-evident seal** → bind serial `MH-PN-0419` | A physical exhibit is tied to its seal; only a salted digest goes on chain |
+| 3 | Forensic laboratory | **Laboratory queue** → accept custody → **Record intake** with serial `MH-PN-0477` | A substituted packet is refused, recorded on chain and alerted |
+| 4 | Prosecutor | **Alerts** | The mismatch reached the prosecution at once and cannot be edited away |
+| 5 | Judge | **Summons** → issue · **Bail compliance** → grant with a geo-fence → **Map** | Service and bail conditions as ledger events; the contract decides each check-in |
+| 6 | Accused | **Obligations** in मराठी → **Listen** | Plain-language explanations, read aloud |
+| 7 | Police | Case → **Final Report** → **Readiness report** → **Prepare version** → **Approve** | Approval only on a clean check; the approved PDF and its SHA-256 are frozen |
+| 8 | Prosecutor | **Record filing** with the court's receipt number | "Filed" exists only with a receipt; downloading never files anything |
+| 9 | Police | Exhibit → **Section 63 certificate** → scan its QR | The paper opens its own public verification page |
+
+### Or run it on your machine, with ready-made accounts
+
+```bash
+DEV_SEED_PASSWORD="choose-a-password" npm run local
+```
+
+This starts a local chain, an in-memory database, the API and the web app at `http://localhost:5173`, with one account per role (`police@nyaysetu.local`, `forensic.lab@nyaysetu.local`, `prosecutor@nyaysetu.local`, `judge@nyaysetu.local`, `defence.lawyer@nyaysetu.local`, `accused@nyaysetu.local`, `court.admin@nyaysetu.local`), all using the password you chose. A twelve-minute script is in [`docs/DEMO.md`](docs/DEMO.md).
 
 ---
 
